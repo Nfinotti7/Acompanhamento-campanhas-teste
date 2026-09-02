@@ -1,0 +1,21 @@
+{
+  "name": "acompanhamento-campanhas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Monorepo: backend Express (API) + frontend React, servidos juntos pelo backend",
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build && rm -rf backend/frontend-dist && cp -r frontend/dist backend/frontend-dist",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "better-sqlite3": "^11.3.0"
+  }
+}
