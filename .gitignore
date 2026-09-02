@@ -1,0 +1,9 @@
+node_modules/
+backend/frontend-dist/
+frontend/dist/
+backend/database.sqlite
+backend/database.sqlite-shm
+backend/database.sqlite-wal
+.env
+deploy-package/
+deploy-package.zip
