@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import { syncClient } from '../services/syncService.js';
 
 export function getMetricsSummary(req, res) {
   try {
@@ -195,15 +196,38 @@ export function getCampaigns(req, res) {
   }
 }
 
-export function syncCampaigns(req, res) {
+export async function syncCampaigns(req, res) {
   try {
     const { clientId } = req.body;
-    // Simulate real-time API sync logic
+
+    let targets;
+    if (clientId) {
+      const client = db.prepare('SELECT id, name FROM clients WHERE id = ?').get(clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Cliente não encontrado.' });
+      }
+      targets = [client];
+    } else {
+      targets = db.prepare('SELECT id, name FROM clients WHERE active = 1').all();
+    }
+
+    const results = [];
+    for (const client of targets) {
+      const { google, meta } = await syncClient(client.id);
+      results.push({ clientId: client.id, clientName: client.name, google, meta });
+    }
+
+    const hasErrors = results.some((r) => r.google.status === 'error' || r.meta.status === 'error');
+
     return res.json({
-      message: 'Sincronização com Google Ads API e Meta Graph API realizada com sucesso!',
+      message: hasErrors
+        ? 'Sincronização concluída com alertas. Veja os detalhes por cliente/plataforma.'
+        : 'Sincronização com Google Ads API e Meta Graph API realizada com sucesso!',
+      results,
       lastSync: new Date().toISOString()
     });
   } catch (error) {
+    console.error('Sync campaigns error:', error);
     return res.status(500).json({ error: 'Erro ao sincronizar campanhas.' });
   }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, PlusCircle, Building2, ShieldCheck, Mail, Lock, CheckCircle2 } from 'lucide-react';
+import { Users, PlusCircle, Building2, ShieldCheck, Mail, Lock, CheckCircle2, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ClientsPage() {
@@ -44,6 +44,21 @@ export default function ClientsPage() {
       fetchClients();
     } catch (err) {
       alert(err.response?.data?.error || 'Erro ao criar cliente.');
+    }
+  };
+
+  const handleDelete = async (client) => {
+    const confirmed = window.confirm(
+      `Remover "${client.name}" (${client.company})? Isso apaga campanhas, métricas, leads e credenciais desse cliente. Essa ação não pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await axios.delete(`/api/clients/${client.id}`);
+      setMessage(res.data.message);
+      fetchClients();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao remover cliente.');
     }
   };
 
@@ -125,13 +140,23 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => setSelectedClientId(c.id)}
-              className="btn btn-secondary"
-              style={{ width: '100%', fontSize: '0.85rem' }}
-            >
-              Visualizar Dashboard Deste Cliente
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setSelectedClientId(c.id)}
+                className="btn btn-secondary"
+                style={{ flex: 1, fontSize: '0.85rem' }}
+              >
+                Visualizar Dashboard Deste Cliente
+              </button>
+              <button
+                onClick={() => handleDelete(c)}
+                className="btn btn-secondary"
+                title="Remover cliente"
+                style={{ color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
         ))}
       </div>

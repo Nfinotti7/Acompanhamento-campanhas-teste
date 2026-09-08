@@ -108,6 +108,12 @@ export function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
     );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_campaigns_unique
+      ON campaigns(client_id, platform, campaign_id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_metrics_unique
+      ON daily_metrics(campaign_id, date);
   `);
 
   seedData();

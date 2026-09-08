@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { initDb } from './config/db.js';
 
 import { login, getMe } from './controllers/authController.js';
-import { listClients, createClient } from './controllers/clientController.js';
+import { listClients, createClient, deleteClient } from './controllers/clientController.js';
 import { getCredentials, saveCredentials } from './controllers/credentialsController.js';
 import { getMetricsSummary, getCampaigns, syncCampaigns } from './controllers/campaignController.js';
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
@@ -47,6 +47,7 @@ app.get('/api/auth/me', getMe);
 // Clients
 app.get('/api/clients', listClients);
 app.post('/api/clients', requireAdmin, createClient);
+app.delete('/api/clients/:id', requireAdmin, deleteClient);
 
 // Credentials
 app.get('/api/credentials', getCredentials);

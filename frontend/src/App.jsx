@@ -27,6 +27,7 @@ function MainApp() {
   const [campaigns, setCampaigns] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   useEffect(() => {
     if (user && user.role === 'admin') {
@@ -81,11 +82,17 @@ function MainApp() {
 
   const handleSync = async () => {
     setIsSyncing(true);
+    setSyncResult(null);
     try {
-      await axios.post('/api/campaigns/sync', { clientId: selectedClientId });
+      const res = await axios.post('/api/campaigns/sync', { clientId: selectedClientId });
+      setSyncResult({ type: 'success', message: res.data.message, details: res.data.results });
       await fetchData();
     } catch (err) {
-      console.error('Sync failed:', err);
+      setSyncResult({
+        type: 'error',
+        message: err.response?.data?.error || 'Erro ao sincronizar campanhas.',
+        details: null
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -130,6 +137,39 @@ function MainApp() {
         />
 
         <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
+          {syncResult && (
+            <div
+              className="glass-card"
+              style={{
+                padding: '16px 20px',
+                marginBottom: '20px',
+                border: syncResult.type === 'error' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                <strong style={{ color: syncResult.type === 'error' ? '#f87171' : '#34d399' }}>
+                  {syncResult.message}
+                </strong>
+                <button onClick={() => setSyncResult(null)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
+                  Fechar
+                </button>
+              </div>
+
+              {syncResult.details && (
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
+                  {syncResult.details.map((r) => (
+                    <div key={r.clientId} style={{ color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: '#fff' }}>{r.clientName}:</strong>{' '}
+                      Google {r.google.status === 'ok' ? `✔ (${r.google.campaigns} campanhas)` : r.google.status === 'skipped' ? '— sem credenciais' : `✖ ${r.google.error}`}
+                      {' · '}
+                      Meta {r.meta.status === 'ok' ? `✔ (${r.meta.campaigns} campanhas)` : r.meta.status === 'skipped' ? '— sem credenciais' : `✖ ${r.meta.error}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'dashboard' && (
             <DashboardPage
               summary={summary}

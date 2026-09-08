@@ -52,3 +52,31 @@ export function createClient(req, res) {
     return res.status(500).json({ error: 'Erro ao criar cliente.' });
   }
 }
+
+export function deleteClient(req, res) {
+  try {
+    const clientId = req.params.id;
+
+    const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(clientId);
+    if (!client) {
+      return res.status(404).json({ error: 'Cliente não encontrado.' });
+    }
+
+    const removeAll = db.transaction(() => {
+      db.prepare('DELETE FROM daily_metrics WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM campaigns WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM credentials WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM leads WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM attribution_events WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM users WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM clients WHERE id = ?').run(clientId);
+    });
+
+    removeAll();
+
+    return res.json({ message: 'Cliente removido com sucesso.' });
+  } catch (error) {
+    console.error('Delete client error:', error);
+    return res.status(500).json({ error: 'Erro ao remover cliente.' });
+  }
+}
