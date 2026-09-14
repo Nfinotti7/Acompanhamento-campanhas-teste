@@ -82,7 +82,9 @@ export async function fetchGoogleAdsData(config, { startDate, endDate }) {
 
     const data = await parseJsonResponse(res, 'Erro ao consultar a Google Ads API');
     if (!res.ok) {
-      const msg = data?.error?.message || 'Erro ao consultar a Google Ads API.';
+      const detailErrors = data?.error?.details?.flatMap((d) => d.errors || []) || [];
+      const detailMsg = detailErrors.map((e) => e.message).filter(Boolean).join(' | ');
+      const msg = detailMsg || data?.error?.message || 'Erro ao consultar a Google Ads API.';
       throw new Error(msg);
     }
 
