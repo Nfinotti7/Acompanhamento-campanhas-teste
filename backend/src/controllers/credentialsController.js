@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 
-export function getCredentials(req, res) {
+export async function getCredentials(req, res) {
   try {
     const clientId = req.user.role === 'admin' ? (req.params.clientId || req.user.clientId) : req.user.clientId;
 
@@ -8,7 +8,7 @@ export function getCredentials(req, res) {
       return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
     }
 
-    const rows = db.prepare('SELECT platform, config_json, updated_at FROM credentials WHERE client_id = ?').all(clientId);
+    const { rows } = await db.query('SELECT platform, config_json, updated_at FROM credentials WHERE client_id = ?', [clientId]);
 
     const credentials = {
       google: null,
@@ -30,7 +30,7 @@ export function getCredentials(req, res) {
   }
 }
 
-export function saveCredentials(req, res) {
+export async function saveCredentials(req, res) {
   try {
     const clientId = req.user.role === 'admin' ? (req.body.clientId || req.user.clientId) : req.user.clientId;
     const { platform, config } = req.body;
@@ -44,15 +44,14 @@ export function saveCredentials(req, res) {
     }
 
     const jsonString = JSON.stringify(config);
-    const stmt = db.prepare(`
-      INSERT INTO credentials (client_id, platform, config_json, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(client_id, platform) DO UPDATE SET
-        config_json = excluded.config_json,
-        updated_at = CURRENT_TIMESTAMP
-    `);
-
-    stmt.run(clientId, platform, jsonString);
+    await db.query(
+      `INSERT INTO credentials (client_id, platform, config_json, updated_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(client_id, platform) DO UPDATE SET
+         config_json = excluded.config_json,
+         updated_at = CURRENT_TIMESTAMP`,
+      [clientId, platform, jsonString]
+    );
 
     return res.json({ message: `Credenciais da plataforma ${platform.toUpperCase()} salvas com sucesso!` });
   } catch (error) {

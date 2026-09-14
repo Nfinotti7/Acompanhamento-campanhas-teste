@@ -31,9 +31,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const frontendDistPath = path.join(__dirname, '../frontend-dist');
 app.use(express.static(frontendDistPath));
 
-// Initialize database & tables
-initDb();
-
 // Public Endpoints
 app.post('/api/auth/login', login);
 app.post('/api/v1/capture', captureLead);
@@ -71,6 +68,13 @@ app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend Ad Campaign Tracker rodando na porta ${PORT}`);
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Backend Ad Campaign Tracker rodando na porta ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Falha ao inicializar o banco de dados:', err);
+    process.exit(1);
+  });

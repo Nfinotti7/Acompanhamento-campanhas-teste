@@ -1,19 +1,21 @@
 import bcrypt from 'bcryptjs';
 import db from '../config/db.js';
 
-export function listClients(req, res) {
+export async function listClients(req, res) {
   try {
     let clients;
     if (req.user.role === 'admin') {
-      clients = db.prepare(`
-        SELECT c.*, 
+      const { rows } = await db.query(`
+        SELECT c.*,
           (SELECT COUNT(*) FROM campaigns WHERE client_id = c.id) as total_campaigns,
           (SELECT SUM(spend) FROM daily_metrics WHERE client_id = c.id) as total_spend
         FROM clients c
         ORDER BY c.name ASC
-      `).all();
+      `);
+      clients = rows;
     } else {
-      clients = db.prepare('SELECT * FROM clients WHERE id = ?').all(req.user.clientId);
+      const { rows } = await db.query('SELECT * FROM clients WHERE id = ?', [req.user.clientId]);
+      clients = rows;
     }
 
     return res.json({ clients });
@@ -23,7 +25,7 @@ export function listClients(req, res) {
   }
 }
 
-export function createClient(req, res) {
+export async function createClient(req, res) {
   try {
     const { name, company, logo_url, clientUserEmail, clientUserPassword } = req.body;
 
@@ -31,16 +33,20 @@ export function createClient(req, res) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
     }
 
-    const insertClient = db.prepare('INSERT INTO clients (name, company, logo_url) VALUES (?, ?, ?)');
-    const result = insertClient.run(name, company, logo_url || null);
-    const newClientId = result.lastInsertRowid;
+    const { rows } = await db.query(
+      'INSERT INTO clients (name, company, logo_url) VALUES (?, ?, ?) RETURNING id',
+      [name, company, logo_url || null]
+    );
+    const newClientId = rows[0].id;
 
     // Optional client user creation
     if (clientUserEmail && clientUserPassword) {
       const salt = bcrypt.genSaltSync(10);
       const hash = bcrypt.hashSync(clientUserPassword, salt);
-      const insertUser = db.prepare('INSERT INTO users (name, email, password_hash, role, client_id) VALUES (?, ?, ?, ?, ?)');
-      insertUser.run(name, clientUserEmail, hash, 'client', newClientId);
+      await db.query(
+        'INSERT INTO users (name, email, password_hash, role, client_id) VALUES (?, ?, ?, ?, ?)',
+        [name, clientUserEmail, hash, 'client', newClientId]
+      );
     }
 
     return res.status(201).json({
@@ -53,26 +59,24 @@ export function createClient(req, res) {
   }
 }
 
-export function deleteClient(req, res) {
+export async function deleteClient(req, res) {
   try {
     const clientId = req.params.id;
 
-    const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(clientId);
-    if (!client) {
+    const { rows } = await db.query('SELECT id FROM clients WHERE id = ?', [clientId]);
+    if (!rows[0]) {
       return res.status(404).json({ error: 'Cliente não encontrado.' });
     }
 
-    const removeAll = db.transaction(() => {
-      db.prepare('DELETE FROM daily_metrics WHERE client_id = ?').run(clientId);
-      db.prepare('DELETE FROM campaigns WHERE client_id = ?').run(clientId);
-      db.prepare('DELETE FROM credentials WHERE client_id = ?').run(clientId);
-      db.prepare('DELETE FROM leads WHERE client_id = ?').run(clientId);
-      db.prepare('DELETE FROM attribution_events WHERE client_id = ?').run(clientId);
-      db.prepare('DELETE FROM users WHERE client_id = ?').run(clientId);
-      db.prepare('DELETE FROM clients WHERE id = ?').run(clientId);
+    await db.withTransaction(async (tx) => {
+      await tx.query('DELETE FROM daily_metrics WHERE client_id = ?', [clientId]);
+      await tx.query('DELETE FROM campaigns WHERE client_id = ?', [clientId]);
+      await tx.query('DELETE FROM credentials WHERE client_id = ?', [clientId]);
+      await tx.query('DELETE FROM leads WHERE client_id = ?', [clientId]);
+      await tx.query('DELETE FROM attribution_events WHERE client_id = ?', [clientId]);
+      await tx.query('DELETE FROM users WHERE client_id = ?', [clientId]);
+      await tx.query('DELETE FROM clients WHERE id = ?', [clientId]);
     });
-
-    removeAll();
 
     return res.json({ message: 'Cliente removido com sucesso.' });
   } catch (error) {

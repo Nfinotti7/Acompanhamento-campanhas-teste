@@ -8,3 +8,4 @@ backend/database.sqlite-wal
 deploy-package/
 deploy-package.zip
 .local-backup/
+.playwright-mcp/

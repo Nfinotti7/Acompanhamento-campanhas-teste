@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 
-export function captureLead(req, res) {
+export async function captureLead(req, res) {
   try {
     const {
       client_id,
@@ -26,50 +26,50 @@ export function captureLead(req, res) {
 
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-    const stmt = db.prepare(`
-      INSERT INTO leads (client_id, name, email, phone, source, medium, campaign, content, gclid, fbclid, ip, conversion_value, custom_data, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `);
-
-    const result = stmt.run(
-      targetClientId,
-      name || null,
-      email || null,
-      phone || null,
-      utm_source || 'direct',
-      utm_medium || null,
-      utm_campaign || null,
-      utm_content || null,
-      gclid || null,
-      fbclid || null,
-      ip,
-      Number(conversion_value),
-      custom_data ? JSON.stringify(custom_data) : null
+    const { rows } = await db.query(
+      `INSERT INTO leads (client_id, name, email, phone, source, medium, campaign, content, gclid, fbclid, ip, conversion_value, custom_data, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       RETURNING id`,
+      [
+        targetClientId,
+        name || null,
+        email || null,
+        phone || null,
+        utm_source || 'direct',
+        utm_medium || null,
+        utm_campaign || null,
+        utm_content || null,
+        gclid || null,
+        fbclid || null,
+        ip,
+        Number(conversion_value),
+        custom_data ? JSON.stringify(custom_data) : null
+      ]
     );
 
     // Also record an attribution event
     if (email) {
-      const attrStmt = db.prepare(`
-        INSERT INTO attribution_events (client_id, event_name, page_url, utm_source, utm_medium, utm_campaign, gclid, fbclid, lead_email, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `);
-      attrStmt.run(
-        targetClientId,
-        'lead_captured',
-        req.headers['referer'] || 'webhook',
-        utm_source || 'direct',
-        utm_medium || null,
-        utm_campaign || null,
-        gclid || null,
-        fbclid || null,
-        email
+      await db.query(
+        `INSERT INTO attribution_events (client_id, event_name, page_url, utm_source, utm_medium, utm_campaign, gclid, fbclid, lead_email, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [
+          targetClientId,
+          'lead_captured',
+          req.headers['referer'] || 'webhook',
+          utm_source || 'direct',
+          utm_medium || null,
+          utm_campaign || null,
+          gclid || null,
+          fbclid || null,
+          email
+        ]
       );
     }
 
     return res.status(201).json({
       success: true,
       message: 'Lead capturado com sucesso para a lista de remarketing!',
-      leadId: result.lastInsertRowid
+      leadId: rows[0].id
     });
   } catch (error) {
     console.error('Capture lead error:', error);
@@ -77,7 +77,7 @@ export function captureLead(req, res) {
   }
 }
 
-export function listLeads(req, res) {
+export async function listLeads(req, res) {
   try {
     let clientId = req.query.clientId ? Number(req.query.clientId) : req.user.clientId;
     if (req.user.role !== 'admin' && clientId !== req.user.clientId) {
@@ -100,7 +100,7 @@ export function listLeads(req, res) {
     }
 
     if (search) {
-      whereClauses.push('(l.name LIKE ? OR l.email LIKE ? OR l.phone LIKE ? OR l.campaign LIKE ?)');
+      whereClauses.push('(l.name ILIKE ? OR l.email ILIKE ? OR l.phone ILIKE ? OR l.campaign ILIKE ?)');
       const term = `%${search}%`;
       params.push(term, term, term, term);
     }
@@ -108,7 +108,7 @@ export function listLeads(req, res) {
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const query = `
-      SELECT l.*, c.name as client_name 
+      SELECT l.*, c.name as client_name
       FROM leads l
       JOIN clients c ON l.client_id = c.id
       ${whereSql}
@@ -116,7 +116,7 @@ export function listLeads(req, res) {
       LIMIT 200
     `;
 
-    const leads = db.prepare(query).all(...params);
+    const { rows: leads } = await db.query(query, params);
 
     return res.json({ leads });
   } catch (error) {
@@ -125,7 +125,7 @@ export function listLeads(req, res) {
   }
 }
 
-export function exportRemarketingCSV(req, res) {
+export async function exportRemarketingCSV(req, res) {
   try {
     let clientId = req.query.clientId ? Number(req.query.clientId) : req.user.clientId;
     if (req.user.role !== 'admin' && clientId !== req.user.clientId) {
@@ -143,14 +143,14 @@ export function exportRemarketingCSV(req, res) {
     }
 
     if (platform === 'google') {
-      whereClauses.push('(source = "google" OR gclid IS NOT NULL)');
+      whereClauses.push("(source = 'google' OR gclid IS NOT NULL)");
     } else if (platform === 'meta') {
-      whereClauses.push('(source = "meta" OR fbclid IS NOT NULL)');
+      whereClauses.push("(source = 'meta' OR fbclid IS NOT NULL)");
     }
 
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
-    const leads = db.prepare(`SELECT name, email, phone, source, campaign, gclid, fbclid, created_at FROM leads ${whereSql} ORDER BY created_at DESC`).all(...params);
+    const { rows: leads } = await db.query(`SELECT name, email, phone, source, campaign, gclid, fbclid, created_at FROM leads ${whereSql} ORDER BY created_at DESC`, params);
 
     // Build CSV content
     let csvLines = ['Email,Phone,FirstName,LastName,Source,Campaign,GCLID,FBCLID,CreatedAt'];

@@ -1,7 +1,7 @@
 import db from '../config/db.js';
 import { syncClient } from '../services/syncService.js';
 
-export function getMetricsSummary(req, res) {
+export async function getMetricsSummary(req, res) {
   try {
     let clientId = req.query.clientId ? Number(req.query.clientId) : req.user.clientId;
     if (req.user.role !== 'admin' && clientId !== req.user.clientId) {
@@ -51,7 +51,7 @@ export function getMetricsSummary(req, res) {
 
     // 1. Overall Aggregates
     const summaryQuery = `
-      SELECT 
+      SELECT
         COALESCE(SUM(spend), 0) as total_spend,
         COALESCE(SUM(clicks), 0) as total_clicks,
         COALESCE(SUM(impressions), 0) as total_impressions,
@@ -61,7 +61,8 @@ export function getMetricsSummary(req, res) {
       WHERE ${whereSql}
     `;
 
-    const totals = db.prepare(summaryQuery).get(...params);
+    const { rows: summaryRows } = await db.query(summaryQuery, params);
+    const totals = summaryRows[0];
 
     const ctr = totals.total_impressions > 0 ? (totals.total_clicks / totals.total_impressions) * 100 : 0;
     const cpc = totals.total_clicks > 0 ? totals.total_spend / totals.total_clicks : 0;
@@ -71,7 +72,7 @@ export function getMetricsSummary(req, res) {
 
     // 2. Dynamic Daily Chart Data (Spend, Clicks, Conversions over time)
     const dailyQuery = `
-      SELECT 
+      SELECT
         date,
         SUM(spend) as spend,
         SUM(clicks) as clicks,
@@ -84,7 +85,7 @@ export function getMetricsSummary(req, res) {
       ORDER BY date ASC
     `;
 
-    const dailyData = db.prepare(dailyQuery).all(...params);
+    const { rows: dailyData } = await db.query(dailyQuery, params);
 
     // 3. Platform Breakdown (Google vs Meta)
     let platformClauses = ['date >= ?', 'date <= ?'];
@@ -95,7 +96,7 @@ export function getMetricsSummary(req, res) {
     }
 
     const platformBreakdownQuery = `
-      SELECT 
+      SELECT
         platform,
         SUM(spend) as spend,
         SUM(clicks) as clicks,
@@ -106,15 +107,15 @@ export function getMetricsSummary(req, res) {
       GROUP BY platform
     `;
 
-    const platformBreakdown = db.prepare(platformBreakdownQuery).all(...platformParams);
+    const { rows: platformBreakdown } = await db.query(platformBreakdownQuery, platformParams);
 
     return res.json({
       summary: {
-        spend: Number(totals.total_spend.toFixed(2)),
+        spend: Number(Number(totals.total_spend).toFixed(2)),
         clicks: totals.total_clicks,
         impressions: totals.total_impressions,
         conversions: totals.total_conversions,
-        conversion_value: Number(totals.total_conversion_value.toFixed(2)),
+        conversion_value: Number(Number(totals.total_conversion_value).toFixed(2)),
         ctr: Number(ctr.toFixed(2)),
         cpc: Number(cpc.toFixed(2)),
         cpm: Number(cpm.toFixed(2)),
@@ -131,7 +132,7 @@ export function getMetricsSummary(req, res) {
   }
 }
 
-export function getCampaigns(req, res) {
+export async function getCampaigns(req, res) {
   try {
     let clientId = req.query.clientId ? Number(req.query.clientId) : req.user.clientId;
     if (req.user.role !== 'admin' && clientId !== req.user.clientId) {
@@ -156,7 +157,7 @@ export function getCampaigns(req, res) {
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const query = `
-      SELECT 
+      SELECT
         c.*,
         cl.name as client_name,
         COALESCE(SUM(m.spend), 0) as total_spend,
@@ -168,20 +169,31 @@ export function getCampaigns(req, res) {
       JOIN clients cl ON c.client_id = cl.id
       LEFT JOIN daily_metrics m ON c.id = m.campaign_id
       ${whereSql}
-      GROUP BY c.id
+      GROUP BY c.id, cl.name
       ORDER BY total_spend DESC
     `;
 
-    const campaigns = db.prepare(query).all(...params);
+    const { rows: campaigns } = await db.query(query, params);
 
     const formatted = campaigns.map(c => {
-      const ctr = c.total_impressions > 0 ? (c.total_clicks / c.total_impressions) * 100 : 0;
-      const cpc = c.total_clicks > 0 ? c.total_spend / c.total_clicks : 0;
-      const cpa = c.total_conversions > 0 ? c.total_spend / c.total_conversions : 0;
-      const roas = c.total_spend > 0 ? c.total_conversion_value / c.total_spend : 0;
+      const totalSpend = Number(c.total_spend);
+      const totalClicks = Number(c.total_clicks);
+      const totalImpressions = Number(c.total_impressions);
+      const totalConversions = Number(c.total_conversions);
+      const totalConversionValue = Number(c.total_conversion_value);
+
+      const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+      const cpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
+      const cpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
+      const roas = totalSpend > 0 ? totalConversionValue / totalSpend : 0;
 
       return {
         ...c,
+        total_spend: totalSpend,
+        total_clicks: totalClicks,
+        total_impressions: totalImpressions,
+        total_conversions: totalConversions,
+        total_conversion_value: totalConversionValue,
         ctr: Number(ctr.toFixed(2)),
         cpc: Number(cpc.toFixed(2)),
         cpa: Number(cpa.toFixed(2)),
@@ -202,13 +214,14 @@ export async function syncCampaigns(req, res) {
 
     let targets;
     if (clientId) {
-      const client = db.prepare('SELECT id, name FROM clients WHERE id = ?').get(clientId);
-      if (!client) {
+      const { rows } = await db.query('SELECT id, name FROM clients WHERE id = ?', [clientId]);
+      if (!rows[0]) {
         return res.status(404).json({ error: 'Cliente não encontrado.' });
       }
-      targets = [client];
+      targets = rows;
     } else {
-      targets = db.prepare('SELECT id, name FROM clients WHERE active = 1').all();
+      const { rows } = await db.query('SELECT id, name FROM clients WHERE active = 1');
+      targets = rows;
     }
 
     const results = [];

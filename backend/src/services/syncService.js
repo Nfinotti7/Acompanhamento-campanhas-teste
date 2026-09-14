@@ -12,42 +12,42 @@ function getDateRange(days) {
   return { startDate: fmt(start), endDate: fmt(end) };
 }
 
-function getCredentials(clientId, platform) {
-  const row = db
-    .prepare('SELECT config_json FROM credentials WHERE client_id = ? AND platform = ?')
-    .get(clientId, platform);
+async function getCredentials(clientId, platform) {
+  const { rows } = await db.query(
+    'SELECT config_json FROM credentials WHERE client_id = ? AND platform = ?',
+    [clientId, platform]
+  );
 
-  if (!row) return null;
+  if (!rows[0]) return null;
   try {
-    return JSON.parse(row.config_json);
+    return JSON.parse(rows[0].config_json);
   } catch {
     return null;
   }
 }
 
-function upsertCampaign({ clientId, platform, campaignId, campaignName, status, budget }) {
-  const row = db
-    .prepare(
-      `INSERT INTO campaigns (client_id, platform, campaign_id, campaign_name, status, budget)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(client_id, platform, campaign_id) DO UPDATE SET
-         campaign_name = excluded.campaign_name,
-         status = excluded.status,
-         budget = excluded.budget
-       RETURNING id`
-    )
-    .get(clientId, platform, campaignId, campaignName, status, budget);
+async function upsertCampaign(tx, { clientId, platform, campaignId, campaignName, status, budget }) {
+  const { rows } = await tx.query(
+    `INSERT INTO campaigns (client_id, platform, campaign_id, campaign_name, status, budget)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(client_id, platform, campaign_id) DO UPDATE SET
+       campaign_name = excluded.campaign_name,
+       status = excluded.status,
+       budget = excluded.budget
+     RETURNING id`,
+    [clientId, platform, campaignId, campaignName, status, budget]
+  );
 
-  return row.id;
+  return rows[0].id;
 }
 
-function upsertDailyMetric({ campaignInternalId, clientId, platform, date, spend, clicks, impressions, conversions, conversionValue }) {
+async function upsertDailyMetric(tx, { campaignInternalId, clientId, platform, date, spend, clicks, impressions, conversions, conversionValue }) {
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
   const cpc = clicks > 0 ? spend / clicks : 0;
   const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
   const roas = spend > 0 ? conversionValue / spend : 0;
 
-  db.prepare(
+  await tx.query(
     `INSERT INTO daily_metrics
        (campaign_id, client_id, platform, date, spend, clicks, impressions, conversions, conversion_value, ctr, cpc, cpm, roas)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -60,11 +60,12 @@ function upsertDailyMetric({ campaignInternalId, clientId, platform, date, spend
        ctr = excluded.ctr,
        cpc = excluded.cpc,
        cpm = excluded.cpm,
-       roas = excluded.roas`
-  ).run(campaignInternalId, clientId, platform, date, spend, clicks, impressions, conversions, conversionValue, ctr, cpc, cpm, roas);
+       roas = excluded.roas`,
+    [campaignInternalId, clientId, platform, date, spend, clicks, impressions, conversions, conversionValue, ctr, cpc, cpm, roas]
+  );
 }
 
-function storeRows(clientId, platform, rows) {
+async function storeRows(clientId, platform, rows) {
   const byCampaign = new Map();
   for (const r of rows) {
     if (!byCampaign.has(r.campaignId)) {
@@ -72,9 +73,9 @@ function storeRows(clientId, platform, rows) {
     }
   }
 
-  const applyAll = db.transaction(() => {
+  await db.withTransaction(async (tx) => {
     for (const [campaignId, meta] of byCampaign) {
-      const internalId = upsertCampaign({
+      const internalId = await upsertCampaign(tx, {
         clientId,
         platform,
         campaignId,
@@ -84,7 +85,7 @@ function storeRows(clientId, platform, rows) {
       });
 
       for (const r of rows.filter((row) => row.campaignId === campaignId)) {
-        upsertDailyMetric({
+        await upsertDailyMetric(tx, {
           campaignInternalId: internalId,
           clientId,
           platform,
@@ -99,13 +100,11 @@ function storeRows(clientId, platform, rows) {
     }
   });
 
-  applyAll();
-
   return { campaigns: byCampaign.size, rows: rows.length };
 }
 
 async function syncPlatformForClient(clientId, platform) {
-  const config = getCredentials(clientId, platform);
+  const config = await getCredentials(clientId, platform);
   if (!config) {
     return { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
   }
@@ -118,7 +117,7 @@ async function syncPlatformForClient(clientId, platform) {
         ? await fetchGoogleAdsData(config, { startDate, endDate })
         : await fetchMetaAdsData(config, { startDate, endDate });
 
-    const { campaigns, rows: rowCount } = storeRows(clientId, platform, rows);
+    const { campaigns, rows: rowCount } = await storeRows(clientId, platform, rows);
     return { status: 'ok', campaigns, rows: rowCount };
   } catch (err) {
     return { status: 'error', error: err.message };
