@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node backend/src/server.js",
     "build": "npm --prefix frontend install && npm --prefix frontend run build && rm -rf backend/frontend-dist && cp -r frontend/dist backend/frontend-dist",
+    "build:deploy": "npm run build && rm -rf deploy-package && mkdir -p deploy-package && cp -r backend/src deploy-package/src && cp backend/package.json backend/package-lock.json deploy-package/ && cp -r backend/frontend-dist deploy-package/frontend-dist",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev"
   },

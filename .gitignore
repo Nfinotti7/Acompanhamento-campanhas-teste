@@ -7,3 +7,4 @@ backend/database.sqlite-wal
 .env
 deploy-package/
 deploy-package.zip
+.local-backup/
