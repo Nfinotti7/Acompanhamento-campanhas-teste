@@ -1,5 +1,5 @@
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const API_VERSION = 'v17';
+const API_VERSION = 'v25';
 
 async function parseJsonResponse(res, fallbackErrorMessage) {
   const rawText = await res.text();
