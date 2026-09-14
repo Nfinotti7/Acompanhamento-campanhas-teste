@@ -69,7 +69,7 @@ export async function fetchGoogleAdsData(config, { startDate, endDate }) {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'developer-token': developer_token || '',
+          'developer-token': developer_token || 'unused-since-sep-2026',
           ...(login_customer_id ? { 'login-customer-id': login_customer_id.replace(/-/g, '') } : {}),
           'Content-Type': 'application/json'
         },
