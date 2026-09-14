@@ -1,6 +1,18 @@
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const API_VERSION = 'v17';
 
+async function parseJsonResponse(res, fallbackErrorMessage) {
+  const rawText = await res.text();
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    const snippet = rawText.slice(0, 200).replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `${fallbackErrorMessage} (HTTP ${res.status}, resposta não era JSON: ${snippet || '[vazio]'})`
+    );
+  }
+}
+
 async function getAccessToken({ client_id, client_secret, refresh_token }) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -13,7 +25,7 @@ async function getAccessToken({ client_id, client_secret, refresh_token }) {
     })
   });
 
-  const data = await res.json();
+  const data = await parseJsonResponse(res, 'Falha ao renovar token OAuth do Google');
   if (!res.ok) {
     throw new Error(data.error_description || data.error || 'Falha ao renovar token OAuth do Google.');
   }
@@ -68,7 +80,7 @@ export async function fetchGoogleAdsData(config, { startDate, endDate }) {
       }
     );
 
-    const data = await res.json();
+    const data = await parseJsonResponse(res, 'Erro ao consultar a Google Ads API');
     if (!res.ok) {
       const msg = data?.error?.message || 'Erro ao consultar a Google Ads API.';
       throw new Error(msg);

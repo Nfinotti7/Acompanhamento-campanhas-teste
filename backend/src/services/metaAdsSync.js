@@ -17,6 +17,18 @@ function normalizeAccountId(adAccountId) {
   return adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
 }
 
+async function parseJsonResponse(res, fallbackErrorMessage) {
+  const rawText = await res.text();
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    const snippet = rawText.slice(0, 200).replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `${fallbackErrorMessage} (HTTP ${res.status}, resposta não era JSON: ${snippet || '[vazio]'})`
+    );
+  }
+}
+
 async function fetchInsights(accountId, accessToken, startDate, endDate) {
   const params = new URLSearchParams({
     level: 'campaign',
@@ -31,7 +43,7 @@ async function fetchInsights(accountId, accessToken, startDate, endDate) {
 
   while (url) {
     const res = await fetch(url);
-    const data = await res.json();
+    const data = await parseJsonResponse(res, 'Erro ao consultar a Meta Graph API');
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Erro ao consultar a Meta Graph API.');
     }
@@ -67,7 +79,7 @@ async function fetchCampaignMeta(accountId, accessToken) {
 
   while (url) {
     const res = await fetch(url);
-    const data = await res.json();
+    const data = await parseJsonResponse(res, 'Erro ao consultar campanhas do Meta Ads');
     if (!res.ok) {
       throw new Error(data?.error?.message || 'Erro ao consultar campanhas do Meta Ads.');
     }
