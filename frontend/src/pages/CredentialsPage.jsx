@@ -154,15 +154,16 @@ export default function CredentialsPage({ selectedClient }) {
               <Info size={18} />
               <span>
                 Insira abaixo as credenciais geradas no <strong>Google Cloud Console</strong> e <strong>Google Ads API Center</strong>.
+                Desde set/2026 o Google gerencia o nível de acesso pelo projeto do Cloud vinculado ao Client ID/Secret — o Developer Token não é mais obrigatório.
               </span>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Developer Token (Token de Desenvolvedor Google Ads)</label>
+              <label className="form-label">Developer Token (opcional — não é mais exigido pelo Google desde set/2026)</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="Ex: GADS_DEV_TOK_xxxxxxxxxx"
+                placeholder="Ex: GADS_DEV_TOK_xxxxxxxxxx (opcional)"
                 value={googleForm.developer_token}
                 onChange={(e) => setGoogleForm({ ...googleForm, developer_token: e.target.value })}
               />
