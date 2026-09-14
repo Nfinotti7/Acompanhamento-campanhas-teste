@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "get-google-refresh-token": "node scripts/get-google-refresh-token.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
