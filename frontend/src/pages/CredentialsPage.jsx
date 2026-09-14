@@ -16,7 +16,8 @@ export default function CredentialsPage({ selectedClient }) {
     client_id: '',
     client_secret: '',
     refresh_token: '',
-    customer_id: ''
+    customer_id: '',
+    login_customer_id: ''
   });
 
   const [metaForm, setMetaForm] = useState({
@@ -212,6 +213,17 @@ export default function CredentialsPage({ selectedClient }) {
                 placeholder="Ex: 1//0g_refresh_token_xxxxxxxx"
                 value={googleForm.refresh_token}
                 onChange={(e) => setGoogleForm({ ...googleForm, refresh_token: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Manager Customer ID / MCC (obrigatório se a conta do cliente for gerenciada por uma conta gerente)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: 123-456-7890 (ID da sua conta gerenciadora)"
+                value={googleForm.login_customer_id}
+                onChange={(e) => setGoogleForm({ ...googleForm, login_customer_id: e.target.value })}
               />
             </div>
           </div>

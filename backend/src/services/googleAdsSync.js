@@ -39,7 +39,7 @@ function buildQuery(startDate, endDate) {
 }
 
 export async function fetchGoogleAdsData(config, { startDate, endDate }) {
-  const { developer_token, client_id, client_secret, refresh_token, customer_id } = config || {};
+  const { developer_token, client_id, client_secret, refresh_token, customer_id, login_customer_id } = config || {};
 
   if (!client_id || !client_secret || !refresh_token || !customer_id) {
     throw new Error('Credenciais do Google Ads incompletas.');
@@ -57,7 +57,8 @@ export async function fetchGoogleAdsData(config, { startDate, endDate }) {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          ...(developer_token ? { 'developer-token': developer_token } : {}),
+          'developer-token': developer_token || '',
+          ...(login_customer_id ? { 'login-customer-id': login_customer_id.replace(/-/g, '') } : {}),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
