@@ -61,8 +61,9 @@ export default function RemarketingPage({ selectedClient }) {
     }
   };
 
+  const webhookUrl = `${window.location.origin}/api/v1/capture`;
+
   const copyWebhookUrl = () => {
-    const webhookUrl = `${window.location.protocol}//${window.location.hostname}:5000/api/v1/capture`;
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -119,7 +120,7 @@ export default function RemarketingPage({ selectedClient }) {
               color: '#34d399',
               border: '1px solid rgba(16, 185, 129, 0.3)'
             }}>
-              POST http://localhost:5000/api/v1/capture
+              POST {webhookUrl}
             </code>
             <button onClick={copyWebhookUrl} className="btn btn-secondary" style={{ padding: '8px 12px' }}>
               <Copy size={14} />
