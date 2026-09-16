@@ -18,12 +18,12 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'campaigns', label: 'Campanhas', icon: BarChart3 },
-    { id: 'credentials', label: 'Chaves e APIs', icon: KeyRound },
     { id: 'remarketing', label: 'Remarketing / Leads', icon: Target },
     { id: 'tracking', label: 'Tracking & Atribuição', icon: Link2 },
   ];
 
   if (user?.role === 'admin') {
+    menuItems.splice(2, 0, { id: 'credentials', label: 'Chaves e APIs', icon: KeyRound });
     menuItems.push({ id: 'clients', label: 'Clientes', icon: Users });
   }
 

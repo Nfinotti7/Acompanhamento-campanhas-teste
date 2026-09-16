@@ -97,6 +97,7 @@ export async function initDb() {
       spend REAL DEFAULT 0,
       clicks INTEGER DEFAULT 0,
       impressions INTEGER DEFAULT 0,
+      reach INTEGER DEFAULT 0,
       conversions INTEGER DEFAULT 0,
       conversion_value REAL DEFAULT 0,
       ctr REAL DEFAULT 0,
@@ -148,6 +149,10 @@ export async function initDb() {
       ON daily_metrics(campaign_id, date);
   `);
 
+  // Additive schema evolution for tables that already existed before this column was introduced.
+  // Never touches existing rows (default 0), never drops/recreates anything.
+  await query(`ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS reach INTEGER DEFAULT 0`);
+
   await seedData();
 }
 
@@ -172,13 +177,13 @@ async function seedData() {
 
   // 2. Insert Users
   const salt = bcrypt.genSaltSync(10);
-  const adminPass = bcrypt.hashSync('admin123', salt);
+  const adminPass = bcrypt.hashSync('@210722Df', salt);
   const clientPass = bcrypt.hashSync('cliente123', salt);
 
   const insertUser = (name, email, hash, role, clientId) =>
     query('INSERT INTO users (name, email, password_hash, role, client_id) VALUES (?, ?, ?, ?, ?)', [name, email, hash, role, clientId]);
 
-  await insertUser('Gestor Agência Further', 'admin@agenciafurther.com.br', adminPass, 'admin', null);
+  await insertUser('Gestor Agência Further', 'furthericgh@gmail.com', adminPass, 'admin', null);
   await insertUser('Mariana TechStore', 'cliente@techstore.com.br', clientPass, 'client', client1);
   await insertUser('Dr. Roberto Odonto', 'cliente@odontoprime.com.br', clientPass, 'client', client2);
   await insertUser('Carlos Solaris', 'cliente@solaris.com.br', clientPass, 'client', client3);

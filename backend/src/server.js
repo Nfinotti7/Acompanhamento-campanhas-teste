@@ -8,7 +8,7 @@ import { initDb } from './config/db.js';
 import { login, getMe } from './controllers/authController.js';
 import { listClients, createClient, deleteClient } from './controllers/clientController.js';
 import { getCredentials, saveCredentials } from './controllers/credentialsController.js';
-import { getMetricsSummary, getCampaigns, syncCampaigns } from './controllers/campaignController.js';
+import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns } from './controllers/campaignController.js';
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
@@ -49,11 +49,12 @@ app.delete('/api/clients/:id', requireAdmin, deleteClient);
 // Credentials
 app.get('/api/credentials', getCredentials);
 app.get('/api/credentials/:clientId', requireAdmin, getCredentials);
-app.post('/api/credentials', saveCredentials);
+app.post('/api/credentials', requireAdmin, saveCredentials);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
 app.get('/api/campaigns', getCampaigns);
+app.get('/api/campaigns/:id/daily', getCampaignDaily);
 app.post('/api/campaigns/sync', syncCampaigns);
 
 // Leads & Remarketing

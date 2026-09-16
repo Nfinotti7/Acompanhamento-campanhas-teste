@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, ShieldCheck, Building2, ArrowRight, AlertCircle } from 'lucide-react';
+import { BarChart3, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -15,20 +15,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao realizar login.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const quickLogin = async (eMail, pass) => {
-    setEmail(eMail);
-    setPassword(pass);
-    setError(null);
-    setLoading(true);
-    try {
-      await login(eMail, pass);
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao realizar login.');
     } finally {
@@ -117,42 +103,6 @@ export default function LoginPage() {
             <ArrowRight size={16} />
           </button>
         </form>
-
-        {/* Quick Login Section for instant testing */}
-        <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
-          <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-            Acesso Rápido para Teste
-          </span>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button
-              onClick={() => quickLogin('admin@agenciafurther.com.br', 'admin123')}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.82rem', justifyContent: 'flex-start' }}
-            >
-              <ShieldCheck size={16} color="#6366f1" />
-              <span>Entrar como <strong>Agência (Admin)</strong></span>
-            </button>
-
-            <button
-              onClick={() => quickLogin('cliente@techstore.com.br', 'cliente123')}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.82rem', justifyContent: 'flex-start' }}
-            >
-              <Building2 size={16} color="#10b981" />
-              <span>Entrar como <strong>Cliente TechStore</strong></span>
-            </button>
-
-            <button
-              onClick={() => quickLogin('cliente@odontoprime.com.br', 'cliente123')}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.82rem', justifyContent: 'flex-start' }}
-            >
-              <Building2 size={16} color="#3b82f6" />
-              <span>Entrar como <strong>Cliente Odonto Prime</strong></span>
-            </button>
-          </div>
-        </div>
 
       </div>
     </div>

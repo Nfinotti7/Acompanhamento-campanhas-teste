@@ -4,7 +4,8 @@ const CONVERSION_ACTION_TYPES = [
   'purchase',
   'offsite_conversion.fb_pixel_purchase',
   'lead',
-  'onsite_conversion.lead_grouped'
+  'onsite_conversion.lead_grouped',
+  'onsite_conversion.messaging_conversation_started_7d'
 ];
 
 function sumActions(actions = []) {
@@ -34,7 +35,7 @@ async function fetchInsights(accountId, accessToken, startDate, endDate) {
     level: 'campaign',
     time_increment: '1',
     time_range: JSON.stringify({ since: startDate, until: endDate }),
-    fields: 'campaign_id,campaign_name,spend,clicks,impressions,actions,action_values',
+    fields: 'campaign_id,campaign_name,spend,clicks,impressions,reach,actions,action_values',
     access_token: accessToken
   });
 
@@ -56,6 +57,7 @@ async function fetchInsights(accountId, accessToken, startDate, endDate) {
         spend: Number(r.spend || 0),
         clicks: Number(r.clicks || 0),
         impressions: Number(r.impressions || 0),
+        reach: Number(r.reach || 0),
         conversions: sumActions(r.actions),
         conversionValue: sumActions(r.action_values)
       });

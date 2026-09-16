@@ -29,6 +29,11 @@ function MainApp() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
 
+  // Single-campaign drill-down mode
+  const [selectedCampaignId, setSelectedCampaignId] = useState(null);
+  const [campaignSummary, setCampaignSummary] = useState(null);
+  const [campaignDaily, setCampaignDaily] = useState([]);
+
   useEffect(() => {
     if (user && user.role === 'admin') {
       fetchClients();
@@ -40,6 +45,32 @@ function MainApp() {
       fetchData();
     }
   }, [user, selectedClientId, selectedPlatform, selectedRange]);
+
+  // A campaign belongs to one client — drop the selection when the client filter changes
+  useEffect(() => {
+    setSelectedCampaignId(null);
+  }, [selectedClientId]);
+
+  useEffect(() => {
+    if (selectedCampaignId) {
+      fetchCampaignDaily(selectedCampaignId);
+    }
+  }, [selectedCampaignId, selectedRange]);
+
+  const fetchCampaignDaily = async (campaignId) => {
+    setDataLoading(true);
+    try {
+      const res = await axios.get(`/api/campaigns/${campaignId}/daily`, {
+        params: { range: selectedRange }
+      });
+      setCampaignSummary(res.data.summary);
+      setCampaignDaily(res.data.dailyData || []);
+    } catch (err) {
+      console.error('Error fetching campaign daily metrics:', err);
+    } finally {
+      setDataLoading(false);
+    }
+  };
 
   const fetchClients = async () => {
     try {
@@ -172,11 +203,13 @@ function MainApp() {
 
           {activeTab === 'dashboard' && (
             <DashboardPage
-              summary={summary}
-              dailyData={dailyData}
+              summary={selectedCampaignId ? campaignSummary : summary}
+              dailyData={selectedCampaignId ? campaignDaily : dailyData}
               platformBreakdown={platformBreakdown}
               campaigns={campaigns}
               loading={dataLoading}
+              selectedCampaignId={selectedCampaignId}
+              setSelectedCampaignId={setSelectedCampaignId}
             />
           )}
 
