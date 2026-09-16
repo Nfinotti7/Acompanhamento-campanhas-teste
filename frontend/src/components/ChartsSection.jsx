@@ -47,7 +47,7 @@ function formatMetricValue(format, value) {
 function loadStoredMetrics() {
   try {
     const stored = JSON.parse(localStorage.getItem(METRICS_STORAGE_KEY));
-    if (Array.isArray(stored) && stored.length === 4 && stored.every((k) => METRIC_CATALOG[k])) {
+    if (Array.isArray(stored) && stored.length === 4 && stored.every((k) => k === '' || METRIC_CATALOG[k])) {
       return stored;
     }
   } catch {
@@ -76,17 +76,20 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
     });
   };
 
+  // Empty slots ('') mean "no metric" — only slots with a real metric become chart lines.
+  const activeMetrics = selectedMetrics.filter(Boolean);
+
   // Normalize each selected metric to 0-100% of its own max so wildly different
   // units (R$, %, count, "x") can share one visual scale. Tooltip still shows
   // the real value with the right unit, read from the untouched fields below.
-  const maxByMetric = selectedMetrics.reduce((acc, key) => {
+  const maxByMetric = activeMetrics.reduce((acc, key) => {
     acc[key] = Math.max(1, ...dailyData.map((d) => Number(d[key]) || 0));
     return acc;
   }, {});
 
   const chartData = dailyData.map((row) => {
     const point = { ...row };
-    for (const key of selectedMetrics) {
+    for (const key of activeMetrics) {
       point[`${key}__norm`] = ((Number(row[key]) || 0) / maxByMetric[key]) * 100;
     }
     return point;
@@ -117,7 +120,7 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
           Data: {label}
         </p>
-        {selectedMetrics.map((key) => {
+        {activeMetrics.map((key) => {
           const meta = METRIC_CATALOG[key];
           const row = payload[0]?.payload || {};
           return (
@@ -151,7 +154,7 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
               </h3>
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Escolha até 4 métricas — cada uma vira uma linha no gráfico
+              Escolha de 1 a 4 métricas — cada uma vira uma linha no gráfico
             </p>
           </div>
 
@@ -199,13 +202,14 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '16px' }}>
           {selectedMetrics.map((key, idx) => (
             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={13} color={METRIC_CATALOG[key].color} style={{ flexShrink: 0 }} />
+              <Sparkles size={13} color={key ? METRIC_CATALOG[key].color : 'var(--text-muted)'} style={{ flexShrink: 0 }} />
               <select
                 value={key}
                 onChange={(e) => changeMetricSlot(idx, e.target.value)}
                 className="form-select"
                 style={{ width: '100%', fontSize: '0.8rem', padding: '6px 10px', backgroundColor: 'var(--bg-dark)' }}
               >
+                <option value="">— Nenhuma —</option>
                 {Object.entries(METRIC_CATALOG).map(([mKey, m]) => (
                   <option key={mKey} value={mKey}>{m.label}</option>
                 ))}
@@ -216,56 +220,69 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
 
         {/* Chart Render */}
         <div style={{ width: '100%', height: '340px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {chartType === 'area' ? (
-              <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  {selectedMetrics.map((key) => (
-                    <linearGradient key={key} id={`color-${key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={METRIC_CATALOG[key].color} stopOpacity={0.35} />
-                      <stop offset="95%" stopColor={METRIC_CATALOG[key].color} stopOpacity={0} />
-                    </linearGradient>
+          {activeMetrics.length === 0 ? (
+            <div style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '0.85rem'
+            }}>
+              Selecione ao menos uma métrica acima para ver o gráfico.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              {chartType === 'area' ? (
+                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    {activeMetrics.map((key) => (
+                      <linearGradient key={key} id={`color-${key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={METRIC_CATALOG[key].color} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={METRIC_CATALOG[key].color} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip content={<MultiMetricTooltip />} />
+                  <Legend formatter={(key) => METRIC_CATALOG[key.replace('__norm', '')]?.label || key} />
+                  {activeMetrics.map((key) => (
+                    <Area
+                      key={key}
+                      type="monotone"
+                      dataKey={`${key}__norm`}
+                      name={key}
+                      stroke={METRIC_CATALOG[key].color}
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill={`url(#color-${key})`}
+                    />
                   ))}
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
-                <Tooltip content={<MultiMetricTooltip />} />
-                <Legend formatter={(key) => METRIC_CATALOG[key.replace('__norm', '')]?.label || key} />
-                {selectedMetrics.map((key) => (
-                  <Area
-                    key={key}
-                    type="monotone"
-                    dataKey={`${key}__norm`}
-                    name={key}
-                    stroke={METRIC_CATALOG[key].color}
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill={`url(#color-${key})`}
-                  />
-                ))}
-              </AreaChart>
-            ) : (
-              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
-                <Tooltip content={<MultiMetricTooltip />} />
-                <Legend formatter={(key) => METRIC_CATALOG[key.replace('__norm', '')]?.label || key} />
-                {selectedMetrics.map((key) => (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={`${key}__norm`}
-                    name={key}
-                    stroke={METRIC_CATALOG[key].color}
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                  />
-                ))}
-              </LineChart>
-            )}
-          </ResponsiveContainer>
+                </AreaChart>
+              ) : (
+                <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip content={<MultiMetricTooltip />} />
+                  <Legend formatter={(key) => METRIC_CATALOG[key.replace('__norm', '')]?.label || key} />
+                  {activeMetrics.map((key) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={`${key}__norm`}
+                      name={key}
+                      stroke={METRIC_CATALOG[key].color}
+                      strokeWidth={3}
+                      dot={{ r: 3 }}
+                    />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
