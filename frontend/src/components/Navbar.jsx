@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Filter, Calendar, Building2, Search } from 'lucide-react';
+import { RefreshCw, Filter, Calendar, Building2, Search, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ 
@@ -11,7 +11,8 @@ export default function Navbar({
   selectedRange, 
   setSelectedRange,
   onSync,
-  isSyncing
+  isSyncing,
+  onOpenReport
 }) {
   const { user } = useAuth();
 
@@ -63,7 +64,7 @@ export default function Navbar({
         )}
       </div>
 
-      {/* Global Filters: Platform, Date Range & Sync */}
+      {/* Global Filters: Platform, Date Range, Report & Sync */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {/* Platform Selector */}
         <div style={{
@@ -140,6 +141,16 @@ export default function Navbar({
           </select>
         </div>
 
+        {/* Report Export Button */}
+        <button
+          onClick={onOpenReport}
+          className="btn btn-primary"
+          style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+        >
+          <FileText size={15} />
+          <span>Gerar Relatório</span>
+        </button>
+
         {/* Sync button */}
         <button
           onClick={onSync}
@@ -154,3 +165,4 @@ export default function Navbar({
     </header>
   );
 }
+

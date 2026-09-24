@@ -10,6 +10,7 @@ import TrackingPage from './pages/TrackingPage';
 import ClientsPage from './pages/ClientsPage';
 import LoginPage from './pages/LoginPage';
 import CampaignsTable from './components/CampaignsTable';
+import ReportModal from './components/ReportModal';
 
 function MainApp() {
   const { user, loading: authLoading, selectedClientId, setSelectedClientId } = useAuth();
@@ -33,6 +34,10 @@ function MainApp() {
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
   const [campaignSummary, setCampaignSummary] = useState(null);
   const [campaignDaily, setCampaignDaily] = useState([]);
+
+  // Report Modal state
+  const [isReportOpen, setIsReportOpen] = useState(false);
+
 
   useEffect(() => {
     if (user && user.role === 'admin') {
@@ -148,6 +153,14 @@ function MainApp() {
     return <LoginPage />;
   }
 
+  const currentClient = clients.find(c => String(c.id) === String(selectedClientId));
+  const activeClientName = currentClient 
+    ? `${currentClient.name} (${currentClient.company})` 
+    : (user?.role !== 'admin' ? (user?.clientCompany || user?.clientName) : 'Visão Geral (Todos os Clientes)');
+
+  const activeSummary = selectedCampaignId ? campaignSummary : summary;
+  const activeDaily = selectedCampaignId ? campaignDaily : dailyData;
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-dark)' }}>
       {/* Sidebar */}
@@ -165,6 +178,7 @@ function MainApp() {
           setSelectedRange={setSelectedRange}
           onSync={handleSync}
           isSyncing={isSyncing}
+          onOpenReport={() => setIsReportOpen(true)}
         />
 
         <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
@@ -203,8 +217,8 @@ function MainApp() {
 
           {activeTab === 'dashboard' && (
             <DashboardPage
-              summary={selectedCampaignId ? campaignSummary : summary}
-              dailyData={selectedCampaignId ? campaignDaily : dailyData}
+              summary={activeSummary}
+              dailyData={activeDaily}
               platformBreakdown={platformBreakdown}
               campaigns={campaigns}
               loading={dataLoading}
@@ -239,9 +253,23 @@ function MainApp() {
           )}
         </main>
       </div>
+
+      {/* Executive Report Modal */}
+      <ReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        clientName={activeClientName}
+        selectedRange={selectedRange}
+        selectedPlatform={selectedPlatform}
+        summary={activeSummary}
+        dailyData={activeDaily}
+        platformBreakdown={platformBreakdown}
+        campaigns={campaigns}
+      />
     </div>
   );
 }
+
 
 export default function App() {
   return (
