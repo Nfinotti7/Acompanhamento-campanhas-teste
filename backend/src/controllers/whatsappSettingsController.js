@@ -25,16 +25,20 @@ export async function saveWhatsappSettings(req, res) {
     const clientId = req.body.clientId;
     const { phoneNumberId, wabaId, accessToken, displayPhoneNumber, pin } = req.body;
 
-    if (!clientId || !phoneNumberId || !wabaId || !accessToken) {
-      return res.status(400).json({ error: 'clientId, phoneNumberId, wabaId e accessToken são obrigatórios.' });
+    if (!clientId || !phoneNumberId || !wabaId) {
+      return res.status(400).json({ error: 'clientId, phoneNumberId e wabaId são obrigatórios.' });
     }
 
     const { rows: existingRows } = await db.query('SELECT id FROM whatsapp_settings WHERE client_id = ?', [clientId]);
     const alreadyExists = existingRows.length > 0;
 
-    if (!alreadyExists && !pin) {
-      return res.status(400).json({ error: 'PIN é obrigatório no primeiro cadastro deste restaurante.' });
+    if (!alreadyExists && (!accessToken || !pin)) {
+      return res.status(400).json({ error: 'accessToken e PIN são obrigatórios no primeiro cadastro deste restaurante.' });
     }
+
+    // Access token nunca é devolvido pela leitura (por segurança), então em
+    // atualizações um campo vazio significa "manter o token atual" — não apaga.
+    const accessTokenParam = accessToken || null;
 
     if (pin) {
       const pinHash = await hashPin(pin);
@@ -44,18 +48,20 @@ export async function saveWhatsappSettings(req, res) {
          ON CONFLICT (client_id) DO UPDATE SET
            phone_number_id = excluded.phone_number_id,
            waba_id = excluded.waba_id,
-           access_token = excluded.access_token,
+           access_token = COALESCE(excluded.access_token, whatsapp_settings.access_token),
            display_phone_number = excluded.display_phone_number,
            staff_pin_hash = excluded.staff_pin_hash,
            updated_at = CURRENT_TIMESTAMP`,
-        [clientId, phoneNumberId, wabaId, accessToken, displayPhoneNumber || null, pinHash]
+        [clientId, phoneNumberId, wabaId, accessTokenParam, displayPhoneNumber || null, pinHash]
       );
     } else {
       await db.query(
         `UPDATE whatsapp_settings
-         SET phone_number_id = ?, waba_id = ?, access_token = ?, display_phone_number = ?, updated_at = CURRENT_TIMESTAMP
+         SET phone_number_id = ?, waba_id = ?,
+             access_token = COALESCE(?, access_token),
+             display_phone_number = ?, updated_at = CURRENT_TIMESTAMP
          WHERE client_id = ?`,
-        [phoneNumberId, wabaId, accessToken, displayPhoneNumber || null, clientId]
+        [phoneNumberId, wabaId, accessTokenParam, displayPhoneNumber || null, clientId]
       );
     }
 

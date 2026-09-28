@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { KeyRound, CheckCircle2, AlertCircle, Save, ShieldAlert, Info } from 'lucide-react';
+import { KeyRound, CheckCircle2, AlertCircle, Save, ShieldAlert, Info, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function CredentialsPage({ selectedClient }) {
@@ -27,11 +27,21 @@ export default function CredentialsPage({ selectedClient }) {
     webhook_secret: ''
   });
 
+  const [whatsappForm, setWhatsappForm] = useState({
+    phoneNumberId: '',
+    wabaId: '',
+    accessToken: '',
+    displayPhoneNumber: '',
+    pin: ''
+  });
+  const [hasWhatsappSettings, setHasWhatsappSettings] = useState(false);
+
   const targetClientId = user?.role === 'admin' ? selectedClient : user?.clientId;
 
   useEffect(() => {
     if (targetClientId) {
       fetchCredentials();
+      fetchWhatsappSettings();
     }
   }, [targetClientId]);
 
@@ -54,20 +64,49 @@ export default function CredentialsPage({ selectedClient }) {
     }
   };
 
+  const fetchWhatsappSettings = async () => {
+    try {
+      const res = await axios.get(`/api/whatsapp/settings/${targetClientId}`);
+      const settings = res.data.settings;
+      setHasWhatsappSettings(!!settings);
+      if (settings) {
+        setWhatsappForm(prev => ({
+          ...prev,
+          phoneNumberId: settings.phone_number_id || '',
+          wabaId: settings.waba_id || '',
+          displayPhoneNumber: settings.display_phone_number || '',
+          accessToken: '',
+          pin: ''
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching WhatsApp settings:', err);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
 
-    const config = activePlatform === 'google' ? googleForm : metaForm;
-
     try {
-      const res = await axios.post('/api/credentials', {
-        clientId: targetClientId,
-        platform: activePlatform,
-        config
-      });
-      setMessage({ type: 'success', text: res.data.message });
+      if (activePlatform === 'whatsapp') {
+        const res = await axios.post('/api/whatsapp/settings', {
+          clientId: targetClientId,
+          ...whatsappForm
+        });
+        setMessage({ type: 'success', text: res.data.message });
+        setWhatsappForm(prev => ({ ...prev, accessToken: '', pin: '' }));
+        setHasWhatsappSettings(true);
+      } else {
+        const config = activePlatform === 'google' ? googleForm : metaForm;
+        const res = await axios.post('/api/credentials', {
+          clientId: targetClientId,
+          platform: activePlatform,
+          config
+        });
+        setMessage({ type: 'success', text: res.data.message });
+      }
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Erro ao salvar credenciais.' });
     } finally {
@@ -133,6 +172,17 @@ export default function CredentialsPage({ selectedClient }) {
           }}
         >
           Meta Ads (Facebook/Instagram Graph API)
+        </button>
+        <button
+          onClick={() => setActivePlatform('whatsapp')}
+          className="btn"
+          style={{
+            backgroundColor: activePlatform === 'whatsapp' ? '#10b981' : 'rgba(255,255,255,0.05)',
+            color: activePlatform === 'whatsapp' ? '#fff' : 'var(--text-secondary)',
+            fontWeight: 600
+          }}
+        >
+          WhatsApp Business (Cloud API)
         </button>
       </div>
 
@@ -227,7 +277,7 @@ export default function CredentialsPage({ selectedClient }) {
               />
             </div>
           </div>
-        ) : (
+        ) : activePlatform === 'meta' ? (
           <div>
             <div style={{
               padding: '12px 16px',
@@ -291,6 +341,95 @@ export default function CredentialsPage({ selectedClient }) {
                   onChange={(e) => setMetaForm({ ...metaForm, webhook_secret: e.target.value })}
                 />
               </div>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{
+              padding: '12px 16px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              marginBottom: '24px',
+              fontSize: '0.85rem',
+              color: '#6ee7b7',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <MessageCircle size={18} />
+              <span>
+                Dados da <strong>WhatsApp Business Cloud API</strong> (número dedicado, separado do WhatsApp comum do cliente).
+                {hasWhatsappSettings
+                  ? ' Já configurado — deixe Access Token e PIN em branco para manter os valores atuais, ou preencha para trocar.'
+                  : ' No primeiro cadastro, Access Token e PIN são obrigatórios.'}
+              </span>
+            </div>
+
+            <div className="form-grid-2col">
+              <div className="form-group">
+                <label className="form-label">Phone Number ID (Meta)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: 123456789012345"
+                  value={whatsappForm.phoneNumberId}
+                  onChange={(e) => setWhatsappForm({ ...whatsappForm, phoneNumberId: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">WhatsApp Business Account ID (WABA ID)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: 987654321098765"
+                  value={whatsappForm.wabaId}
+                  onChange={(e) => setWhatsappForm({ ...whatsappForm, wabaId: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Access Token {hasWhatsappSettings ? '(deixe em branco para manter o atual)' : ''}
+              </label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder={hasWhatsappSettings ? '••••••••••••••••' : 'Ex: EAAXX_whatsapp_access_token_...'}
+                value={whatsappForm.accessToken}
+                onChange={(e) => setWhatsappForm({ ...whatsappForm, accessToken: e.target.value })}
+                required={!hasWhatsappSettings}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Número de Exibição (opcional, só pra referência na tela)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: +55 21 99999-8888"
+                value={whatsappForm.displayPhoneNumber}
+                onChange={(e) => setWhatsappForm({ ...whatsappForm, displayPhoneNumber: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                PIN do Caixa (4 a 8 dígitos) {hasWhatsappSettings ? '(deixe em branco para manter o atual)' : ''}
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                className="form-input"
+                placeholder={hasWhatsappSettings ? '••••' : 'Ex: 1234'}
+                value={whatsappForm.pin}
+                onChange={(e) => setWhatsappForm({ ...whatsappForm, pin: e.target.value })}
+                required={!hasWhatsappSettings}
+              />
             </div>
           </div>
         )}
