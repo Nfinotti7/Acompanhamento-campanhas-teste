@@ -11,6 +11,7 @@ import { getCredentials, saveCredentials } from './controllers/credentialsContro
 import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns } from './controllers/campaignController.js';
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
+import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -50,6 +51,11 @@ app.delete('/api/clients/:id', requireAdmin, deleteClient);
 app.get('/api/credentials', getCredentials);
 app.get('/api/credentials/:clientId', requireAdmin, getCredentials);
 app.post('/api/credentials', requireAdmin, saveCredentials);
+
+// WhatsApp Settings
+app.get('/api/whatsapp/settings', getWhatsappSettings);
+app.get('/api/whatsapp/settings/:clientId', requireAdmin, getWhatsappSettings);
+app.post('/api/whatsapp/settings', requireAdmin, saveWhatsappSettings);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
