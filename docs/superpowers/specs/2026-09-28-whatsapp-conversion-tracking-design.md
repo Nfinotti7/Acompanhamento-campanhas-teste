@@ -87,7 +87,6 @@ whatsapp_settings
   phone_number_id TEXT NOT NULL       -- ID do número na Cloud API (Meta)
   waba_id TEXT NOT NULL               -- WhatsApp Business Account ID
   access_token TEXT NOT NULL          -- token da Cloud API (armazenado como as outras credenciais)
-  verify_token TEXT NOT NULL          -- usado no handshake do webhook
   staff_pin_hash TEXT NOT NULL        -- PIN do caixa, hasheado (bcrypt, mesmo padrão de senha de usuário)
   display_phone_number TEXT           -- número formatado, só pra exibição na UI
   created_at, updated_at
@@ -143,12 +142,15 @@ em tabela existente é necessário.
 Um controller novo, `whatsappController.js`, e rotas novas em `server.js` (só adições,
 nenhuma rota existente muda):
 
-- `GET/POST /api/v1/whatsapp/webhook` — público (chamado pela Meta). `GET` faz o
-  handshake de verificação exigido pela Cloud API; `POST` recebe os eventos de mensagem.
-  Identifica o restaurante pelo `phone_number_id` do payload (consulta
-  `whatsapp_settings`), grava/atualiza `whatsapp_contacts` (capturando `ctwa_clid` e
-  dados do anúncio quando presentes no campo `referral`) e insere a mensagem em
-  `whatsapp_messages`.
+- `GET/POST /api/v1/whatsapp/webhook` — público (chamado pela Meta). Existe **uma única
+  URL de webhook pra todos os clientes** — é assim que a Cloud API funciona: o token de
+  verificação e a URL são configurados uma vez só no App da Meta, e cada mensagem que
+  chega já vem marcada com o `phone_number_id` de qual número recebeu. `GET` faz o
+  handshake de verificação (compara com `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, uma variável de
+  ambiente única, não por cliente); `POST` recebe os eventos de mensagem, identifica o
+  restaurante pelo `phone_number_id` do payload (consulta `whatsapp_settings`),
+  grava/atualiza `whatsapp_contacts` (capturando `ctwa_clid` e dados do anúncio quando
+  presentes no campo `referral`) e insere a mensagem em `whatsapp_messages`.
 - `GET /api/staff/restaurants` — público, lista `{id, name}` dos clientes ativos, só
   pra popular o seletor de restaurante em `/caixa` (nenhum dado sensível).
 - `POST /api/staff/login` — recebe `client_id` + PIN, valida contra `staff_pin_hash`,
