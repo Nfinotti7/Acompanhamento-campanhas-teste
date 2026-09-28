@@ -13,6 +13,7 @@ import { captureLead, listLeads, exportRemarketingCSV } from './controllers/lead
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
 import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
+import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -39,6 +40,8 @@ app.post('/api/v1/capture', captureLead);
 app.post('/api/v1/track', trackEvent);
 app.get('/api/staff/restaurants', listRestaurants);
 app.post('/api/staff/login', staffLogin);
+app.get('/api/v1/whatsapp/webhook', verifyWebhook);
+app.post('/api/v1/whatsapp/webhook', receiveWebhook);
 
 // Protected Endpoints
 app.use('/api', authenticateToken);
