@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import CredentialsPage from './pages/CredentialsPage';
 import RemarketingPage from './pages/RemarketingPage';
 import TrackingPage from './pages/TrackingPage';
+import WhatsAppInboxPage from './pages/WhatsAppInboxPage';
 import ClientsPage from './pages/ClientsPage';
 import LoginPage from './pages/LoginPage';
 import CampaignsTable from './components/CampaignsTable';
@@ -259,6 +260,10 @@ function MainApp() {
 
           {activeTab === 'tracking' && (
             <TrackingPage selectedClient={selectedClientId} />
+          )}
+
+          {activeTab === 'whatsapp' && (
+            <WhatsAppInboxPage selectedClient={selectedClientId} />
           )}
 
           {activeTab === 'clients' && user.role === 'admin' && (

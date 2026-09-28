@@ -142,6 +142,61 @@ export async function initDb() {
       FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS whatsapp_settings (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL UNIQUE,
+      phone_number_id TEXT NOT NULL,
+      waba_id TEXT NOT NULL,
+      access_token TEXT NOT NULL,
+      display_phone_number TEXT,
+      staff_pin_hash TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS whatsapp_contacts (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL,
+      wa_id TEXT NOT NULL,
+      profile_name TEXT,
+      ctwa_clid TEXT,
+      ad_id TEXT,
+      ad_headline TEXT,
+      ad_body TEXT,
+      source TEXT DEFAULT 'organic',
+      first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_message_at TIMESTAMP,
+      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+      UNIQUE(client_id, wa_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS whatsapp_messages (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL,
+      contact_id INTEGER NOT NULL,
+      direction TEXT CHECK(direction IN ('inbound', 'outbound')) NOT NULL,
+      body TEXT,
+      wa_message_id TEXT UNIQUE,
+      sent_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (contact_id) REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS real_conversions (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL,
+      contact_id INTEGER,
+      customer_name TEXT NOT NULL,
+      phone TEXT,
+      amount_spent REAL NOT NULL,
+      matched_by TEXT CHECK(matched_by IN ('phone', 'name', 'manual')) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (contact_id) REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_campaigns_unique
       ON campaigns(client_id, platform, campaign_id);
 

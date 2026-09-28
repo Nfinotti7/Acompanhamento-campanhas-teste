@@ -8,7 +8,8 @@ import {
   Link2,
   LogOut,
   ShieldCheck,
-  Building2
+  Building2,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,6 +21,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate })
     { id: 'campaigns', label: 'Campanhas', icon: BarChart3 },
     { id: 'remarketing', label: 'Remarketing / Leads', icon: Target },
     { id: 'tracking', label: 'Tracking & Atribuição', icon: Link2 },
+    { id: 'whatsapp', label: 'WhatsApp & Conversões', icon: MessageCircle },
   ];
 
   if (user?.role === 'admin') {

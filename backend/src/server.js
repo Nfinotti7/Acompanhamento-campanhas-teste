@@ -11,6 +11,11 @@ import { getCredentials, saveCredentials } from './controllers/credentialsContro
 import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns } from './controllers/campaignController.js';
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
+import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
+import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
+import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
+import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
+import { searchContacts, createConversion, getRoi } from './controllers/realConversionsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -35,6 +40,10 @@ app.use(express.static(frontendDistPath));
 app.post('/api/auth/login', login);
 app.post('/api/v1/capture', captureLead);
 app.post('/api/v1/track', trackEvent);
+app.get('/api/staff/restaurants', listRestaurants);
+app.post('/api/staff/login', staffLogin);
+app.get('/api/v1/whatsapp/webhook', verifyWebhook);
+app.post('/api/v1/whatsapp/webhook', receiveWebhook);
 
 // Protected Endpoints
 app.use('/api', authenticateToken);
@@ -50,6 +59,21 @@ app.delete('/api/clients/:id', requireAdmin, deleteClient);
 app.get('/api/credentials', getCredentials);
 app.get('/api/credentials/:clientId', requireAdmin, getCredentials);
 app.post('/api/credentials', requireAdmin, saveCredentials);
+
+// WhatsApp Settings
+app.get('/api/whatsapp/settings', getWhatsappSettings);
+app.get('/api/whatsapp/settings/:clientId', requireAdmin, getWhatsappSettings);
+app.post('/api/whatsapp/settings', requireAdmin, saveWhatsappSettings);
+
+// WhatsApp Conversations
+app.get('/api/whatsapp/conversations', listConversations);
+app.get('/api/whatsapp/conversations/:contactId/messages', getMessages);
+app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
+
+// Real Conversions & ROI
+app.get('/api/whatsapp/contacts/search', searchContacts);
+app.post('/api/whatsapp/conversions', createConversion);
+app.get('/api/whatsapp/roi', getRoi);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
