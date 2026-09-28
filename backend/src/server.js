@@ -14,6 +14,7 @@ import { trackEvent, getAttributionReport } from './controllers/attributionContr
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
 import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
 import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
+import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -62,6 +63,11 @@ app.post('/api/credentials', requireAdmin, saveCredentials);
 app.get('/api/whatsapp/settings', getWhatsappSettings);
 app.get('/api/whatsapp/settings/:clientId', requireAdmin, getWhatsappSettings);
 app.post('/api/whatsapp/settings', requireAdmin, saveWhatsappSettings);
+
+// WhatsApp Conversations
+app.get('/api/whatsapp/conversations', listConversations);
+app.get('/api/whatsapp/conversations/:contactId/messages', getMessages);
+app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
