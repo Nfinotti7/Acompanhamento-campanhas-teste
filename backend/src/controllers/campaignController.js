@@ -33,7 +33,7 @@ function withDerivedMetrics(row) {
   };
 }
 
-function resolveDateRange({ startDate, endDate, range = '30d' }) {
+export function resolveDateRange({ startDate, endDate, range = '30d' }) {
   if (startDate && endDate) return { startStr: startDate, endStr: endDate };
 
   const today = new Date();

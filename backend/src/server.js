@@ -15,6 +15,7 @@ import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsap
 import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
 import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
 import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
+import { searchContacts, createConversion, getRoi } from './controllers/realConversionsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -68,6 +69,11 @@ app.post('/api/whatsapp/settings', requireAdmin, saveWhatsappSettings);
 app.get('/api/whatsapp/conversations', listConversations);
 app.get('/api/whatsapp/conversations/:contactId/messages', getMessages);
 app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
+
+// Real Conversions & ROI
+app.get('/api/whatsapp/contacts/search', searchContacts);
+app.post('/api/whatsapp/conversions', createConversion);
+app.get('/api/whatsapp/roi', getRoi);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
