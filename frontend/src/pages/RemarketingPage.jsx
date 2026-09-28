@@ -133,8 +133,8 @@ export default function RemarketingPage({ selectedClient }) {
       {/* Leads Search & Filter Controls */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ position: 'relative', width: '280px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '180px' }}>
               <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
@@ -231,9 +231,10 @@ export default function RemarketingPage({ selectedClient }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          padding: '16px',
           zIndex: 100
         }}>
-          <div className="glass-card" style={{ width: '480px', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '480px', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
               Simular Captura de Lead / Evento
             </h3>
@@ -274,7 +275,7 @@ export default function RemarketingPage({ selectedClient }) {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="form-grid-2col" style={{ gap: '12px' }}>
                 <div className="form-group">
                   <label className="form-label">Plataforma UTM</label>
                   <select

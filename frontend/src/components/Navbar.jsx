@@ -1,37 +1,34 @@
 import React from 'react';
-import { RefreshCw, Filter, Calendar, Building2, Search, FileText } from 'lucide-react';
+import { RefreshCw, Filter, Calendar, Building2, Search, FileText, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export default function Navbar({ 
-  clients, 
-  selectedClient, 
-  setSelectedClient, 
-  selectedPlatform, 
-  setSelectedPlatform, 
-  selectedRange, 
+export default function Navbar({
+  clients,
+  selectedClient,
+  setSelectedClient,
+  selectedPlatform,
+  setSelectedPlatform,
+  selectedRange,
   setSelectedRange,
   onSync,
   isSyncing,
-  onOpenReport
+  onOpenReport,
+  onToggleSidebar
 }) {
   const { user } = useAuth();
 
   return (
-    <header style={{
-      height: '70px',
-      borderBottom: '1px solid var(--border-color)',
-      backgroundColor: 'rgba(11, 15, 25, 0.8)',
-      backdropFilter: 'blur(12px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 32px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 40
-    }}>
+    <header className="navbar">
       {/* Client Switcher (Admin) or Client Title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <button
+          className="mobile-menu-btn"
+          onClick={onToggleSidebar}
+          aria-label="Abrir menu"
+        >
+          <Menu size={20} />
+        </button>
+
         {user?.role === 'admin' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={18} color="var(--accent-primary)" />
@@ -65,7 +62,7 @@ export default function Navbar({
       </div>
 
       {/* Global Filters: Platform, Date Range, Report & Sync */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="navbar-filters">
         {/* Platform Selector */}
         <div style={{
           display: 'flex',
@@ -148,7 +145,7 @@ export default function Navbar({
           style={{ fontSize: '0.82rem', padding: '8px 14px' }}
         >
           <FileText size={15} />
-          <span>Gerar Relatório</span>
+          <span className="btn-label">Gerar Relatório</span>
         </button>
 
         {/* Sync button */}
@@ -159,7 +156,7 @@ export default function Navbar({
           style={{ fontSize: '0.82rem', padding: '8px 12px' }}
         >
           <RefreshCw size={14} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
-          <span>{isSyncing ? 'Sincronizando...' : 'Atualizar Dados'}</span>
+          <span className="btn-label">{isSyncing ? 'Sincronizando...' : 'Atualizar Dados'}</span>
         </button>
       </div>
     </header>

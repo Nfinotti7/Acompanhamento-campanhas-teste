@@ -1,18 +1,18 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  BarChart3, 
-  KeyRound, 
-  Users, 
-  Target, 
-  Link2, 
-  LogOut, 
-  ShieldCheck, 
-  Building2 
+import {
+  LayoutDashboard,
+  BarChart3,
+  KeyRound,
+  Users,
+  Target,
+  Link2,
+  LogOut,
+  ShieldCheck,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
+export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate }) {
   const { user, logout } = useAuth();
 
   const menuItems = [
@@ -27,18 +27,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     menuItems.push({ id: 'clients', label: 'Clientes', icon: Users });
   }
 
+  const handleSelect = (id) => {
+    setActiveTab(id);
+    if (onNavigate) onNavigate();
+  };
+
   return (
-    <aside style={{
-      width: '260px',
-      backgroundColor: 'var(--bg-sidebar)',
-      borderRight: '1px solid var(--border-color)',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      position: 'sticky',
-      top: 0,
-      zIndex: 50
-    }}>
+    <aside className={`sidebar${isOpen ? ' open' : ''}`}>
       {/* Brand Header */}
       <div style={{
         padding: '24px 20px',
@@ -114,7 +109,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleSelect(item.id)}
               style={{
                 display: 'flex',
                 alignItems: 'center',

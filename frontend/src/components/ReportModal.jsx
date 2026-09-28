@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { 
-  X, Download, Printer, Play, FileText, CheckCircle2, 
-  Building2, Calendar, DollarSign, ShoppingCart, Target, 
+import {
+  X, Download, Printer, Play, FileText, CheckCircle2,
+  Building2, Calendar, DollarSign, ShoppingCart, Target,
   TrendingUp, MousePointerClick, Percent, Sparkles, AlertCircle
 } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import PresentationView from './PresentationView';
@@ -104,7 +105,6 @@ export default function ReportModal({
         platformBreakdown={platformBreakdown}
         campaigns={campaigns}
         onClose={() => setShowPresentation(false)}
-        onExportPDF={handleDownloadPDF}
       />
     );
   }
@@ -325,7 +325,7 @@ export default function ReportModal({
 
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: '16px'
               }}>
                 <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -390,14 +390,80 @@ export default function ReportModal({
               </div>
             </div>
 
+            {/* Daily Evolution Chart */}
+            {dailyData.length > 0 && (
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
+                  2. Evolução Diária de Investimento e Conversões
+                </h3>
+
+                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ width: '100%', height: '280px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={dailyData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="reportSpend" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="reportConv" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+                        <YAxis yAxisId="left" stroke="#6366f1" tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f1627', borderColor: '#6366f1', borderRadius: '8px' }} />
+                        <Legend />
+                        <Area yAxisId="left" type="monotone" dataKey="spend" name="Investimento (R$)" stroke="#6366f1" strokeWidth={2} fill="url(#reportSpend)" isAnimationActive={false} />
+                        <Area yAxisId="right" type="monotone" dataKey="conversions" name="Conversões" stroke="#10b981" strokeWidth={2} fill="url(#reportConv)" isAnimationActive={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Platform Comparison */}
             {platformBreakdown.length > 0 && (
               <div style={{ marginBottom: '32px' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
-                  2. Distribuição por Plataforma de Anúncio
+                  3. Distribuição por Plataforma de Anúncio
                 </h3>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                  <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', padding: '12px' }}>
+                    <div style={{ width: '100%', height: '180px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={platformBreakdown.map((p) => ({
+                              name: p.platform === 'google' ? 'Google Ads' : 'Meta Ads',
+                              value: p.spend,
+                              color: p.platform === 'google' ? '#4285f4' : '#0084ff'
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={65}
+                            paddingAngle={5}
+                            dataKey="value"
+                            isAnimationActive={false}
+                          >
+                            {platformBreakdown.map((p, index) => (
+                              <Cell key={`cell-${index}`} fill={p.platform === 'google' ? '#4285f4' : '#0084ff'} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(val) => `R$ ${val.toFixed(2)}`} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                   {platformBreakdown.map((p) => {
                     const isGoogle = p.platform === 'google';
                     return (
@@ -438,6 +504,7 @@ export default function ReportModal({
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
             )}
@@ -445,7 +512,7 @@ export default function ReportModal({
             {/* Campaigns Table */}
             <div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
-                3. Detalhamento por Campanha
+                4. Detalhamento por Campanha
               </h3>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>

@@ -53,9 +53,9 @@ export default function CampaignsTable({ campaigns = [] }) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Search input */}
-          <div style={{ position: 'relative', width: '240px' }}>
+          <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '160px' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"

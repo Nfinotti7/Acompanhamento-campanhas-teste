@@ -1,25 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, ChevronLeft, ChevronRight, Download, Printer, 
-  Building2, Calendar, Target, DollarSign, MousePointerClick, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  X, ChevronLeft, ChevronRight, Download, Printer,
+  Building2, Calendar, Target, DollarSign, MousePointerClick,
   ShoppingCart, TrendingUp, Percent, Award, BarChart2, PieChart as PieIcon, LineChart as LineIcon
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
-export default function PresentationView({ 
-  clientName, 
-  selectedRange, 
-  selectedPlatform, 
-  summary, 
-  dailyData = [], 
-  platformBreakdown = [], 
-  campaigns = [], 
-  onClose,
-  onExportPDF
+export default function PresentationView({
+  clientName,
+  selectedRange,
+  selectedPlatform,
+  summary,
+  dailyData = [],
+  platformBreakdown = [],
+  campaigns = [],
+  onClose
 }) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const stageRef = useRef(null);
 
   const totalSlides = 5;
+
+  // Waits for React to commit the slide change and for chart layout (ResponsiveContainer)
+  // to settle before a capture is taken — otherwise html2canvas can grab a blank SVG.
+  const goToSlideAndSettle = (index) => new Promise((resolve) => {
+    setCurrentSlide(index);
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 350)));
+  });
+
+  const handleExportPDF = async () => {
+    if (!stageRef.current || isExporting) return;
+    setIsExporting(true);
+    const originalSlide = currentSlide;
+    try {
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      for (let i = 0; i < totalSlides; i++) {
+        await goToSlideAndSettle(i);
+
+        const canvas = await html2canvas(stageRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#070a12',
+          logging: false
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const scale = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+        const imgWidth = canvas.width * scale;
+        const imgHeight = canvas.height * scale;
+        const x = (pdfWidth - imgWidth) / 2;
+        const y = (pdfHeight - imgHeight) / 2;
+
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+      }
+
+      const fileName = `Apresentacao_${(clientName || 'Geral').replace(/\s+/g, '_')}_${selectedRange}.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error('Erro ao gerar PDF da apresentação:', err);
+      alert('Houve um problema ao gerar o PDF da apresentação. Tente novamente.');
+    } finally {
+      await goToSlideAndSettle(originalSlide);
+      setIsExporting(false);
+    }
+  };
 
   const rangeLabels = {
     today: 'Hoje',
@@ -120,11 +171,12 @@ export default function PresentationView({
           </div>
 
           <button
-            onClick={onExportPDF}
+            onClick={handleExportPDF}
+            disabled={isExporting}
             className="btn btn-primary"
             style={{ fontSize: '0.82rem', padding: '6px 14px' }}
           >
-            <Download size={15} /> Baixar PDF
+            <Download size={15} /> {isExporting ? 'Gerando PDF...' : 'Baixar PDF'}
           </button>
 
           <button
@@ -148,13 +200,14 @@ export default function PresentationView({
       </header>
 
       {/* Main Slide Stage */}
-      <main style={{
+      <main ref={stageRef} style={{
         flex: 1,
         padding: '40px 60px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        position: 'relative'
+        position: 'relative',
+        backgroundColor: '#070a12'
       }}>
 
         {/* SLIDE 1: Cover & Executive Overview */}
@@ -329,8 +382,8 @@ export default function PresentationView({
                     <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 12 }} />
                     <Tooltip contentStyle={{ backgroundColor: '#0f1627', borderColor: '#6366f1', borderRadius: '8px' }} />
                     <Legend />
-                    <Area yAxisId="left" type="monotone" dataKey="spend" name="Investimento (R$)" stroke="#6366f1" strokeWidth={3} fill="url(#presSpend)" />
-                    <Area yAxisId="right" type="monotone" dataKey="conversions" name="Conversões" stroke="#10b981" strokeWidth={3} fill="url(#presConv)" />
+                    <Area yAxisId="left" type="monotone" dataKey="spend" name="Investimento (R$)" stroke="#6366f1" strokeWidth={3} fill="url(#presSpend)" isAnimationActive={false} />
+                    <Area yAxisId="right" type="monotone" dataKey="conversions" name="Conversões" stroke="#10b981" strokeWidth={3} fill="url(#presConv)" isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -367,6 +420,7 @@ export default function PresentationView({
                         outerRadius={105}
                         paddingAngle={5}
                         dataKey="value"
+                        isAnimationActive={false}
                       >
                         {platformDataFormatted.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />

@@ -173,9 +173,10 @@ export default function ClientsPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          padding: '16px',
           zIndex: 100
         }}>
-          <div className="glass-card" style={{ width: '480px', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '480px', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
               Cadastrar Novo Cliente
             </h3>

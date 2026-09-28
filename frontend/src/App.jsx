@@ -15,6 +15,7 @@ import ReportModal from './components/ReportModal';
 function MainApp() {
   const { user, loading: authLoading, selectedClientId, setSelectedClientId } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Filters
   const [selectedPlatform, setSelectedPlatform] = useState('all');
@@ -162,12 +163,23 @@ function MainApp() {
   const activeDaily = selectedCampaignId ? campaignDaily : dailyData;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-dark)' }}>
+    <div className="app-shell">
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isOpen={isSidebarOpen}
+        onNavigate={() => setIsSidebarOpen(false)}
+      />
+
+      {/* Mobile overlay backdrop, closes the drawer on tap */}
+      <div
+        className={`sidebar-overlay${isSidebarOpen ? ' open' : ''}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div className="main-column">
         <Navbar
           clients={clients}
           selectedClient={selectedClientId}
@@ -179,9 +191,10 @@ function MainApp() {
           onSync={handleSync}
           isSyncing={isSyncing}
           onOpenReport={() => setIsReportOpen(true)}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         />
 
-        <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
+        <main className="main-content">
           {syncResult && (
             <div
               className="glass-card"
