@@ -12,6 +12,7 @@ import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns } from
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
+import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -36,6 +37,8 @@ app.use(express.static(frontendDistPath));
 app.post('/api/auth/login', login);
 app.post('/api/v1/capture', captureLead);
 app.post('/api/v1/track', trackEvent);
+app.get('/api/staff/restaurants', listRestaurants);
+app.post('/api/staff/login', staffLogin);
 
 // Protected Endpoints
 app.use('/api', authenticateToken);
