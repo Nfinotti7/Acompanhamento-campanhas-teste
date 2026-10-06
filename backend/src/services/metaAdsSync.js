@@ -14,7 +14,7 @@ function sumActions(actions = []) {
     .reduce((sum, a) => sum + Number(a.value || 0), 0);
 }
 
-function normalizeAccountId(adAccountId) {
+export function normalizeAccountId(adAccountId) {
   return adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
 }
 
@@ -95,6 +95,27 @@ async function fetchCampaignMeta(accountId, accessToken) {
   }
 
   return map;
+}
+
+export async function fetchCampaignPageId(campaignId, accessToken, fetchImpl = fetch) {
+  const params = new URLSearchParams({
+    fields: 'creative{effective_object_story_id}',
+    limit: '1',
+    access_token: accessToken
+  });
+
+  const url = `https://graph.facebook.com/${API_VERSION}/${campaignId}/ads?${params.toString()}`;
+  const res = await fetchImpl(url);
+  const data = await parseJsonResponse(res, 'Erro ao consultar anúncios da campanha');
+
+  if (!res.ok) {
+    throw new Error(data?.error?.message || 'Erro ao consultar anúncios da campanha.');
+  }
+
+  const storyId = data?.data?.[0]?.creative?.effective_object_story_id;
+  if (!storyId) return null;
+
+  return storyId.split('_')[0];
 }
 
 export async function fetchMetaAdsData(config, { startDate, endDate }) {
