@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, PlusCircle, Building2, ShieldCheck, Mail, Lock, CheckCircle2, Trash2 } from 'lucide-react';
+import { Users, PlusCircle, Building2, ShieldCheck, Mail, Lock, CheckCircle2, Trash2, Pencil } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const EMPTY_FORM = {
+  name: '',
+  company: '',
+  logo_url: '',
+  campaign_prefix: '',
+  page_id: '',
+  clientUserEmail: '',
+  clientUserPassword: ''
+};
 
 export default function ClientsPage() {
   const { user, setSelectedClientId } = useAuth();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
   const [message, setMessage] = useState(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    company: '',
-    logo_url: '',
-    clientUserEmail: '',
-    clientUserPassword: ''
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   useEffect(() => {
     fetchClients();
@@ -34,16 +39,42 @@ export default function ClientsPage() {
     }
   };
 
-  const handleCreate = async (e) => {
+  const openCreateModal = () => {
+    setEditingClient(null);
+    setFormData(EMPTY_FORM);
+    setShowModal(true);
+  };
+
+  const openEditModal = (client) => {
+    setEditingClient(client);
+    setFormData({
+      name: client.name || '',
+      company: client.company || '',
+      logo_url: client.logo_url || '',
+      campaign_prefix: client.campaign_prefix || '',
+      page_id: client.page_id || '',
+      clientUserEmail: '',
+      clientUserPassword: ''
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('/api/clients', formData);
-      setMessage(res.data.message);
+      if (editingClient) {
+        const res = await axios.put(`/api/clients/${editingClient.id}`, formData);
+        setMessage(res.data.message);
+      } else {
+        const res = await axios.post('/api/clients', formData);
+        setMessage(res.data.message);
+      }
       setShowModal(false);
-      setFormData({ name: '', company: '', logo_url: '', clientUserEmail: '', clientUserPassword: '' });
+      setEditingClient(null);
+      setFormData(EMPTY_FORM);
       fetchClients();
     } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao criar cliente.');
+      alert(err.response?.data?.error || 'Erro ao salvar cliente.');
     }
   };
 
@@ -75,7 +106,7 @@ export default function ClientsPage() {
           </p>
         </div>
 
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
+        <button onClick={openCreateModal} className="btn btn-primary">
           <PlusCircle size={16} />
           <span>Cadastrar Novo Cliente</span>
         </button>
@@ -138,6 +169,12 @@ export default function ClientsPage() {
                   </strong>
                 </div>
               </div>
+
+              {c.campaign_prefix && (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  Prefixo de campanha: <strong style={{ color: 'var(--text-secondary)' }}>{c.campaign_prefix}</strong>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -147,6 +184,13 @@ export default function ClientsPage() {
                 style={{ flex: 1, fontSize: '0.85rem' }}
               >
                 Visualizar Dashboard Deste Cliente
+              </button>
+              <button
+                onClick={() => openEditModal(c)}
+                className="btn btn-secondary"
+                title="Editar cliente"
+              >
+                <Pencil size={16} />
               </button>
               <button
                 onClick={() => handleDelete(c)}
@@ -161,7 +205,7 @@ export default function ClientsPage() {
         ))}
       </div>
 
-      {/* Modal New Client */}
+      {/* Modal Create/Edit Client */}
       {showModal && (
         <div style={{
           position: 'fixed',
@@ -178,10 +222,10 @@ export default function ClientsPage() {
         }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
-              Cadastrar Novo Cliente
+              {editingClient ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
             </h3>
 
-            <form onSubmit={handleCreate}>
+            <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label className="form-label">Nome do Contato / Responsável</label>
                 <input
@@ -209,37 +253,78 @@ export default function ClientsPage() {
               <hr style={{ borderColor: 'var(--border-color)', margin: '20px 0' }} />
 
               <h4 style={{ fontSize: '0.95rem', color: 'var(--accent-primary)', marginBottom: '12px' }}>
-                Credenciais de Acesso do Cliente (Portal)
+                Conta de Anúncios Compartilhada (opcional)
               </h4>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Só preencha se este cliente divide a mesma conta de anúncios Meta com outro
+                cliente. O prefixo precisa bater exatamente com o início do nome das
+                campanhas deste cliente, incluindo o traço.
+              </p>
 
               <div className="form-group">
-                <label className="form-label">E-mail de Login do Cliente</label>
+                <label className="form-label">Prefixo de Campanha</label>
                 <input
-                  type="email"
+                  type="text"
                   className="form-input"
-                  placeholder="cliente@empresa.com"
-                  value={formData.clientUserEmail}
-                  onChange={(e) => setFormData({ ...formData, clientUserEmail: e.target.value })}
+                  placeholder="Ex: RECREIO -"
+                  value={formData.campaign_prefix}
+                  onChange={(e) => setFormData({ ...formData, campaign_prefix: e.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Senha Inicial</label>
+                <label className="form-label">Page ID do Facebook (checagem extra, opcional)</label>
                 <input
-                  type="password"
+                  type="text"
                   className="form-input"
-                  placeholder="Defina uma senha segura"
-                  value={formData.clientUserPassword}
-                  onChange={(e) => setFormData({ ...formData, clientUserPassword: e.target.value })}
+                  placeholder="Ex: 1282809294918568"
+                  value={formData.page_id}
+                  onChange={(e) => setFormData({ ...formData, page_id: e.target.value })}
                 />
               </div>
+
+              {!editingClient && (
+                <>
+                  <hr style={{ borderColor: 'var(--border-color)', margin: '20px 0' }} />
+
+                  <h4 style={{ fontSize: '0.95rem', color: 'var(--accent-primary)', marginBottom: '12px' }}>
+                    Credenciais de Acesso do Cliente (Portal)
+                  </h4>
+
+                  <div className="form-group">
+                    <label className="form-label">E-mail de Login do Cliente</label>
+                    <input
+                      type="email"
+                      className="form-input"
+                      placeholder="cliente@empresa.com"
+                      value={formData.clientUserEmail}
+                      onChange={(e) => setFormData({ ...formData, clientUserEmail: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Senha Inicial</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="Defina uma senha segura"
+                      value={formData.clientUserPassword}
+                      onChange={(e) => setFormData({ ...formData, clientUserPassword: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
+                <button
+                  type="button"
+                  onClick={() => { setShowModal(false); setEditingClient(null); }}
+                  className="btn btn-secondary"
+                >
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Criar Cliente & Acesso
+                  {editingClient ? 'Salvar Alterações' : 'Criar Cliente & Acesso'}
                 </button>
               </div>
             </form>
