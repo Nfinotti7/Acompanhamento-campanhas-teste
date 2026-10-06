@@ -229,13 +229,12 @@ export default function RemarketingPage({ selectedClient }) {
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'center',
-          padding: '100px 16px 32px',
-          overflowY: 'auto',
+          padding: '24px 16px',
           zIndex: 9000
         }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '480px', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
               Simular Captura de Lead / Evento
             </h3>
