@@ -37,8 +37,9 @@ export function parseMetaCredentialsConfig(configJsonString) {
   }
 }
 
-async function getMetaAccountMembers(accountId) {
-  const { rows } = await db.query(`
+export async function getMetaAccountMembers(accountId, deps = {}) {
+  const dbImpl = deps.db || db;
+  const { rows } = await dbImpl.query(`
     SELECT c.id as client_id, c.campaign_prefix, c.page_id, cr.config_json
     FROM clients c
     JOIN credentials cr ON cr.client_id = c.id AND cr.platform = 'meta'
@@ -48,15 +49,30 @@ async function getMetaAccountMembers(accountId) {
   for (const row of rows) {
     // Uma credencial malformada de UM cliente do grupo nunca pode derrubar a
     // sincronizacao dos outros -- so pula esse membro.
-    const config = parseMetaCredentialsConfig(row.config_json);
-    if (!config) continue;
-    if (normalizeAccountId(config.ad_account_id) !== accountId) continue;
+    let config;
+    try {
+      config = JSON.parse(row.config_json);
+    } catch {
+      continue;
+    }
+
+    // Membership depende so do ad_account_id. Um cliente sem access_token ainda
+    // tem que contar como membro do grupo -- senao o grupo "encolhe" pra 1
+    // cliente e a classificacao por prefixo/pagina e pulada por engano,
+    // reabrindo o vazamento que esta feature existe pra fechar.
+    const rawAccountId = typeof config?.ad_account_id === 'string' ? config.ad_account_id : '';
+    if (!rawAccountId.trim()) continue;
+    if (normalizeAccountId(rawAccountId) !== accountId) continue;
+
+    const accessToken = typeof config?.access_token === 'string' && config.access_token.trim()
+      ? config.access_token
+      : null;
 
     members.push({
       clientId: row.client_id,
       campaignPrefix: row.campaign_prefix,
       pageId: row.page_id,
-      accessToken: config.access_token
+      accessToken
     });
   }
   return members;
@@ -157,7 +173,26 @@ async function storeRows(clientId, platform, rows) {
   return { campaigns: byCampaign.size, rows: rows.length };
 }
 
-async function storeClassifiedRows(platform, classifiedRows) {
+async function clearStaleOwnership(tx, platform, campaignId, targetClientId) {
+  // Uma campanha ja sincronizada sob um dono fica presa a esse dono pra sempre
+  // se a linha antiga nunca for removida quando a classificacao muda (reclassificação
+  // pra outro cliente, ou de 'ok' pra escondida e vice-versa). Sem isso o vazamento
+  // que esta feature existe pra fechar continua visivel pra sempre em dados ja sincronizados.
+  if (targetClientId === null) {
+    await tx.query(
+      'DELETE FROM campaigns WHERE platform = ? AND campaign_id = ? AND client_id IS NOT NULL',
+      [platform, campaignId]
+    );
+  } else {
+    await tx.query(
+      'DELETE FROM campaigns WHERE platform = ? AND campaign_id = ? AND client_id IS DISTINCT FROM ?',
+      [platform, campaignId, targetClientId]
+    );
+  }
+}
+
+export async function storeClassifiedRows(platform, classifiedRows, deps = {}) {
+  const withTransaction = deps.withTransaction || db.withTransaction;
   const byCampaign = new Map();
   for (const r of classifiedRows) {
     if (!byCampaign.has(r.campaignId)) {
@@ -173,8 +208,10 @@ async function storeClassifiedRows(platform, classifiedRows) {
 
   const perClientCounts = new Map();
 
-  await db.withTransaction(async (tx) => {
+  await withTransaction(async (tx) => {
     for (const [campaignId, meta] of byCampaign) {
+      await clearStaleOwnership(tx, platform, campaignId, meta.classification === 'ok' ? meta.clientId : null);
+
       let internalId;
       if (meta.classification === 'ok') {
         internalId = await upsertCampaign(tx, {
@@ -226,8 +263,9 @@ async function storeClassifiedRows(platform, classifiedRows) {
   return perClientCounts;
 }
 
-async function syncPlatformForClient(clientId, platform, startDate, endDate) {
-  const config = await getCredentials(clientId, platform);
+async function syncPlatformForClient(clientId, platform, startDate, endDate, deps = {}) {
+  const getCredentialsImpl = deps.getCredentials || getCredentials;
+  const config = await getCredentialsImpl(clientId, platform);
   if (!config) {
     return { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
   }
@@ -241,11 +279,21 @@ async function syncPlatformForClient(clientId, platform, startDate, endDate) {
   }
 }
 
-async function syncMetaAccountGroup(accountId, startDate, endDate) {
-  const members = await getMetaAccountMembers(accountId);
+export async function syncMetaAccountGroup(accountId, startDate, endDate, deps = {}) {
+  const getMetaAccountMembersImpl = deps.getMetaAccountMembers || getMetaAccountMembers;
+  const members = await getMetaAccountMembersImpl(accountId);
   if (members.length === 0) return {};
 
-  const sortedByAge = [...members].sort((a, b) => a.clientId - b.clientId);
+  const tokenHolders = members.filter((m) => m.accessToken);
+  if (tokenHolders.length === 0) {
+    const results = {};
+    for (const m of members) {
+      results[m.clientId] = { status: 'error', error: 'Nenhum cliente desta conta de anúncios tem access_token cadastrado.' };
+    }
+    return results;
+  }
+
+  const sortedByAge = [...tokenHolders].sort((a, b) => a.clientId - b.clientId);
   const groupAccessToken = sortedByAge[0].accessToken;
 
   let rawRows;
@@ -268,29 +316,47 @@ async function syncMetaAccountGroup(accountId, startDate, endDate) {
   return results;
 }
 
-export async function syncClients(clientIds) {
+export async function syncClients(clientIds, deps = {}) {
+  const getCredentialsImpl = deps.getCredentials || getCredentials;
+  const syncMetaAccountGroupImpl = deps.syncMetaAccountGroup || syncMetaAccountGroup;
   const { startDate, endDate } = getDateRange(SYNC_WINDOW_DAYS);
 
   const googleResults = {};
   for (const clientId of clientIds) {
-    googleResults[clientId] = await syncPlatformForClient(clientId, 'google', startDate, endDate);
+    googleResults[clientId] = await syncPlatformForClient(clientId, 'google', startDate, endDate, { getCredentials: getCredentialsImpl });
   }
 
   const metaResults = {};
-  const accountIdsTouched = new Set();
+  const accountIdByClient = new Map();
 
+  // Um erro lendo/normalizando a credencial de UM cliente alvo (JSON malformado,
+  // ad_account_id nao-string) nunca pode derrubar a sincronizacao dos outros.
   for (const clientId of clientIds) {
-    const config = await getCredentials(clientId, 'meta');
-    if (!config?.ad_account_id || !config?.access_token) {
-      metaResults[clientId] = { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
-      continue;
+    try {
+      const config = await getCredentialsImpl(clientId, 'meta');
+      if (!config?.ad_account_id || !config?.access_token) {
+        metaResults[clientId] = { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
+        continue;
+      }
+      accountIdByClient.set(clientId, normalizeAccountId(config.ad_account_id));
+    } catch (err) {
+      metaResults[clientId] = { status: 'error', error: err.message };
     }
-    accountIdsTouched.add(normalizeAccountId(config.ad_account_id));
   }
 
+  const accountIdsTouched = new Set(accountIdByClient.values());
+
+  // Um grupo (conta de anuncios) que falhar nunca pode derrubar a sincronizacao
+  // dos clientes de outras contas -- so marca erro pros clientes alvo dessa conta.
   for (const accountId of accountIdsTouched) {
-    const groupResults = await syncMetaAccountGroup(accountId, startDate, endDate);
-    Object.assign(metaResults, groupResults);
+    try {
+      const groupResults = await syncMetaAccountGroupImpl(accountId, startDate, endDate);
+      Object.assign(metaResults, groupResults);
+    } catch (err) {
+      for (const [clientId, accId] of accountIdByClient) {
+        if (accId === accountId) metaResults[clientId] = { status: 'error', error: err.message };
+      }
+    }
   }
 
   return clientIds.map((clientId) => ({

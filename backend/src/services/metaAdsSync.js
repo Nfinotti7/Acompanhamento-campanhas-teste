@@ -15,7 +15,8 @@ function sumActions(actions = []) {
 }
 
 export function normalizeAccountId(adAccountId) {
-  return adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+  const trimmed = String(adAccountId ?? '').trim();
+  return trimmed.startsWith('act_') ? trimmed : `act_${trimmed}`;
 }
 
 async function parseJsonResponse(res, fallbackErrorMessage) {

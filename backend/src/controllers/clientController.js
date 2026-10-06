@@ -1,6 +1,12 @@
 import bcrypt from 'bcryptjs';
 import db from '../config/db.js';
 
+export function normalizeOptionalText(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 export async function listClients(req, res) {
   try {
     let clients;
@@ -35,7 +41,7 @@ export async function createClient(req, res) {
 
     const { rows } = await db.query(
       'INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id) VALUES (?, ?, ?, ?, ?) RETURNING id',
-      [name, company, logo_url || null, campaign_prefix || null, page_id || null]
+      [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id)]
     );
     const newClientId = rows[0].id;
 
@@ -75,7 +81,7 @@ export async function updateClient(req, res) {
 
     await db.query(
       'UPDATE clients SET name = ?, company = ?, logo_url = ?, campaign_prefix = ?, page_id = ? WHERE id = ?',
-      [name, company, logo_url || null, campaign_prefix || null, page_id || null, clientId]
+      [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id), clientId]
     );
 
     return res.json({ message: 'Cliente atualizado com sucesso!' });

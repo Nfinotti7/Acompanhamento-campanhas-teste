@@ -30,3 +30,12 @@ test('normalizeAccountId adiciona o prefixo act_ quando falta', () => {
   assert.equal(normalizeAccountId('123456'), 'act_123456');
   assert.equal(normalizeAccountId('act_123456'), 'act_123456');
 });
+
+test('normalizeAccountId remove espacos nas pontas antes de comparar', () => {
+  assert.equal(normalizeAccountId('  act_123456  '), 'act_123456');
+  assert.equal(normalizeAccountId(' 123456 '), 'act_123456');
+});
+
+test('normalizeAccountId nao lanca erro quando o valor nao e string', () => {
+  assert.equal(normalizeAccountId(123456), 'act_123456');
+});
