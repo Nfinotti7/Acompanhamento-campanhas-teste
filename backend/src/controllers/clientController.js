@@ -27,15 +27,15 @@ export async function listClients(req, res) {
 
 export async function createClient(req, res) {
   try {
-    const { name, company, logo_url, clientUserEmail, clientUserPassword } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
     }
 
     const { rows } = await db.query(
-      'INSERT INTO clients (name, company, logo_url) VALUES (?, ?, ?) RETURNING id',
-      [name, company, logo_url || null]
+      'INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id) VALUES (?, ?, ?, ?, ?) RETURNING id',
+      [name, company, logo_url || null, campaign_prefix || null, page_id || null]
     );
     const newClientId = rows[0].id;
 
@@ -56,6 +56,32 @@ export async function createClient(req, res) {
   } catch (error) {
     console.error('Create client error:', error);
     return res.status(500).json({ error: 'Erro ao criar cliente.' });
+  }
+}
+
+export async function updateClient(req, res) {
+  try {
+    const clientId = req.params.id;
+    const { name, company, logo_url, campaign_prefix, page_id } = req.body;
+
+    if (!name || !company) {
+      return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
+    }
+
+    const { rows } = await db.query('SELECT id FROM clients WHERE id = ?', [clientId]);
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'Cliente não encontrado.' });
+    }
+
+    await db.query(
+      'UPDATE clients SET name = ?, company = ?, logo_url = ?, campaign_prefix = ?, page_id = ? WHERE id = ?',
+      [name, company, logo_url || null, campaign_prefix || null, page_id || null, clientId]
+    );
+
+    return res.json({ message: 'Cliente atualizado com sucesso!' });
+  } catch (error) {
+    console.error('Update client error:', error);
+    return res.status(500).json({ error: 'Erro ao atualizar cliente.' });
   }
 }
 
