@@ -207,6 +207,10 @@ export async function initDb() {
   // Additive schema evolution for tables that already existed before this column was introduced.
   // Never touches existing rows (default 0), never drops/recreates anything.
   await query(`ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS reach INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS campaign_prefix TEXT`);
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS page_id TEXT`);
+  await query(`ALTER TABLE campaigns ALTER COLUMN client_id DROP NOT NULL`);
+  await query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS classification TEXT NOT NULL DEFAULT 'ok'`);
 
   await seedData();
 }
