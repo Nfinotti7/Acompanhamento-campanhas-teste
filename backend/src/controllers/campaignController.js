@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { syncClient } from '../services/syncService.js';
+import { syncClients } from '../services/syncService.js';
 
 function withDerivedMetrics(row) {
   const spend = Number(row.spend) || 0;
@@ -299,11 +299,11 @@ export async function syncCampaigns(req, res) {
       targets = rows;
     }
 
-    const results = [];
-    for (const client of targets) {
-      const { google, meta } = await syncClient(client.id);
-      results.push({ clientId: client.id, clientName: client.name, google, meta });
-    }
+    const syncResults = await syncClients(targets.map((t) => t.id));
+    const results = syncResults.map((r) => {
+      const client = targets.find((t) => t.id === r.clientId);
+      return { clientId: r.clientId, clientName: client.name, google: r.google, meta: r.meta };
+    });
 
     const hasErrors = results.some((r) => r.google.status === 'error' || r.meta.status === 'error');
 
