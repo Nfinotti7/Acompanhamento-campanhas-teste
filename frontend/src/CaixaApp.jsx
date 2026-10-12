@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Store, Lock, Search, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Store, Lock, Search, CheckCircle2, ArrowLeft, DollarSign, CalendarPlus } from 'lucide-react';
 
 const caixaApi = axios.create();
 
@@ -16,6 +16,8 @@ export default function CaixaApp() {
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [amountSpent, setAmountSpent] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -51,17 +53,17 @@ export default function CaixaApp() {
     setSelectedContact(contact);
     setCustomerName(contact.profile_name || '');
     setPhone(contact.wa_id || '');
-    setStep('confirm');
+    setStep('choose-action');
   };
 
   const skipMatch = () => {
     setSelectedContact(null);
     setCustomerName(query);
     setPhone('');
-    setStep('confirm');
+    setStep('choose-action');
   };
 
-  const handleConfirm = async (e) => {
+  const handleConfirmSale = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
@@ -81,6 +83,22 @@ export default function CaixaApp() {
     }
   };
 
+  const handleConfirmAppointment = async (e) => {
+    e.preventDefault();
+    if (!selectedContact) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const appointmentAt = new Date(`${appointmentDate}T${appointmentTime}`).toISOString();
+      await caixaApi.post(`/api/whatsapp/contacts/${selectedContact.id}/appointment`, { appointmentAt });
+      setStep('success');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erro ao marcar agendamento.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const resetForNext = () => {
     setQuery('');
     setResults([]);
@@ -88,6 +106,8 @@ export default function CaixaApp() {
     setCustomerName('');
     setPhone('');
     setAmountSpent('');
+    setAppointmentDate('');
+    setAppointmentTime('');
     setStep('search');
   };
 
@@ -205,9 +225,41 @@ export default function CaixaApp() {
           </form>
         )}
 
-        {step === 'confirm' && (
-          <form onSubmit={handleConfirm}>
+        {step === 'choose-action' && (
+          <div>
             <button type="button" onClick={() => setStep('search')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <ArrowLeft size={16} /> Voltar
+            </button>
+            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '8px' }}>{customerName || 'Cliente'}</h1>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '20px' }}>O que você quer fazer?</p>
+
+            <button
+              type="button"
+              onClick={() => setStep('confirm-sale')}
+              style={{ ...buttonStyle, background: 'linear-gradient(135deg, #10b981, #059669)', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <DollarSign size={18} /> Lançar venda
+            </button>
+
+            {selectedContact ? (
+              <button
+                type="button"
+                onClick={() => setStep('confirm-appointment')}
+                style={{ ...buttonStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <CalendarPlus size={18} /> Marcar agendamento
+              </button>
+            ) : (
+              <p style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center' }}>
+                Agendamento só é possível pra contato encontrado na busca.
+              </p>
+            )}
+          </div>
+        )}
+
+        {step === 'confirm-sale' && (
+          <form onSubmit={handleConfirmSale}>
+            <button type="button" onClick={() => setStep('choose-action')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <ArrowLeft size={16} /> Voltar
             </button>
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px' }}>Confirmar venda</h1>
@@ -236,10 +288,39 @@ export default function CaixaApp() {
           </form>
         )}
 
+        {step === 'confirm-appointment' && (
+          <form onSubmit={handleConfirmAppointment}>
+            <button type="button" onClick={() => setStep('choose-action')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <ArrowLeft size={16} /> Voltar
+            </button>
+            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px' }}>Marcar agendamento</h1>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '12px' }}>{customerName}</p>
+            <input
+              type="date"
+              value={appointmentDate}
+              onChange={(e) => setAppointmentDate(e.target.value)}
+              required
+              autoFocus
+              style={inputStyle}
+            />
+            <input
+              type="time"
+              value={appointmentTime}
+              onChange={(e) => setAppointmentTime(e.target.value)}
+              required
+              style={inputStyle}
+            />
+            {error && <p style={{ color: '#f87171', marginBottom: '12px' }}>{error}</p>}
+            <button type="submit" disabled={submitting} style={buttonStyle}>
+              {submitting ? 'Salvando...' : 'Confirmar agendamento'}
+            </button>
+          </form>
+        )}
+
         {step === 'success' && (
           <div style={{ textAlign: 'center' }}>
             <CheckCircle2 size={56} color="#10b981" style={{ margin: '0 auto 16px' }} />
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '20px' }}>Venda lançada!</h1>
+            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '20px' }}>Feito!</h1>
             <button onClick={resetForNext} style={buttonStyle}>Lançar próxima</button>
           </div>
         )}
