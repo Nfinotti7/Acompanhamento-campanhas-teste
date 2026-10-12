@@ -43,7 +43,10 @@ export async function classifyAndPrepareRows(rawRows, accountMembers, groupAcces
       pageIdCache.set(row.campaignId, actualPageId);
     }
 
-    if (actualPageId && actualPageId === member.pageId) {
+    // member.pageId pode guardar varias Paginas reais separadas por virgula
+    // (um negocio pode anunciar a partir de mais de uma Pagina do Facebook).
+    const validPageIds = member.pageId.split(',').map((p) => p.trim()).filter(Boolean);
+    if (actualPageId && validPageIds.includes(actualPageId)) {
       classifiedRows.push({ ...row, resolvedClientId: member.clientId, classification: 'ok' });
     } else {
       classifiedRows.push({ ...row, resolvedClientId: null, classification: 'inconsistent' });

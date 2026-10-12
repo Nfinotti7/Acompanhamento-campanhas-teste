@@ -313,10 +313,13 @@ export default function CredentialsPage({ selectedClient }) {
               <input
                 type="text"
                 className="form-input"
-                placeholder="Ex: act_1092837465"
+                placeholder="Ex: act_1092837465 (ou várias, separadas por vírgula, se o cliente rodar em mais de uma conta)"
                 value={metaForm.ad_account_id}
                 onChange={(e) => setMetaForm({ ...metaForm, ad_account_id: e.target.value })}
               />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-8px', marginBottom: '12px' }}>
+                Cliente roda campanhas em mais de uma conta Meta? Separe os IDs por vírgula (ex: act_111,act_222).
+              </p>
             </div>
 
             <div className="form-grid-2col">

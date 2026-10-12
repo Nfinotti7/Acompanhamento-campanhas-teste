@@ -104,6 +104,50 @@ test('getMetaAccountMembers ignora credencial com JSON invalido sem derrubar os 
 
 // I2: um grupo compartilhado com erro (DB fora do ar, ad_account_id malformado em
 // outro cliente etc) nao pode derrubar a sincronizacao dos clientes de outra conta.
+// Alma roda campanhas em duas contas Meta diferentes ao mesmo tempo (migracao em andamento).
+// ad_account_id guarda varios ids separados por virgula; o cliente precisa contar como
+// membro de QUALQUER uma dessas contas.
+test('getMetaAccountMembers inclui cliente cujo ad_account_id tem varias contas separadas por virgula', async () => {
+  const fakeDb = {
+    query: async () => ({
+      rows: [
+        { client_id: 7, campaign_prefix: 'ALMA -', page_id: '111', config_json: JSON.stringify({ ad_account_id: 'act_111,act_222', access_token: 'tok-alma' }) }
+      ]
+    })
+  };
+
+  const membersFor111 = await getMetaAccountMembers('act_111', { db: fakeDb });
+  const membersFor222 = await getMetaAccountMembers('act_222', { db: fakeDb });
+  const membersFor333 = await getMetaAccountMembers('act_333', { db: fakeDb });
+
+  assert.equal(membersFor111.length, 1);
+  assert.equal(membersFor222.length, 1);
+  assert.equal(membersFor333.length, 0);
+});
+
+test('syncClients soma campanhas/linhas de um cliente que tem duas contas de anuncio Meta', async () => {
+  const fakeGetCredentials = async (clientId, platform) => {
+    if (platform === 'google') return null;
+    if (clientId === 7) return { ad_account_id: 'act_X,act_Y', access_token: 'tok' };
+    return null;
+  };
+  const fakeSyncMetaAccountGroup = async (accountId) => {
+    if (accountId === 'act_X') return { 7: { status: 'ok', campaigns: 2, rows: 10 } };
+    if (accountId === 'act_Y') return { 7: { status: 'ok', campaigns: 3, rows: 15 } };
+    return {};
+  };
+
+  const results = await syncClients([7], {
+    getCredentials: fakeGetCredentials,
+    syncMetaAccountGroup: fakeSyncMetaAccountGroup
+  });
+
+  const r7 = results.find((r) => r.clientId === 7);
+  assert.equal(r7.meta.status, 'ok');
+  assert.equal(r7.meta.campaigns, 5);
+  assert.equal(r7.meta.rows, 25);
+});
+
 test('syncClients isola erro de um grupo meta sem afetar outros clientes', async () => {
   const fakeGetCredentials = async (clientId, platform) => {
     if (platform === 'google') return null;

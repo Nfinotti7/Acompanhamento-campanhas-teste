@@ -79,6 +79,30 @@ test('page_id configurado e nao bate: fica inconsistente e sem dono', async () =
   assert.equal(result[0].resolvedClientId, null);
 });
 
+// Um cliente pode ter mais de uma Pagina real do Facebook (ex: campanhas
+// apontando pra posts de paginas diferentes do mesmo negocio). page_id guarda
+// varias paginas separadas por virgula; bater com qualquer uma delas e suficiente.
+test('page_id com varias paginas separadas por virgula: bate com qualquer uma delas', async () => {
+  const rows = [
+    baseRow({ campaignId: 'c1', campaignName: 'RECREIO - Happy Hour' }),
+    baseRow({ campaignId: 'c2', campaignName: 'RECREIO - Outra' })
+  ];
+  const members = [{ clientId: 5, campaignPrefix: 'RECREIO -', pageId: 'PAGE_123,PAGE_456', accessToken: 'tok' }, distractorMember];
+  const pageByCampaign = { c1: 'PAGE_123', c2: 'PAGE_456' };
+  const result = await classifyAndPrepareRows(rows, members, 'tok', {
+    fetchCampaignPageId: async (campaignId) => pageByCampaign[campaignId]
+  });
+  assert.ok(result.every((r) => r.classification === 'ok' && r.resolvedClientId === 5));
+});
+
+test('page_id com varias paginas: nao bate com nenhuma delas fica inconsistente', async () => {
+  const rows = [baseRow({ campaignName: 'RECREIO - Happy Hour' })];
+  const members = [{ clientId: 5, campaignPrefix: 'RECREIO -', pageId: 'PAGE_123,PAGE_456', accessToken: 'tok' }, distractorMember];
+  const result = await classifyAndPrepareRows(rows, members, 'tok', { fetchCampaignPageId: async () => 'PAGE_999' });
+  assert.equal(result[0].classification, 'inconsistent');
+  assert.equal(result[0].resolvedClientId, null);
+});
+
 test('falha ao buscar a pagina trata como inconsistente, nunca libera por seguranca', async () => {
   const rows = [baseRow({ campaignName: 'RECREIO - Happy Hour' })];
   const members = [{ clientId: 5, campaignPrefix: 'RECREIO -', pageId: 'PAGE_123', accessToken: 'tok' }, distractorMember];

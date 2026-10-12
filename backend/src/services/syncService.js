@@ -37,6 +37,13 @@ export function parseMetaCredentialsConfig(configJsonString) {
   }
 }
 
+// ad_account_id pode guardar varias contas separadas por virgula (ex: um cliente
+// migrando de uma conta pra outra e rodando campanhas nas duas ao mesmo tempo).
+function parseAccountIds(rawAccountId) {
+  if (typeof rawAccountId !== 'string') return [];
+  return rawAccountId.split(',').map((s) => s.trim()).filter(Boolean).map(normalizeAccountId);
+}
+
 export async function getMetaAccountMembers(accountId, deps = {}) {
   const dbImpl = deps.db || db;
   const { rows } = await dbImpl.query(`
@@ -62,7 +69,7 @@ export async function getMetaAccountMembers(accountId, deps = {}) {
     // reabrindo o vazamento que esta feature existe pra fechar.
     const rawAccountId = typeof config?.ad_account_id === 'string' ? config.ad_account_id : '';
     if (!rawAccountId.trim()) continue;
-    if (normalizeAccountId(rawAccountId) !== accountId) continue;
+    if (!parseAccountIds(rawAccountId).includes(accountId)) continue;
 
     const accessToken = typeof config?.access_token === 'string' && config.access_token.trim()
       ? config.access_token
@@ -327,7 +334,7 @@ export async function syncClients(clientIds, deps = {}) {
   }
 
   const metaResults = {};
-  const accountIdByClient = new Map();
+  const accountIdsByClient = new Map(); // clientId -> array de ad_account_ids normalizados
 
   // Um erro lendo/normalizando a credencial de UM cliente alvo (JSON malformado,
   // ad_account_id nao-string) nunca pode derrubar a sincronizacao dos outros.
@@ -338,23 +345,53 @@ export async function syncClients(clientIds, deps = {}) {
         metaResults[clientId] = { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
         continue;
       }
-      accountIdByClient.set(clientId, normalizeAccountId(config.ad_account_id));
+      const ids = parseAccountIds(config.ad_account_id);
+      if (ids.length === 0) {
+        metaResults[clientId] = { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
+        continue;
+      }
+      accountIdsByClient.set(clientId, ids);
     } catch (err) {
       metaResults[clientId] = { status: 'error', error: err.message };
     }
   }
 
-  const accountIdsTouched = new Set(accountIdByClient.values());
+  const accountIdsTouched = new Set();
+  for (const ids of accountIdsByClient.values()) {
+    for (const id of ids) accountIdsTouched.add(id);
+  }
+
+  // Um cliente com mais de uma conta (ex: migrando de uma pra outra) tem seu
+  // resultado somado entre os grupos -- nunca sobrescrito pelo ultimo grupo processado.
+  const mergeMetaResult = (clientId, incoming) => {
+    const current = metaResults[clientId];
+    if (!current) {
+      metaResults[clientId] = incoming;
+      return;
+    }
+    if (current.status === 'error') return; // erro ja registrado nesse cliente permanece
+    if (incoming.status === 'error' || current.status !== 'ok' || incoming.status !== 'ok') {
+      metaResults[clientId] = incoming;
+      return;
+    }
+    metaResults[clientId] = {
+      status: 'ok',
+      campaigns: current.campaigns + incoming.campaigns,
+      rows: current.rows + incoming.rows
+    };
+  };
 
   // Um grupo (conta de anuncios) que falhar nunca pode derrubar a sincronizacao
   // dos clientes de outras contas -- so marca erro pros clientes alvo dessa conta.
   for (const accountId of accountIdsTouched) {
     try {
       const groupResults = await syncMetaAccountGroupImpl(accountId, startDate, endDate);
-      Object.assign(metaResults, groupResults);
+      for (const [clientId, result] of Object.entries(groupResults)) {
+        mergeMetaResult(Number(clientId), result);
+      }
     } catch (err) {
-      for (const [clientId, accId] of accountIdByClient) {
-        if (accId === accountId) metaResults[clientId] = { status: 'error', error: err.message };
+      for (const [clientId, ids] of accountIdsByClient) {
+        if (ids.includes(accountId)) mergeMetaResult(clientId, { status: 'error', error: err.message });
       }
     }
   }

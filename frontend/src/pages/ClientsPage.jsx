@@ -277,10 +277,13 @@ export default function ClientsPage() {
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Ex: 1282809294918568"
+                  placeholder="Ex: 1282809294918568 (ou várias, separadas por vírgula)"
                   value={formData.page_id}
                   onChange={(e) => setFormData({ ...formData, page_id: e.target.value })}
                 />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-8px', marginBottom: '12px' }}>
+                  Cliente anuncia por mais de uma Página do Facebook? Separe os IDs por vírgula (ex: 111,222).
+                </p>
               </div>
 
               {!editingClient && (
