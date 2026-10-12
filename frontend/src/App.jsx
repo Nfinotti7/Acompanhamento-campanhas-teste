@@ -9,6 +9,7 @@ import RemarketingPage from './pages/RemarketingPage';
 import TrackingPage from './pages/TrackingPage';
 import WhatsAppInboxPage from './pages/WhatsAppInboxPage';
 import WhatsAppKanbanPage from './pages/WhatsAppKanbanPage';
+import WhatsAppAgendaPage from './pages/WhatsAppAgendaPage';
 import ClientsPage from './pages/ClientsPage';
 import LoginPage from './pages/LoginPage';
 import CampaignsTable from './components/CampaignsTable';
@@ -279,6 +280,10 @@ function MainApp() {
 
           {activeTab === 'whatsapp-kanban' && (
             <WhatsAppKanbanPage selectedClient={selectedClientId} onViewConversation={handleViewConversation} />
+          )}
+
+          {activeTab === 'whatsapp-agenda' && (
+            <WhatsAppAgendaPage selectedClient={selectedClientId} onViewConversation={handleViewConversation} />
           )}
 
           {activeTab === 'clients' && user.role === 'admin' && (

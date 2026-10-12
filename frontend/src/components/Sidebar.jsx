@@ -10,7 +10,8 @@ import {
   ShieldCheck,
   Building2,
   MessageCircle,
-  Columns3
+  Columns3,
+  CalendarDays
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,6 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate })
     { id: 'tracking', label: 'Tracking & Atribuição', icon: Link2 },
     { id: 'whatsapp', label: 'WhatsApp & Conversões', icon: MessageCircle },
     { id: 'whatsapp-kanban', label: 'Funil WhatsApp', icon: Columns3 },
+    { id: 'whatsapp-agenda', label: 'Agenda', icon: CalendarDays },
   ];
 
   if (user?.role === 'admin') {
