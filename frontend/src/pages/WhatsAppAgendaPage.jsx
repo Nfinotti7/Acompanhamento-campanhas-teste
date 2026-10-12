@@ -3,7 +3,13 @@ import axios from 'axios';
 import { CalendarDays, ExternalLink } from 'lucide-react';
 
 function todayISODate() {
-  return new Date().toISOString().slice(0, 10);
+  // new Date().toISOString() usa UTC: depois das 21h em fusos como o do Brasil (UTC-3),
+  // isso já mostra a data de amanhã. Monta a data a partir dos componentes locais.
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function WhatsAppAgendaPage({ selectedClient, onViewConversation }) {

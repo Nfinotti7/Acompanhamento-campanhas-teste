@@ -69,14 +69,16 @@ export async function getAgenda(req, res) {
       return res.status(400).json({ error: 'date deve estar no formato YYYY-MM-DD.' });
     }
 
+    // Compara o dia no fuso do restaurante (America/Sao_Paulo), não no fuso do servidor/sessão —
+    // appointment_at é um instante absoluto (TIMESTAMPTZ); sem isso, agendamentos no fim da noite
+    // caem no dia errado da agenda.
     const { rows } = await db.query(
       `SELECT id, wa_id, profile_name, appointment_at
        FROM whatsapp_contacts
        WHERE client_id = ?
-         AND appointment_at >= ?::date
-         AND appointment_at < (?::date + INTERVAL '1 day')
+         AND (appointment_at AT TIME ZONE 'America/Sao_Paulo')::date = ?::date
        ORDER BY appointment_at ASC`,
-      [clientId, date, date]
+      [clientId, date]
     );
 
     return res.json({ appointments: rows });

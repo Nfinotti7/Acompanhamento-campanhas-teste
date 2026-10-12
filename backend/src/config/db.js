@@ -213,6 +213,9 @@ export async function initDb() {
   await query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS classification TEXT NOT NULL DEFAULT 'ok'`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS appointment_at TIMESTAMP`);
   await query(`ALTER TABLE whatsapp_settings ADD COLUMN IF NOT EXISTS remarketing_days INTEGER NOT NULL DEFAULT 3`);
+  // appointment_at precisa guardar o instante absoluto (TIMESTAMPTZ), não um horário "sem fuso" —
+  // com TIMESTAMP puro, o horário de agendamento lido de volta fica deslocado pelo fuso do servidor.
+  await query(`ALTER TABLE whatsapp_contacts ALTER COLUMN appointment_at TYPE TIMESTAMPTZ USING appointment_at AT TIME ZONE 'UTC'`);
 
   await seedData();
 }
