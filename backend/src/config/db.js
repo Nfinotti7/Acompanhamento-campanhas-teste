@@ -211,6 +211,8 @@ export async function initDb() {
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS page_id TEXT`);
   await query(`ALTER TABLE campaigns ALTER COLUMN client_id DROP NOT NULL`);
   await query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS classification TEXT NOT NULL DEFAULT 'ok'`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS appointment_at TIMESTAMP`);
+  await query(`ALTER TABLE whatsapp_settings ADD COLUMN IF NOT EXISTS remarketing_days INTEGER NOT NULL DEFAULT 3`);
 
   await seedData();
 }
