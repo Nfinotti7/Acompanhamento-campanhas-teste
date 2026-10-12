@@ -16,6 +16,7 @@ import { listRestaurants, staffLogin } from './controllers/staffAuthController.j
 import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
 import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
 import { searchContacts, createConversion, getRoi } from './controllers/realConversionsController.js';
+import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -75,6 +76,11 @@ app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
 app.get('/api/whatsapp/contacts/search', searchContacts);
 app.post('/api/whatsapp/conversions', createConversion);
 app.get('/api/whatsapp/roi', getRoi);
+
+// WhatsApp Kanban & Agenda
+app.get('/api/whatsapp/kanban', getKanban);
+app.get('/api/whatsapp/agenda', getAgenda);
+app.post('/api/whatsapp/contacts/:contactId/appointment', setAppointment);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
