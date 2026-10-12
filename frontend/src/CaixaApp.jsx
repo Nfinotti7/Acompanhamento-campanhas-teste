@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Store, Lock, Search, CheckCircle2, ArrowLeft, DollarSign, CalendarPlus } from 'lucide-react';
+import CaixaFunilView from './components/CaixaFunilView';
 
 const caixaApi = axios.create();
 
 export default function CaixaApp() {
   const [step, setStep] = useState('select-restaurant');
+  const [view, setView] = useState('atender');
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [pin, setPin] = useState('');
@@ -146,7 +148,50 @@ export default function CaixaApp() {
       fontFamily: "'Inter', sans-serif"
     }}>
       <div style={{ width: '100%', maxWidth: '400px' }}>
-        {step === 'select-restaurant' && (
+        {step !== 'select-restaurant' && step !== 'pin' && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+            <button
+              type="button"
+              onClick={() => setView('atender')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                backgroundColor: view === 'atender' ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                color: view === 'atender' ? '#fff' : '#94a3b8'
+              }}
+            >
+              Atender
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('funil')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                backgroundColor: view === 'funil' ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                color: view === 'funil' ? '#fff' : '#94a3b8'
+              }}
+            >
+              Funil
+            </button>
+          </div>
+        )}
+
+        {view === 'funil' && step !== 'select-restaurant' && step !== 'pin' && (
+          <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} />
+        )}
+
+        {view === 'atender' && step === 'select-restaurant' && (
           <div>
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Store size={22} /> Selecione o restaurante
@@ -164,7 +209,7 @@ export default function CaixaApp() {
           </div>
         )}
 
-        {step === 'pin' && (
+        {view === 'atender' && step === 'pin' && (
           <form onSubmit={handlePinSubmit}>
             <button type="button" onClick={() => setStep('select-restaurant')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <ArrowLeft size={16} /> Voltar
@@ -186,7 +231,7 @@ export default function CaixaApp() {
           </form>
         )}
 
-        {step === 'search' && (
+        {view === 'atender' && step === 'search' && (
           <form onSubmit={handleSearch}>
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Search size={22} /> Buscar cliente
@@ -225,7 +270,7 @@ export default function CaixaApp() {
           </form>
         )}
 
-        {step === 'choose-action' && (
+        {view === 'atender' && step === 'choose-action' && (
           <div>
             <button type="button" onClick={() => setStep('search')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <ArrowLeft size={16} /> Voltar
@@ -257,7 +302,7 @@ export default function CaixaApp() {
           </div>
         )}
 
-        {step === 'confirm-sale' && (
+        {view === 'atender' && step === 'confirm-sale' && (
           <form onSubmit={handleConfirmSale}>
             <button type="button" onClick={() => setStep('choose-action')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <ArrowLeft size={16} /> Voltar
@@ -288,7 +333,7 @@ export default function CaixaApp() {
           </form>
         )}
 
-        {step === 'confirm-appointment' && (
+        {view === 'atender' && step === 'confirm-appointment' && (
           <form onSubmit={handleConfirmAppointment}>
             <button type="button" onClick={() => setStep('choose-action')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <ArrowLeft size={16} /> Voltar
@@ -317,7 +362,7 @@ export default function CaixaApp() {
           </form>
         )}
 
-        {step === 'success' && (
+        {view === 'atender' && step === 'success' && (
           <div style={{ textAlign: 'center' }}>
             <CheckCircle2 size={56} color="#10b981" style={{ margin: '0 auto 16px' }} />
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '20px' }}>Feito!</h1>
