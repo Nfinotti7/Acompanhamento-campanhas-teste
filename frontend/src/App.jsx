@@ -8,6 +8,7 @@ import CredentialsPage from './pages/CredentialsPage';
 import RemarketingPage from './pages/RemarketingPage';
 import TrackingPage from './pages/TrackingPage';
 import WhatsAppInboxPage from './pages/WhatsAppInboxPage';
+import WhatsAppKanbanPage from './pages/WhatsAppKanbanPage';
 import ClientsPage from './pages/ClientsPage';
 import LoginPage from './pages/LoginPage';
 import CampaignsTable from './components/CampaignsTable';
@@ -17,6 +18,7 @@ function MainApp() {
   const { user, loading: authLoading, selectedClientId, setSelectedClientId } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [focusContactId, setFocusContactId] = useState(null);
 
   // Filters
   const [selectedPlatform, setSelectedPlatform] = useState('all');
@@ -116,6 +118,11 @@ function MainApp() {
     } finally {
       setDataLoading(false);
     }
+  };
+
+  const handleViewConversation = (contactId) => {
+    setFocusContactId(contactId);
+    setActiveTab('whatsapp');
   };
 
   const handleSync = async () => {
@@ -263,7 +270,15 @@ function MainApp() {
           )}
 
           {activeTab === 'whatsapp' && (
-            <WhatsAppInboxPage selectedClient={selectedClientId} />
+            <WhatsAppInboxPage
+              selectedClient={selectedClientId}
+              focusContactId={focusContactId}
+              onFocusHandled={() => setFocusContactId(null)}
+            />
+          )}
+
+          {activeTab === 'whatsapp-kanban' && (
+            <WhatsAppKanbanPage selectedClient={selectedClientId} onViewConversation={handleViewConversation} />
           )}
 
           {activeTab === 'clients' && user.role === 'admin' && (

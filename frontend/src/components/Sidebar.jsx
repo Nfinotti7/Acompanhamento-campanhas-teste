@@ -9,7 +9,8 @@ import {
   LogOut,
   ShieldCheck,
   Building2,
-  MessageCircle
+  MessageCircle,
+  Columns3
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,6 +23,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate })
     { id: 'remarketing', label: 'Remarketing / Leads', icon: Target },
     { id: 'tracking', label: 'Tracking & Atribuição', icon: Link2 },
     { id: 'whatsapp', label: 'WhatsApp & Conversões', icon: MessageCircle },
+    { id: 'whatsapp-kanban', label: 'Funil WhatsApp', icon: Columns3 },
   ];
 
   if (user?.role === 'admin') {

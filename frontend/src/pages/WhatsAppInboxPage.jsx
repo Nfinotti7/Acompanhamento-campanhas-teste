@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { MessageCircle, Send } from 'lucide-react';
 
-export default function WhatsAppInboxPage({ selectedClient }) {
+export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFocusHandled }) {
   const [conversations, setConversations] = useState([]);
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -19,6 +19,13 @@ export default function WhatsAppInboxPage({ selectedClient }) {
   useEffect(() => {
     if (selectedContactId) fetchMessages(selectedContactId);
   }, [selectedContactId]);
+
+  useEffect(() => {
+    if (focusContactId) {
+      setSelectedContactId(focusContactId);
+      if (onFocusHandled) onFocusHandled();
+    }
+  }, [focusContactId]);
 
   const fetchConversations = async () => {
     setLoading(true);
