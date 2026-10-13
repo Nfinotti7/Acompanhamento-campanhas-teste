@@ -1,6 +1,7 @@
 import db from '../config/db.js';
 import { computeRoi } from '../utils/whatsappRoi.js';
 import { resolveDateRange } from './campaignController.js';
+import { moveToAutoStage } from '../services/crmStages.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -55,10 +56,7 @@ export async function createConversion(req, res) {
     );
 
     if (contactId) {
-      await db.query(
-        `UPDATE whatsapp_contacts SET manual_stage = NULL, manual_stage_set_at = NULL WHERE id = ?`,
-        [contactId]
-      );
+      await moveToAutoStage(db, { clientId, contactId, event: 'venda' });
     }
 
     return res.status(201).json({ message: 'Conversão registrada com sucesso!', id: rows[0].id });

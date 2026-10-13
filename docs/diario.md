@@ -25,7 +25,7 @@
 **Em produção (main, já deployado e confirmado no ar):**
 - Tracking de campanhas Google Ads + Meta Ads, multi-cliente (Recreio, Alma Boutique Bar, Giulí Osteria, Malibu Sushibar), com suporte a cliente com múltiplas contas de anúncio / múltiplas Páginas do Facebook.
 - WhatsApp: recebimento de mensagens via API oficial (Cloud API, webhook) **ou** via Baileys (WhatsApp Web não-oficial, conexão por QR code) — escolhido por cliente em `whatsapp_settings.connection_type`.
-- CRM de WhatsApp completo: Funil (kanban) + Agenda + Conversas, com etapa manual (override que some sozinho quando chega evento real novo), anotações por contato, histórico unificado (mensagens + vendas + agendamento), editar/apagar venda lançada, apagar contato/lead.
+- CRM de WhatsApp completo: Funil estilo Kommo (etapas personalizadas por cliente, arrastar card, valor do negócio, tags, responsável; ver Fase 3) + Agenda + Conversas, anotações por contato, histórico unificado (mensagens + vendas + agendamento), editar/apagar venda lançada, apagar contato/lead.
 - `/caixa`: shell estilo WhatsApp Web (rail de ícones à esquerda: Conversas/Funil/Agenda), login persistente (localStorage, não desloga no F5), atualização em tempo real via Server-Sent Events (mensagem nova aparece sozinha, sem precisar recarregar).
 - Toda mensagem real (texto, foto, áudio, figurinha, documento, localização) cria/atualiza o contato — só reação (emoji a outra mensagem) é ignorada.
 
@@ -42,7 +42,7 @@ Também corrigido nesse mesmo dia: `wa_id` gravado errado quando o WhatsApp usa 
 **Roadmap combinado com o usuário (2026-10-13), em ordem — referência: prints do Tintim + `BLUEPRINT_atribuicao_furtherads.md` que o usuário mandou:**
 1. ✅ **Conversa de verdade** — som de mensagem nova, foto do lead, abrir imagem, ouvir áudio, vídeo/documento (ver Registro).
 2. ✅ **Atribuição estilo Tintim** (ver Registro 2026-10-13, Fase 2) — validar assinatura do webhook (`X-Hub-Signature-256`, hoje qualquer um consegue mandar mensagem falsa), resolver `ad_id` → conta/campanha/conjunto/anúncio via Marketing API (credenciais Meta por cliente já existem), painel "Informações da conversa" com método de rastreamento, origens Meta/Google/Outras/Não rastreada, dashboard de conversas (total, % rastreadas, gráfico por dia por origem, funil, vendas/faturamento).
-3. ⏳ **CRM estilo Kommo** — o usuário escolheu: etapas personalizadas por cliente + arrastar cards; valor do negócio no card (soma por coluna); tags e responsável. (Tarefas/lembretes ficaram de fora por enquanto.) Substitui as 6 etapas fixas calculadas; cada etapa já preparada pra mapear um evento de conversão (Contact/Schedule/Purchase).
+3. ✅ **CRM estilo Kommo** (ver Registro 2026-10-13, Fase 3) — o usuário escolheu: etapas personalizadas por cliente + arrastar cards; valor do negócio no card (soma por coluna); tags e responsável. (Tarefas/lembretes ficaram de fora por enquanto.) Substitui as 6 etapas fixas calculadas; cada etapa já preparada pra mapear um evento de conversão (Contact/Schedule/Purchase).
 4. ⏳ **Link Rastreável + CAPI** — link próprio que captura UTM/fbclid e redireciona pro `wa.me` com token; disparo dos eventos por etapa pra Meta/Google com log.
 - O blueprint propunha criar tabelas novas (`contatos`, `mensagens`...) — **não fazer isso**: as equivalentes já existem (`whatsapp_contacts`, `whatsapp_messages`, `real_conversions`). Estender, não duplicar.
 - ~~Baileys nunca recebe `referral`~~ **ERRADO, corrigido em 2026-10-13**: pelo QR code a primeira mensagem de quem clicou em anúncio CTWA traz `contextInfo.externalAdReply` (`sourceId` = ad id, `ctwaClid`), e agora é lido (ver Registro). O que o Baileys não pega é origem fora de anúncio Meta (Google, orgânico); isso é o Link Rastreável (Fase 4).
@@ -166,3 +166,33 @@ O usuário viu que o Tintim rastreia anúncio mesmo conectado por QR code e suge
 - `baileysClient.js`: quando há `adId`, chama `resolveAd` em segundo plano e loga `Baileys [client X]: conversa de anúncio (ad ..., clid sim/não)`. Isso serve pra conferir nos logs do Hostinger.
 - **Ainda não validado com mensagem real.** Falta alguém clicar num anúncio ativo do Malibu e mandar mensagem, e conferir a aba Origem e o log. Se o lead apagar a prévia do anúncio antes de enviar, o cartão não vem e a conversa fica "não rastreada" (limitação do WhatsApp).
 - Risco de banimento discutido com o usuário: só receber e responder quem chamou, no ritmo de um atendente, é o uso de menor risco. Disparo em massa e remarketing só pela API oficial. O usuário concorda.
+
+### 2026-10-13 (continuação) — Fase 3: CRM estilo Kommo
+
+Decisões do usuário (AskUserQuestion):
+- **Arrastar:** o card fica onde foi colocado. Só três eventos movem sozinho: lead novo entra na etapa marcada "Lead novo entra aqui", agendamento e venda movem pra etapa ligada a cada um. Mensagem comum não move mais. Isso **substitui** a regra antiga "evento real sempre vence" (`manual_stage`).
+- **Responsável:** lista de nomes por cliente (`crm_team_members`). Não mexe no login; o PIN do /caixa continua um só.
+- **Valor:** campo manual (`deal_value`). Quando existe venda lançada, o card mostra o total das vendas (`cardValue`).
+- **Quem edita etapas e tags:** todos, inclusive o /caixa.
+
+Implementação:
+- Tabelas novas: `crm_stages` (nome, cor, posição, `auto_event` ∈ novo_lead/agendado/venda, no máximo uma etapa por evento), `crm_team_members`, `crm_tags`, `whatsapp_contact_tags`. Colunas novas em `whatsapp_contacts`: `stage_id`, `deal_value`, `responsible_id`. `clients.crm_seeded_at` marca o cliente já migrado.
+- `services/crmStages.js` (testado):
+  - `ensureStages` cria as 6 etapas antigas como padrão, uma vez por cliente, e posiciona os contatos existentes pela etapa calculada antiga (`computeStage`/`manual_stage`).
+  - Usa claim atômico no `UPDATE clients ... WHERE crm_seeded_at IS NULL`.
+  - Se o cliente apagar todas as etapas depois, não recria.
+- `moveToAutoStage` é chamado em `ingestWhatsAppEvent` (só se `stage_id IS NULL`), em `setAppointment` (só se marcou data) e em `createConversion`. `replyToConversation` não move mais.
+- Rotas:
+  - `GET /api/crm/config`.
+  - CRUD `/api/crm/stages`, mais `PUT /api/crm/stages/order`. Apagar uma etapa move os cards pra primeira que sobrar. Não deixa apagar a última etapa.
+  - CRUD `/api/crm/tags` e `/api/crm/team`.
+  - `GET` e `PATCH /api/whatsapp/contacts/:id/crm` (stageId, dealValue, responsibleId, tagIds).
+  - **Removido** `PATCH /contacts/:id/stage`. `whatsappStage.js`/`computeStage` só servem agora pra migração inicial. `manual_stage` e `remarketing_days` ficaram sem uso, mas não foram apagados (schema aditivo).
+- `GET /api/whatsapp/kanban` agora devolve `{ stages, contacts }`. Cada contato traz `stage_id` efetivo, `value`, `tag_ids` e `responsible_name`.
+- Frontend:
+  - `components/crm/CrmBoard.jsx`: o mesmo quadro no admin (`WhatsAppKanbanPage`) e no /caixa (`CaixaFunilView`). Arrastar usa drag-and-drop nativo do HTML5 (não funciona no touch; no celular, troca a etapa pelo painel do contato). Tem filtros por busca, tag e responsável, e soma em R$ por coluna.
+  - `crm/CrmSettings.jsx`: modal "Configurar funil".
+  - `crm/DealBar.jsx`: etapa, valor, responsável e tags no topo do `ContactDetailPanel`, inclusive na aba Conversas.
+- **Perdido de propósito:** as etapas por tempo ("Não compareceu" quando o agendamento passa, "Remarketing" depois de N dias) não andam mais sozinhas, porque o usuário escolheu que só venda e agendamento movem. Se ele sentir falta, dá pra adicionar `auto_event` por tempo.
+- Testado localmente contra o banco de produção com o Recreio: arrastar, abrir card, criar tag e responsável, valor estimado vs. venda real. **Atenção:** isso já migrou o Recreio (etapas criadas no banco de produção); os outros clientes migram na primeira abertura do funil.
+- Próximo: Fase 4 (Link Rastreável + CAPI). As etapas já têm `auto_event`; o disparo de conversão por etapa vai precisar de um campo novo (ex: `conversion_event` em `crm_stages`).

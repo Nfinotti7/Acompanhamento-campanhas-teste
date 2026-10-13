@@ -19,11 +19,12 @@ import { searchContacts, createConversion, updateConversion, deleteConversion, g
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
-import { setContactStage, setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
+import { setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
 import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
+import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -98,7 +99,21 @@ app.post('/api/whatsapp/contacts/:contactId/appointment', setAppointment);
 app.get('/api/whatsapp/baileys/status', getBaileysStatus);
 
 // WhatsApp Contact (CRM: etapa manual, anotacoes, historico)
-app.patch('/api/whatsapp/contacts/:contactId/stage', setContactStage);
+app.get('/api/whatsapp/contacts/:contactId/crm', getContactCrm);
+app.patch('/api/whatsapp/contacts/:contactId/crm', updateContactCrm);
+
+// CRM: etapas do funil, tags e equipe (por cliente)
+app.get('/api/crm/config', getCrmConfig);
+app.post('/api/crm/stages', createStage);
+app.put('/api/crm/stages/order', reorderStages);
+app.patch('/api/crm/stages/:stageId', updateStage);
+app.delete('/api/crm/stages/:stageId', deleteStage);
+app.post('/api/crm/tags', tagsCrud.create);
+app.patch('/api/crm/tags/:id', tagsCrud.update);
+app.delete('/api/crm/tags/:id', tagsCrud.remove);
+app.post('/api/crm/team', teamCrud.create);
+app.patch('/api/crm/team/:id', teamCrud.update);
+app.delete('/api/crm/team/:id', teamCrud.remove);
 app.patch('/api/whatsapp/contacts/:contactId/notes', setContactNotes);
 app.get('/api/whatsapp/contacts/:contactId/timeline', getContactTimeline);
 app.delete('/api/whatsapp/contacts/:contactId', deleteContact);

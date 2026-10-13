@@ -160,14 +160,16 @@ test('ingestWhatsAppEvent marca source como organic quando nao tem ctwa_clid', a
   assert.equal(contactCall.params[7], 'organic');
 });
 
-test('ingestWhatsAppEvent limpa manual_stage e manual_stage_set_at no upsert', async () => {
+test('mensagem nova poe contato sem etapa no funil, sem mexer em quem ja tem etapa', async () => {
   const { db, calls } = makeFakeDb();
 
-  await ingestWhatsAppEvent(5, baseEvent(), { db });
+  await ingestWhatsAppEvent(5, baseEvent(), { db, broadcast: () => {} });
 
+  const stageCall = calls.find((c) => /UPDATE whatsapp_contacts SET stage_id/.test(c.sql));
+  assert.ok(stageCall);
+  assert.match(stageCall.sql, /stage_id IS NULL/);
   const contactCall = calls.find((c) => /INSERT INTO whatsapp_contacts/.test(c.sql));
-  assert.match(contactCall.sql, /manual_stage = NULL/);
-  assert.match(contactCall.sql, /manual_stage_set_at = NULL/);
+  assert.doesNotMatch(contactCall.sql, /stage/);
 });
 
 test('ingestWhatsAppEvent notifica via SSE quando a mensagem e gravada', async () => {

@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
+import { moveToAutoStage } from './crmStages.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -51,8 +52,6 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
        ad_referral_json = COALESCE(whatsapp_contacts.ad_referral_json, excluded.ad_referral_json),
        tracking_method = COALESCE(whatsapp_contacts.tracking_method, excluded.tracking_method),
        source = CASE WHEN whatsapp_contacts.source = 'ad' THEN 'ad' ELSE excluded.source END,
-       manual_stage = NULL,
-       manual_stage_set_at = NULL,
        last_message_at = excluded.last_message_at
      RETURNING id`,
     [
@@ -71,6 +70,10 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
     ]
   );
   const contactId = contactRows[0].id;
+
+  // Contato novo entra no funil (etapa de "novo lead"). Quem já está numa etapa fica lá:
+  // mensagem comum não move card -- só agendamento e venda (ver crmStages.js).
+  await moveToAutoStage(dbImpl, { clientId, contactId, event: 'novo_lead' });
 
   const { rows: messageRows } = await dbImpl.query(
     `INSERT INTO whatsapp_messages (client_id, contact_id, direction, body, wa_message_id, sent_at, media_type, media_filename)

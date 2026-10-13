@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import ContactDetailPanel from './ContactDetailPanel';
-
-const STAGES = [
-  { key: 'novo_lead', label: 'Novo Lead' },
-  { key: 'em_atendimento', label: 'Em Atendimento' },
-  { key: 'agendado', label: 'Agendado' },
-  { key: 'nao_compareceu', label: 'Não Compareceu' },
-  { key: 'compareceu', label: 'Compareceu' },
-  { key: 'remarketing', label: 'Remarketing' }
-];
+import CrmBoard from './crm/CrmBoard';
 
 function todayISODate() {
   // Monta a data a partir dos componentes locais (não new Date().toISOString(),
@@ -21,44 +13,22 @@ function todayISODate() {
   return `${year}-${month}-${day}`;
 }
 
-function formatAppointment(iso) {
-  if (!iso) return null;
-  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
 export default function CaixaFunilView({ caixaApi, inputStyle, view, lastEvent }) {
-  const [contacts, setContacts] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [date, setDate] = useState(todayISODate());
   const [loading, setLoading] = useState(true);
   const [openContact, setOpenContact] = useState(null);
 
   useEffect(() => {
-    if (view === 'funil') {
-      fetchKanban();
-    } else {
-      fetchAgenda();
-    }
+    if (view === 'agenda') fetchAgenda();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, date]);
 
   useEffect(() => {
     if (!lastEvent) return;
-    if (view === 'funil') fetchKanban(); else fetchAgenda();
+    if (view === 'agenda') fetchAgenda();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastEvent]);
-
-  const fetchKanban = async () => {
-    setLoading(true);
-    try {
-      const res = await caixaApi.get('/api/whatsapp/kanban');
-      setContacts(res.data.contacts || []);
-    } catch (err) {
-      console.error('Error fetching kanban:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchAgenda = async () => {
     setLoading(true);
@@ -72,7 +42,11 @@ export default function CaixaFunilView({ caixaApi, inputStyle, view, lastEvent }
     }
   };
 
-  const refetch = () => (view === 'funil' ? fetchKanban() : fetchAgenda());
+  const refetch = () => fetchAgenda();
+
+  if (view === 'funil') {
+    return <CrmBoard apiClient={caixaApi} lastEvent={lastEvent} />;
+  }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -88,39 +62,6 @@ export default function CaixaFunilView({ caixaApi, inputStyle, view, lastEvent }
       <div style={{ flex: 1, overflow: 'auto' }}>
         {loading ? (
           <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Carregando...</p>
-        ) : view === 'funil' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(200px, 1fr))', gap: '12px' }}>
-            {STAGES.map((stage) => {
-              const stageContacts = contacts.filter((c) => c.stage === stage.key);
-              return (
-                <div key={stage.key} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px', minHeight: '200px' }}>
-                  <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{stage.label}</span>
-                    <span style={{ color: '#64748b' }}>{stageContacts.length}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {stageContacts.length === 0 ? (
-                      <p style={{ color: '#64748b', fontSize: '0.75rem' }}>Vazio</p>
-                    ) : (
-                      stageContacts.map((c) => (
-                        <div
-                          key={c.id}
-                          onClick={() => setOpenContact(c)}
-                          style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', cursor: 'pointer' }}
-                        >
-                          <div style={{ fontWeight: 600, color: '#fff' }}>{c.profile_name || c.wa_id}</div>
-                          <div style={{ color: '#94a3b8' }}>{c.wa_id}</div>
-                          {c.appointment_at && (
-                            <div style={{ color: '#a855f7', marginTop: '2px' }}>📅 {formatAppointment(c.appointment_at)}</div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {appointments.length === 0 ? (

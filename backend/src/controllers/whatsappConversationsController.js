@@ -141,8 +141,7 @@ export async function replyToConversation(req, res) {
     // Responder sobe a conversa pro topo da lista e conta como "lida" pela equipe.
     await db.query(
       `UPDATE whatsapp_contacts
-       SET manual_stage = NULL, manual_stage_set_at = NULL,
-           last_message_at = CURRENT_TIMESTAMP, last_read_at = CURRENT_TIMESTAMP
+       SET last_message_at = CURRENT_TIMESTAMP, last_read_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [contactId]
     );

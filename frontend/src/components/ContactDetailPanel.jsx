@@ -3,15 +3,8 @@ import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Tra
 import { Avatar, MessageMedia, ImageLightbox, isPlaceholderBody } from './whatsappMedia';
 import AttributionView from './AttributionView';
 import { formatTime, dayLabel, isSameDay, StatusTicks } from './chatFormat';
+import DealBar from './crm/DealBar';
 
-const STAGES = [
-  { key: 'novo_lead', label: 'Novo Lead' },
-  { key: 'em_atendimento', label: 'Em Atendimento' },
-  { key: 'agendado', label: 'Agendado' },
-  { key: 'nao_compareceu', label: 'Não Compareceu' },
-  { key: 'compareceu', label: 'Compareceu' },
-  { key: 'remarketing', label: 'Remarketing' }
-];
 
 const fieldStyle = {
   width: '100%',
@@ -69,8 +62,9 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
 
-  const [currentStage, setCurrentStage] = useState(contact.stage || '');
-  const [savingStage, setSavingStage] = useState(false);
+  // Bump pra DealBar recarregar etapa/valor depois de lançar venda ou agendar (os dois
+  // podem mover o card de etapa no servidor).
+  const [dealVersion, setDealVersion] = useState(0);
 
   const [actionMode, setActionMode] = useState(null); // null | 'sale' | 'appointment' | 'success'
   const [customerName, setCustomerName] = useState(contact.profile_name || '');
@@ -89,7 +83,6 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   useEffect(() => {
     setSection('conversa');
     setActionMode(null);
-    setCurrentStage(contact.stage || '');
     setCustomerName(contact.profile_name || '');
     setPhone(contact.wa_id || '');
     setNotes(contact.notes || '');
@@ -174,20 +167,6 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     }
   };
 
-  const handleStageChange = async (e) => {
-    const newStage = e.target.value;
-    setSavingStage(true);
-    try {
-      await apiClient.patch(`/api/whatsapp/contacts/${contact.id}/stage`, { stage: newStage || null, clientId });
-      setCurrentStage(newStage);
-      if (onUpdated) onUpdated();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao mover etapa.');
-    } finally {
-      setSavingStage(false);
-    }
-  };
-
   const handleSaveNotes = async () => {
     setNotesSaving(true);
     setNotesSaved(false);
@@ -215,6 +194,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
         clientId
       });
       setActionMode('success');
+      setDealVersion((v) => v + 1);
       if (onUpdated) onUpdated();
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao lançar conversão.');
@@ -231,6 +211,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
       const appointmentAt = new Date(`${appointmentDate}T${appointmentTime}`).toISOString();
       await apiClient.post(`/api/whatsapp/contacts/${contact.id}/appointment`, { appointmentAt, clientId });
       setActionMode('success');
+      setDealVersion((v) => v + 1);
       if (onUpdated) onUpdated();
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao marcar agendamento.');
@@ -305,18 +286,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
         <Avatar apiClient={apiClient} clientId={clientId} mediaId={contact.profile_pic_media_id} name={contact.profile_name || contact.wa_id} size={44} />
         <div>
           <div style={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>{contact.profile_name || contact.wa_id}</div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px' }}>{contact.wa_id}</div>
-          <select
-            value={currentStage || ''}
-            onChange={handleStageChange}
-            disabled={savingStage}
-            style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#131b2e', color: '#fff', fontSize: '0.75rem' }}
-          >
-            <option value="">Automático (calculado)</option>
-            {STAGES.map((s) => (
-              <option key={s.key} value={s.key}>{s.label}</option>
-            ))}
-          </select>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{contact.wa_id}</div>
         </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
@@ -342,6 +312,8 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           )}
         </div>
       </div>
+
+      <DealBar apiClient={apiClient} clientId={clientId} contactId={contact.id} version={dealVersion} onChanged={onUpdated} />
 
       {actionMode === 'success' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>

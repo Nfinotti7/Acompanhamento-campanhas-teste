@@ -264,6 +264,46 @@ export async function initDb() {
       fetched_at TIMESTAMPTZ NOT NULL
     )
   `);
+  // CRM estilo Kommo (ver services/crmStages.js): etapas, equipe e tags por cliente.
+  await query(`
+    CREATE TABLE IF NOT EXISTS crm_stages (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#6366f1',
+      position INTEGER NOT NULL DEFAULT 0,
+      auto_event TEXT,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS crm_team_members (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS crm_tags (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#6366f1',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_contact_tags (
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      tag_id INTEGER NOT NULL REFERENCES crm_tags(id) ON DELETE CASCADE,
+      PRIMARY KEY (contact_id, tag_id)
+    )
+  `);
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS crm_seeded_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES crm_stages(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS deal_value NUMERIC(12,2)`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS responsible_id INTEGER REFERENCES crm_team_members(id) ON DELETE SET NULL`);
 
   await seedData();
 }
