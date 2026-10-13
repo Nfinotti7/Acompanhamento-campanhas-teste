@@ -120,6 +120,6 @@ export async function replyToConversation(req, res) {
     return res.json({ message: 'Mensagem enviada.' });
   } catch (error) {
     console.error('Reply to conversation error:', error);
-    return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
+    return res.status(500).json({ error: 'Erro ao enviar mensagem.', detail: error?.message, stack: error?.stack });
   }
 }
