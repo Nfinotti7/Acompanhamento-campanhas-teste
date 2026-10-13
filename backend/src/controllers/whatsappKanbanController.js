@@ -109,7 +109,9 @@ export async function setAppointment(req, res) {
     }
 
     const { rows } = await db.query(
-      `UPDATE whatsapp_contacts SET appointment_at = ? WHERE id = ? AND client_id = ? RETURNING id`,
+      `UPDATE whatsapp_contacts
+       SET appointment_at = ?, manual_stage = NULL, manual_stage_set_at = NULL
+       WHERE id = ? AND client_id = ? RETURNING id`,
       [parsedAppointment, contactId, clientId]
     );
 

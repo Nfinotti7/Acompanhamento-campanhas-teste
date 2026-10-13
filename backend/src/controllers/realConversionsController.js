@@ -54,6 +54,13 @@ export async function createConversion(req, res) {
       [clientId, contactId || null, customerName, phone || null, Number(amountSpent), matchedBy]
     );
 
+    if (contactId) {
+      await db.query(
+        `UPDATE whatsapp_contacts SET manual_stage = NULL, manual_stage_set_at = NULL WHERE id = ?`,
+        [contactId]
+      );
+    }
+
     return res.status(201).json({ message: 'Conversão registrada com sucesso!', id: rows[0].id });
   } catch (error) {
     console.error('Create conversion error:', error);

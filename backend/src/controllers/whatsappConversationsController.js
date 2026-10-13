@@ -104,6 +104,11 @@ export async function replyToConversation(req, res) {
       [clientId, contactId, body, waMessageId]
     );
 
+    await db.query(
+      `UPDATE whatsapp_contacts SET manual_stage = NULL, manual_stage_set_at = NULL WHERE id = ?`,
+      [contactId]
+    );
+
     return res.json({ message: 'Mensagem enviada.' });
   } catch (error) {
     console.error('Reply to conversation error:', error);

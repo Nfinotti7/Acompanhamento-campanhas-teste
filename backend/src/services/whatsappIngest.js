@@ -17,6 +17,8 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
        ad_headline = COALESCE(whatsapp_contacts.ad_headline, excluded.ad_headline),
        ad_body = COALESCE(whatsapp_contacts.ad_body, excluded.ad_body),
        source = CASE WHEN whatsapp_contacts.source = 'ad' THEN 'ad' ELSE excluded.source END,
+       manual_stage = NULL,
+       manual_stage_set_at = NULL,
        last_message_at = excluded.last_message_at
      RETURNING id`,
     [
