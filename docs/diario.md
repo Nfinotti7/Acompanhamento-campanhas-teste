@@ -33,7 +33,7 @@
 - Vincular Google Ads de Alma, Giulí e Malibu à MCC da agência — precisa ser feito manualmente pelo usuário na interface do Google Ads.
 - WhatsApp oficial (Cloud API) do Malibu está bloqueado por verificação de negócio + cartão de pagamento recusado na Meta. Baileys é o caminho interino enquanto isso não resolve — usuário pretendia migrar pra oficial "essa semana" (dito em 2026-10-12).
 
-**Em aberto / observar:** a conexão Baileys do Malibu já caiu uma vez (precisou escanear QR de novo) durante os testes em 2026-10-13. Adicionado reconexão automática na subida do servidor (ver Registro), mas ainda não está confirmado se a causa era só "processo reiniciou" (resolvido agora) ou "sessão em disco se perde a cada deploy" (não resolvido, precisaria investigar se `.baileys_sessions/` sobrevive aos deploys do Hostinger). Se a conexão cair de novo logo após um deploy, é esse segundo caso.
+**Em aberto / observar:** (RESOLVIDO: a sessão agora fica em `~/.further_baileys_sessions` e sobreviveu ao deploy d214a9e sem pedir QR.) Histórico: a conexão Baileys do Malibu já caiu uma vez (precisou escanear QR de novo) durante os testes em 2026-10-13. Adicionado reconexão automática na subida do servidor (ver Registro), mas ainda não está confirmado se a causa era só "processo reiniciou" (resolvido agora) ou "sessão em disco se perde a cada deploy" (não resolvido, precisaria investigar se `.baileys_sessions/` sobrevive aos deploys do Hostinger). Se a conexão cair de novo logo após um deploy, é esse segundo caso.
 
 Também corrigido nesse mesmo dia: `wa_id` gravado errado quando o WhatsApp usa LID (ver Registro) — se o usuário relatar mais contatos com número "estranho"/muito longo que não recebem resposta, é esse bug (já corrigido, mas contatos criados *antes* da correção continuam quebrados até serem apagados e recriados).
 
@@ -148,3 +148,12 @@ Pedido do usuário depois da Fase 2 (ele disse que ainda falta muita coisa pra f
   - Atualização ao vivo via SSE (evento com `kind: 'status'`, sem `direction`, então não toca o som).
 - Testado localmente com webhook assinado (mensagens chegando, entregue → lida, aviso atrasado ignorado). Não testado com Baileys real (não há sessão local); confirmar com o usuário depois do deploy.
 - Limitação de qualquer WhatsApp: se o cliente desliga a confirmação de leitura na privacidade, fica em ✓✓ cinza pra sempre.
+- Depois do deploy (d214a9e), o Malibu reconectou sozinho, **sem pedir QR**. Isso confirma que mover a sessão Baileys pra `~/.further_baileys_sessions` resolveu a perda de sessão a cada deploy.
+
+### 2026-10-13 (continuação) — Conversa não rolava
+
+O usuário relatou que a janela da conversa no `/caixa` não tinha rolagem nem descia sozinha. A causa era a falta de `min-height: 0` na cadeia grid/flex: a lista de mensagens crescia do tamanho do conteúdo, e o `overflow: hidden` do pai cortava as mensagens mais novas. A correção:
+- `CaixaChatView`: `gridTemplateRows: 'minmax(0, 1fr)'` e `minHeight: 0` nas colunas.
+- `ContactDetailPanel`: `minHeight: 0` na raiz e nas áreas com rolagem.
+- A rolagem automática agora usa `scrollTop = scrollHeight` no próprio container, em vez de `scrollIntoView`, que rolava a página inteira. Ela é "grudenta": só puxa pro fim se a pessoa já estava perto do fim (menos de 80px). Quem subiu pra ler o histórico não é puxado de volta. Trocar de contato, voltar pra aba Conversa e enviar resposta forçam a ida pro fim. Imagem ou vídeo que termina de carregar (`onLoad` no `MessageMedia`) também re-rola, porque muda a altura da lista.
+- Testado localmente com 40 mensagens: abre no fim e rola manualmente.

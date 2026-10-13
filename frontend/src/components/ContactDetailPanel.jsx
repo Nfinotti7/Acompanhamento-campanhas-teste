@@ -42,7 +42,21 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   const [section, setSection] = useState('conversa');
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [attribution, setAttribution] = useState(null);
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  // Fica "grudado" no fim enquanto a pessoa está vendo as últimas mensagens; se ela
+  // subiu pra ler o histórico, mensagem nova (ou atualização de tique) não a puxa pra baixo.
+  const stickToBottomRef = useRef(true);
+  const scrollToBottom = () => {
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+  const handleMessagesScroll = () => {
+    const el = messagesContainerRef.current;
+    if (el) stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+  const handleMediaLoad = () => {
+    if (stickToBottomRef.current) scrollToBottom();
+  };
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -81,13 +95,15 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     setNotes(contact.notes || '');
     setNotesSaved(false);
     setMessages([]);
+    stickToBottomRef.current = true;
     fetchMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contact.id]);
 
+  // section: voltar pra aba Conversa remonta a lista, que nasce rolada no topo.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages]);
+    if (section === 'conversa' && stickToBottomRef.current) scrollToBottom();
+  }, [messages, section]);
 
   useEffect(() => {
     if (liveUpdateSignal == null) return;
@@ -148,6 +164,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     try {
       await apiClient.post(`/api/whatsapp/conversations/${contact.id}/reply`, { body: replyText, clientId });
       setReplyText('');
+      stickToBottomRef.current = true; // quem acabou de responder quer ver a própria mensagem
       fetchMessages();
       if (onUpdated) onUpdated();
     } catch (err) {
@@ -281,7 +298,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
@@ -385,7 +402,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
 
           {section === 'conversa' && (
             <>
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+              <div ref={messagesContainerRef} onScroll={handleMessagesScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px', paddingRight: '4px' }}>
                 {loadingMessages && messages.length === 0 ? (
                   <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Carregando...</p>
                 ) : messages.length === 0 ? (
@@ -415,7 +432,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                             gap: '4px'
                           }}
                         >
-                          <MessageMedia message={m} apiClient={apiClient} clientId={clientId} onOpenImage={setLightboxSrc} />
+                          <MessageMedia message={m} apiClient={apiClient} clientId={clientId} onOpenImage={setLightboxSrc} onLoad={handleMediaLoad} />
                           {!(m.media_id && isPlaceholderBody(m.body)) && (
                             <span style={{ padding: m.media_id ? '0 6px' : 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</span>
                           )}
@@ -428,7 +445,6 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                     );
                   })
                 )}
-                <div ref={messagesEndRef} />
               </div>
               <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -446,7 +462,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           )}
 
           {section === 'historico' && (
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {loadingTimeline ? (
                 <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Carregando...</p>
               ) : timeline.length === 0 ? (
@@ -501,7 +517,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           )}
 
           {section === 'origem' && (
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               <AttributionView data={attribution} />
             </div>
           )}

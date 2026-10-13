@@ -48,7 +48,8 @@ export function isPlaceholderBody(body) {
   return PLACEHOLDER_PREFIXES.some((prefix) => (body || '').startsWith(prefix));
 }
 
-export function MessageMedia({ message, apiClient, clientId, onOpenImage }) {
+// onLoad: a imagem só ganha altura quando carrega -- avisa quem rola a conversa pro fim.
+export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad }) {
   if (!message.media_type) return null;
   if (!message.media_id) {
     return <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>Mídia indisponível</div>;
@@ -62,6 +63,7 @@ export function MessageMedia({ message, apiClient, clientId, onOpenImage }) {
         src={src}
         alt=""
         onClick={() => onOpenImage(src)}
+        onLoad={onLoad}
         style={{ display: 'block', maxWidth: message.media_type === 'sticker' ? 140 : 260, maxHeight: 260, borderRadius: 8, cursor: 'zoom-in' }}
       />
     );
@@ -70,7 +72,7 @@ export function MessageMedia({ message, apiClient, clientId, onOpenImage }) {
     return <audio controls preload="none" src={src} style={{ maxWidth: 260 }} />;
   }
   if (message.media_type === 'video') {
-    return <video controls preload="metadata" src={src} style={{ display: 'block', maxWidth: 280, maxHeight: 280, borderRadius: 8 }} />;
+    return <video controls preload="metadata" src={src} onLoadedMetadata={onLoad} style={{ display: 'block', maxWidth: 280, maxHeight: 280, borderRadius: 8 }} />;
   }
   return (
     <a href={src} download={message.media_filename || 'arquivo'} style={{ color: '#c7d2fe', textDecoration: 'underline' }}>

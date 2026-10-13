@@ -155,8 +155,10 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
   const listToShow = searchResults !== null ? searchResults : conversations;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', height: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
-      <div style={{ borderRight: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1420' }}>
+    // minmax(0, 1fr) / minHeight: 0: sem isso as áreas com rolagem crescem do tamanho
+    // do conteúdo em vez de rolar, e as mensagens mais novas ficam cortadas.
+    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gridTemplateRows: 'minmax(0, 1fr)', height: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ borderRight: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1420', minHeight: 0 }}>
         <div style={{ padding: '10px' }}>
           <input
             type="text"
@@ -166,7 +168,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
             style={{ ...fieldStyle, marginBottom: 0 }}
           />
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {listToShow.length === 0 && (
             <p style={{ padding: '14px', color: '#64748b', fontSize: '0.8rem' }}>
               {searchResults !== null ? 'Nenhum contato encontrado.' : 'Nenhuma conversa ainda.'}
@@ -239,7 +241,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
         </div>
       </div>
 
-      <div style={{ padding: '16px', minWidth: 0 }}>
+      <div style={{ padding: '16px', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         {selectedContact ? (
           <ContactDetailPanel
             apiClient={caixaApi}
