@@ -111,6 +111,7 @@ export default function WhatsAppAgendaPage({ selectedClient, onViewConversation 
               contact={openContact}
               onClose={() => setOpenContact(null)}
               onUpdated={fetchAgenda}
+              onDeleted={() => { setOpenContact(null); fetchAgenda(); }}
             />
           </div>
         </Modal>

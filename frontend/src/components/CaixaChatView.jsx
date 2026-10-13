@@ -192,7 +192,13 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
 
       <div style={{ padding: '16px', minWidth: 0 }}>
         {selectedContact ? (
-          <ContactDetailPanel apiClient={caixaApi} contact={selectedContact} onUpdated={fetchConversations} liveUpdateSignal={liveSignal} />
+          <ContactDetailPanel
+            apiClient={caixaApi}
+            contact={selectedContact}
+            onUpdated={fetchConversations}
+            onDeleted={() => { setSelectedContact(null); fetchConversations(); }}
+            liveUpdateSignal={liveSignal}
+          />
         ) : manualEntryName !== null ? (
           <ManualSaleForm apiClient={caixaApi} initialName={manualEntryName} onDone={finishManualEntry} />
         ) : (

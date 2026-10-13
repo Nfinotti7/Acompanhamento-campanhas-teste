@@ -56,13 +56,13 @@ export async function getContactTimeline(req, res) {
       [contactId]
     );
     const { rows: saleRows } = await db.query(
-      `SELECT amount_spent, created_at FROM real_conversions WHERE contact_id = ? ORDER BY created_at DESC`,
+      `SELECT id, amount_spent, created_at FROM real_conversions WHERE contact_id = ? ORDER BY created_at DESC`,
       [contactId]
     );
 
     const events = [
       ...messageRows.map((m) => ({ type: 'message', occurredAt: m.sent_at, direction: m.direction, body: m.body })),
-      ...saleRows.map((s) => ({ type: 'sale', occurredAt: s.created_at, amountSpent: s.amount_spent }))
+      ...saleRows.map((s) => ({ type: 'sale', id: s.id, occurredAt: s.created_at, amountSpent: s.amount_spent }))
     ];
     if (contact.appointment_at) {
       events.push({ type: 'appointment', occurredAt: contact.appointment_at });
@@ -74,6 +74,31 @@ export async function getContactTimeline(req, res) {
   } catch (error) {
     console.error('Get contact timeline error:', error);
     return res.status(500).json({ error: 'Erro ao buscar histórico.' });
+  }
+}
+
+export async function deleteContact(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    const { contactId } = req.params;
+
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+
+    const { rows } = await db.query(
+      `DELETE FROM whatsapp_contacts WHERE id = ? AND client_id = ? RETURNING id`,
+      [contactId, clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Contato não encontrado.' });
+    }
+
+    return res.json({ message: 'Contato removido com sucesso!' });
+  } catch (error) {
+    console.error('Delete contact error:', error);
+    return res.status(500).json({ error: 'Erro ao remover contato.' });
   }
 }
 

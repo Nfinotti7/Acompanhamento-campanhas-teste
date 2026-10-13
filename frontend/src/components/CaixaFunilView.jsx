@@ -151,6 +151,7 @@ export default function CaixaFunilView({ caixaApi, inputStyle, view, lastEvent }
               contact={openContact}
               onClose={() => setOpenContact(null)}
               onUpdated={refetch}
+              onDeleted={() => { setOpenContact(null); refetch(); }}
             />
           </div>
         </Modal>

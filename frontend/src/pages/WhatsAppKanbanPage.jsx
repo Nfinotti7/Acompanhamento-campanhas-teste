@@ -100,6 +100,7 @@ export default function WhatsAppKanbanPage({ selectedClient, onViewConversation 
               contact={openContact}
               onClose={() => setOpenContact(null)}
               onUpdated={fetchKanban}
+              onDeleted={() => { setOpenContact(null); fetchKanban(); }}
             />
           </div>
         </Modal>

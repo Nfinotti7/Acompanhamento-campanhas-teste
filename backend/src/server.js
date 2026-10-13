@@ -15,10 +15,10 @@ import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsap
 import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
 import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
 import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
-import { searchContacts, createConversion, getRoi } from './controllers/realConversionsController.js';
+import { searchContacts, createConversion, updateConversion, deleteConversion, getRoi } from './controllers/realConversionsController.js';
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
-import { setContactStage, setContactNotes, getContactTimeline } from './controllers/whatsappContactController.js';
+import { setContactStage, setContactNotes, getContactTimeline, deleteContact } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
@@ -78,6 +78,8 @@ app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
 // Real Conversions & ROI
 app.get('/api/whatsapp/contacts/search', searchContacts);
 app.post('/api/whatsapp/conversions', createConversion);
+app.patch('/api/whatsapp/conversions/:conversionId', updateConversion);
+app.delete('/api/whatsapp/conversions/:conversionId', deleteConversion);
 app.get('/api/whatsapp/roi', getRoi);
 
 // WhatsApp Kanban & Agenda
@@ -92,6 +94,7 @@ app.get('/api/whatsapp/baileys/status', getBaileysStatus);
 app.patch('/api/whatsapp/contacts/:contactId/stage', setContactStage);
 app.patch('/api/whatsapp/contacts/:contactId/notes', setContactNotes);
 app.get('/api/whatsapp/contacts/:contactId/timeline', getContactTimeline);
+app.delete('/api/whatsapp/contacts/:contactId', deleteContact);
 app.get('/api/whatsapp/events', streamWhatsAppEvents);
 
 // Campaigns & Metrics

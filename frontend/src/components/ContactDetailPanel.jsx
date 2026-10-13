@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X } from 'lucide-react';
+import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Trash2, Check } from 'lucide-react';
 
 const STAGES = [
   { key: 'novo_lead', label: 'Novo Lead' },
@@ -35,7 +35,7 @@ function formatEventDate(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, liveUpdateSignal }) {
+export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, liveUpdateSignal }) {
   const [section, setSection] = useState('conversa');
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -60,6 +60,11 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   const [appointmentTime, setAppointmentTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const [editingSaleId, setEditingSaleId] = useState(null);
+  const [editAmountValue, setEditAmountValue] = useState('');
+  const [savingSaleEdit, setSavingSaleEdit] = useState(false);
+  const [deletingContact, setDeletingContact] = useState(false);
 
   useEffect(() => {
     setSection('conversa');
@@ -190,6 +195,56 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     }
   };
 
+  const startEditSale = (sale) => {
+    setEditingSaleId(sale.id);
+    setEditAmountValue(String(sale.amountSpent));
+  };
+
+  const cancelEditSale = () => {
+    setEditingSaleId(null);
+    setEditAmountValue('');
+  };
+
+  const saveEditSale = async (saleId) => {
+    setSavingSaleEdit(true);
+    try {
+      await apiClient.patch(`/api/whatsapp/conversions/${saleId}`, { amountSpent: Number(editAmountValue), clientId });
+      setEditingSaleId(null);
+      setEditAmountValue('');
+      fetchTimeline();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao atualizar o valor da venda.');
+    } finally {
+      setSavingSaleEdit(false);
+    }
+  };
+
+  const deleteSale = async (saleId) => {
+    if (!window.confirm('Remover essa venda? Essa ação não pode ser desfeita.')) return;
+    try {
+      await apiClient.delete(`/api/whatsapp/conversions/${saleId}`, { params: clientId ? { clientId } : {} });
+      fetchTimeline();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao remover venda.');
+    }
+  };
+
+  const handleDeleteContact = async () => {
+    const confirmed = window.confirm(
+      `Apagar o contato "${contact.profile_name || contact.wa_id}"? Isso remove a conversa, o histórico e as vendas desse lead. Essa ação não pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    setDeletingContact(true);
+    try {
+      await apiClient.delete(`/api/whatsapp/contacts/${contact.id}`, { params: clientId ? { clientId } : {} });
+      if (onDeleted) onDeleted();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao apagar contato.');
+      setDeletingContact(false);
+    }
+  };
+
   const backFromAction = () => {
     setActionMode(null);
     setAmountSpent('');
@@ -222,6 +277,15 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           </button>
           <button type="button" onClick={() => setActionMode('appointment')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#fff', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
             <CalendarPlus size={14} /> Agendar
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteContact}
+            disabled={deletingContact}
+            title="Apagar contato"
+            style={{ padding: '8px', borderRadius: '8px', border: 'none', background: 'rgba(248,113,113,0.12)', color: '#f87171', cursor: 'pointer' }}
+          >
+            <Trash2 size={14} />
           </button>
           {onClose && (
             <button type="button" onClick={onClose} style={{ padding: '8px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer' }}>
@@ -343,7 +407,37 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                       <div style={{ color: '#fff' }}>{ev.direction === 'outbound' ? 'Você: ' : ''}{ev.body}</div>
                     )}
                     {ev.type === 'sale' && (
-                      <div style={{ color: '#34d399' }}>Venda: R$ {Number(ev.amountSpent).toFixed(2)}</div>
+                      editingSaleId === ev.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#34d399' }}>Venda: R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            autoFocus
+                            value={editAmountValue}
+                            onChange={(e) => setEditAmountValue(e.target.value)}
+                            style={{ width: '90px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#131b2e', color: '#fff', fontSize: '0.8rem' }}
+                          />
+                          <button type="button" onClick={() => saveEditSale(ev.id)} disabled={savingSaleEdit} style={{ padding: '4px', borderRadius: '6px', border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer' }}>
+                            <Check size={13} />
+                          </button>
+                          <button type="button" onClick={cancelEditSale} style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer' }}>
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                          <span style={{ color: '#34d399' }}>Venda: R$ {Number(ev.amountSpent).toFixed(2)}</span>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button type="button" onClick={() => startEditSale(ev)} title="Editar valor" style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer' }}>
+                              <Pencil size={12} />
+                            </button>
+                            <button type="button" onClick={() => deleteSale(ev.id)} title="Apagar venda" style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'rgba(248,113,113,0.1)', color: '#f87171', cursor: 'pointer' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      )
                     )}
                     {ev.type === 'appointment' && (
                       <div style={{ color: '#a855f7' }}>Agendamento marcado</div>

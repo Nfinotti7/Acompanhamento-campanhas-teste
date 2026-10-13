@@ -68,6 +68,60 @@ export async function createConversion(req, res) {
   }
 }
 
+export async function updateConversion(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    const { conversionId } = req.params;
+    const { amountSpent } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+    if (amountSpent == null || Number.isNaN(Number(amountSpent)) || Number(amountSpent) < 0) {
+      return res.status(400).json({ error: 'amountSpent deve ser um número válido maior ou igual a zero.' });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE real_conversions SET amount_spent = ? WHERE id = ? AND client_id = ? RETURNING id`,
+      [Number(amountSpent), conversionId, clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Venda não encontrada.' });
+    }
+
+    return res.json({ message: 'Valor atualizado com sucesso!' });
+  } catch (error) {
+    console.error('Update conversion error:', error);
+    return res.status(500).json({ error: 'Erro ao atualizar venda.' });
+  }
+}
+
+export async function deleteConversion(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    const { conversionId } = req.params;
+
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+
+    const { rows } = await db.query(
+      `DELETE FROM real_conversions WHERE id = ? AND client_id = ? RETURNING id`,
+      [conversionId, clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Venda não encontrada.' });
+    }
+
+    return res.json({ message: 'Venda removida com sucesso!' });
+  } catch (error) {
+    console.error('Delete conversion error:', error);
+    return res.status(500).json({ error: 'Erro ao remover venda.' });
+  }
+}
+
 export async function getRoi(req, res) {
   try {
     const clientId = resolveClientId(req);
