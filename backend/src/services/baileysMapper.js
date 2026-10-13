@@ -21,9 +21,18 @@ function extractContent(message) {
   return null;
 }
 
-function extractWaId(remoteJid) {
-  if (!remoteJid) return null;
-  return remoteJid.split('@')[0] || null;
+// Quando a privacidade de "quem pode ver meu número" do remetente está restrita (ou,
+// cada vez mais, por padrão em contas novas), o WhatsApp manda o remoteJid como um LID
+// (ex: "123456789@lid") -- um id interno opaco, não o número de telefone. O Baileys
+// expõe o número de verdade em remoteJidAlt nesse caso. Sem isso, o wa_id gravado não é
+// um número de WhatsApp válido e qualquer resposta enviada pra ele falha silenciosamente.
+function extractWaId(key) {
+  const jid = key?.remoteJid;
+  if (!jid) return null;
+  if (jid.endsWith('@lid') && key.remoteJidAlt) {
+    return key.remoteJidAlt.split('@')[0] || null;
+  }
+  return jid.split('@')[0] || null;
 }
 
 export function mapBaileysMessageToEvent(msg) {
@@ -32,7 +41,7 @@ export function mapBaileysMessageToEvent(msg) {
     : new Date().toISOString();
 
   return {
-    waId: extractWaId(msg.key?.remoteJid),
+    waId: extractWaId(msg.key),
     profileName: msg.pushName || null,
     waMessageId: msg.key?.id || null,
     direction: msg.key?.fromMe ? 'outbound' : 'inbound',
@@ -49,7 +58,7 @@ export function mapBaileysMessageToEvent(msg) {
 
 export function isUsableMessage(msg) {
   if (!msg.message) return false;
-  if (!extractWaId(msg.key?.remoteJid)) return false;
+  if (!extractWaId(msg.key)) return false;
   const messageKeys = Object.keys(msg.message);
   if (messageKeys.length > 0 && messageKeys.every((k) => NON_CONTENT_KEYS.includes(k))) return false;
   return true;

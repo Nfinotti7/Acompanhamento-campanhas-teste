@@ -113,3 +113,29 @@ test('mapBaileysMessageToEvent usa rotulo de figurinha', () => {
   };
   assert.equal(mapBaileysMessageToEvent(msg).body, '😊 Figurinha');
 });
+
+test('mapBaileysMessageToEvent usa o numero real (remoteJidAlt) quando remoteJid e um LID', () => {
+  const msg = {
+    key: { remoteJid: '145517938012378@lid', remoteJidAlt: '5517938012378@s.whatsapp.net', id: 'LID1', fromMe: false },
+    messageTimestamp: 1760000700,
+    message: { conversation: 'oi' }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).waId, '5517938012378');
+});
+
+test('mapBaileysMessageToEvent usa o LID mesmo assim se nao tiver remoteJidAlt (sem numero real disponivel)', () => {
+  const msg = {
+    key: { remoteJid: '145517938012378@lid', id: 'LID2', fromMe: false },
+    messageTimestamp: 1760000800,
+    message: { conversation: 'oi' }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).waId, '145517938012378');
+});
+
+test('isUsableMessage usa o numero real (remoteJidAlt) pra validar LID', () => {
+  const msg = {
+    key: { remoteJid: '145517938012378@lid', remoteJidAlt: '5517938012378@s.whatsapp.net', id: 'LID3', fromMe: false },
+    message: { conversation: 'oi' }
+  };
+  assert.equal(isUsableMessage(msg), true);
+});
