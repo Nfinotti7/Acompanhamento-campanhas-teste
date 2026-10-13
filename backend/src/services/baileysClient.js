@@ -21,6 +21,13 @@ const SESSIONS_DIR = path.resolve(process.cwd(), '.baileys_sessions');
 // Acontece quando o handshake com o WhatsApp trava sem nunca disparar connection.update.
 const STALE_CONNECTING_MS = 30000;
 
+// Reconectar IMEDIATAMENTE depois de uma queda faz o WhatsApp recusar a nova conexao
+// com "Stream Errored (conflict)" (statusCode 440) -- o servidor do WhatsApp ainda nao
+// processou que a conexao anterior caiu, entao ve as duas tentando usar a MESMA sessao
+// ao mesmo tempo. Um atraso pequeno antes de tentar de novo evita esse ciclo (cai ->
+// reconecta rapido demais -> conflito -> cai de novo -> ...).
+const RECONNECT_DELAY_MS = 5000;
+
 // clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl, connectingSince }
 const connections = new Map();
 
@@ -115,7 +122,11 @@ async function doConnect(clientId, state, deps) {
       state.status = 'disconnected';
       state.connectingSince = null;
       if (!loggedOut) {
-        connectClient(clientId, deps); // reconecta sozinho em quedas que nao sejam logout
+        // Reconecta sozinho em quedas que nao sejam logout, mas so depois de um atraso
+        // (ver RECONNECT_DELAY_MS) pra nao disparar o conflito 440 reconectando rapido
+        // demais.
+        const wait = deps.setTimeout || setTimeout;
+        wait(() => connectClient(clientId, deps), RECONNECT_DELAY_MS);
       }
     }
   });

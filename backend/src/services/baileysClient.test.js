@@ -144,3 +144,51 @@ test('clientId numerico e em string (ex: vindo de query param vs corpo da requis
   assert.equal(sentMessages.length, 1);
   assert.equal(sentMessages[0].jid, '5511999998888@s.whatsapp.net');
 });
+
+test('reconexao depois de uma queda nao e imediata -- espera um atraso (evita o conflito 440 do WhatsApp)', async () => {
+  let connectionUpdateHandler = null;
+  let makeWASocketCalls = 0;
+  const fakeBaileys = {
+    default: () => {
+      makeWASocketCalls++;
+      return { ev: { on: (event, handler) => { if (event === 'connection.update') connectionUpdateHandler = handler; } } };
+    },
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+
+  const scheduled = [];
+  const fakeSetTimeout = (fn, ms) => { scheduled.push({ fn, ms }); };
+
+  await connectClient('test-reconnect-delay-1', { baileys: fakeBaileys, setTimeout: fakeSetTimeout });
+  assert.equal(makeWASocketCalls, 1);
+
+  // Simula uma queda por conflito (440), nao logout.
+  await connectionUpdateHandler({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 440 }, message: 'Stream Errored (conflict)' } } });
+
+  // Nao deve ter tentado reconectar na hora -- so agendado pro depois.
+  assert.equal(makeWASocketCalls, 1);
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].ms, 5000);
+
+  // So reconecta quando o atraso "passa" (simulado chamando a funcao agendada).
+  await scheduled[0].fn();
+  assert.equal(makeWASocketCalls, 2);
+});
+
+test('logout nao agenda reconexao nenhuma', async () => {
+  let connectionUpdateHandler = null;
+  const fakeBaileys = {
+    default: () => ({ ev: { on: (event, handler) => { if (event === 'connection.update') connectionUpdateHandler = handler; } } }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+
+  const scheduled = [];
+  const fakeSetTimeout = (fn, ms) => { scheduled.push({ fn, ms }); };
+
+  await connectClient('test-reconnect-delay-2', { baileys: fakeBaileys, setTimeout: fakeSetTimeout });
+  await connectionUpdateHandler({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 401 } } } });
+
+  assert.equal(scheduled.length, 0);
+});
