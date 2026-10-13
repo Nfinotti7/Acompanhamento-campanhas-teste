@@ -135,3 +135,16 @@ Resumo do que essa sessão cobriu, do início ao fim (sessão muito longa, compa
   - Investimento só aparece pra campanha que já foi sincronizada (`campaigns`/`daily_metrics`). Campanha nova fica com R$ 0 até a próxima sincronização.
 - **Modal** agora usa portal (`createPortal` no body). Antes ficava atrás da barra lateral do admin.
 - **Pendência de segurança pro usuário verificar**: o código tem `JWT_SECRET` com valor padrão fixo (`authMiddleware.js`), e o `.env` local não define nenhum. Se o Hostinger também não tiver `JWT_SECRET` configurado, qualquer um que leia o código consegue forjar login de admin. Não consegui confirmar em produção (o teste com token forjado foi bloqueado pela política da sessão). Pedi pro usuário conferir no hPanel.
+
+### 2026-10-13 (continuação) — Chat estilo WhatsApp: não lidas, horário e tiques
+
+Pedido do usuário depois da Fase 2 (ele disse que ainda falta muita coisa pra ficar como imagina, e que vamos organizando aos poucos):
+- **Não lidas**: `whatsapp_contacts.last_read_at`. Não lidas = mensagens recebidas com `created_at` depois disso. Zerado por `POST /api/whatsapp/conversations/:id/read`, que o `ContactDetailPanel` chama sempre que carrega as mensagens (abriu a conversa, ou chegou mensagem com ela aberta). Responder pelo painel e responder pelo celular (outbound via Baileys) também marcam como lida. É **caixa compartilhada**: a leitura vale pra equipe toda, não por atendente.
+- **Lista do `/caixa`**: bolinha verde com a contagem, nome em negrito e horário em verde quando há não lidas, prévia da última mensagem (com tique se foi nossa) e horário no formato do WhatsApp (hora / "Ontem" / data). Total de não lidas no título da aba. Responder sobe a conversa pro topo (`last_message_at`).
+- **Mensagens**: horário em cada balão, separador de dia (Hoje/Ontem/data). Balão enviado ficou mais escuro (`#3730a3`) pra dar contraste com o tique azul.
+- **Tiques** (`whatsapp_messages.status`: pending/sent/delivered/read/failed): `services/messageStatus.js`. O status só avança, nunca volta (aviso atrasado é ignorado). "failed" só substitui quem ainda não foi entregue.
+  - Baileys: evento `messages.update` (códigos 0-5 → nome). `sendViaBaileys` agora devolve o id da mensagem enviada, sem o qual o aviso não teria como ser ligado à nossa mensagem. O INSERT da resposta usa `ON CONFLICT (wa_message_id)`, porque o próprio Baileys pode registrar a mensagem enviada antes.
+  - Cloud API: `parseWhatsAppStatuses` lê `value.statuses` do webhook.
+  - Atualização ao vivo via SSE (evento com `kind: 'status'`, sem `direction`, então não toca o som).
+- Testado localmente com webhook assinado (mensagens chegando, entregue → lida, aviso atrasado ignorado). Não testado com Baileys real (não há sessão local); confirmar com o usuário depois do deploy.
+- Limitação de qualquer WhatsApp: se o cliente desliga a confirmação de leitura na privacidade, fica em ✓✓ cinza pra sempre.

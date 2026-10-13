@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Trash2, Check } from 'lucide-react';
 import { Avatar, MessageMedia, ImageLightbox, isPlaceholderBody } from './whatsappMedia';
 import AttributionView from './AttributionView';
+import { formatTime, dayLabel, isSameDay, StatusTicks } from './chatFormat';
 
 const STAGES = [
   { key: 'novo_lead', label: 'Novo Lead' },
@@ -37,7 +38,7 @@ function formatEventDate(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, liveUpdateSignal }) {
+export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, onRead, liveUpdateSignal }) {
   const [section, setSection] = useState('conversa');
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [attribution, setAttribution] = useState(null);
@@ -79,6 +80,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     setPhone(contact.wa_id || '');
     setNotes(contact.notes || '');
     setNotesSaved(false);
+    setMessages([]);
     fetchMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contact.id]);
@@ -116,6 +118,10 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     try {
       const res = await apiClient.get(`/api/whatsapp/conversations/${contact.id}/messages`, { params: clientId ? { clientId } : {} });
       setMessages(res.data.messages || []);
+      // Abriu (ou chegou mensagem com a conversa aberta) = lida pela equipe.
+      apiClient.post(`/api/whatsapp/conversations/${contact.id}/read`, { clientId })
+        .then(() => onRead && onRead(contact.id))
+        .catch((err) => console.error('Error marking conversation read:', err));
     } catch (err) {
       console.error('Error fetching messages:', err);
     } finally {
@@ -380,33 +386,47 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           {section === 'conversa' && (
             <>
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
-                {loadingMessages ? (
+                {loadingMessages && messages.length === 0 ? (
                   <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Carregando...</p>
                 ) : messages.length === 0 ? (
                   <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Nenhuma mensagem ainda.</p>
                 ) : (
-                  messages.map((m) => (
-                    <div
-                      key={m.id}
-                      style={{
-                        alignSelf: m.direction === 'outbound' ? 'flex-end' : 'flex-start',
-                        backgroundColor: m.direction === 'outbound' ? '#6366f1' : '#1e293b',
-                        color: '#fff',
-                        padding: m.media_id ? '6px' : '8px 12px',
-                        borderRadius: '10px',
-                        maxWidth: '75%',
-                        fontSize: '0.85rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px'
-                      }}
-                    >
-                      <MessageMedia message={m} apiClient={apiClient} clientId={clientId} onOpenImage={setLightboxSrc} />
-                      {!(m.media_id && isPlaceholderBody(m.body)) && (
-                        <span style={{ padding: m.media_id ? '0 6px 2px' : 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</span>
-                      )}
-                    </div>
-                  ))
+                  messages.map((m, index) => {
+                    const outbound = m.direction === 'outbound';
+                    const showDay = index === 0 || !isSameDay(messages[index - 1].sent_at, m.sent_at);
+                    return (
+                      <React.Fragment key={m.id}>
+                        {showDay && (
+                          <div style={{ alignSelf: 'center', fontSize: '0.7rem', color: '#94a3b8', backgroundColor: 'rgba(255,255,255,0.05)', padding: '3px 10px', borderRadius: '8px', margin: '6px 0' }}>
+                            {dayLabel(m.sent_at)}
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            alignSelf: outbound ? 'flex-end' : 'flex-start',
+                            backgroundColor: outbound ? '#3730a3' : '#1e293b',
+                            color: '#fff',
+                            padding: m.media_id ? '6px' : '7px 10px 5px',
+                            borderRadius: '10px',
+                            maxWidth: '75%',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}
+                        >
+                          <MessageMedia message={m} apiClient={apiClient} clientId={clientId} onOpenImage={setLightboxSrc} />
+                          {!(m.media_id && isPlaceholderBody(m.body)) && (
+                            <span style={{ padding: m.media_id ? '0 6px' : 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</span>
+                          )}
+                          <span style={{ alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.66rem', color: 'rgba(255,255,255,0.65)', padding: m.media_id ? '0 4px' : 0 }}>
+                            {formatTime(m.sent_at)}
+                            {outbound && <StatusTicks status={m.status} />}
+                          </span>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </div>

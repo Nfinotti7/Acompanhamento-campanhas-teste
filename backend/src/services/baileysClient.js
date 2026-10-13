@@ -17,6 +17,7 @@ import db from '../config/db.js';
 import { ingestWhatsAppEvent } from './whatsappIngest.js';
 import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
+import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 
 const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
 
@@ -135,6 +136,19 @@ async function doConnect(clientId, state, deps) {
     }
   });
 
+  // Tiques do WhatsApp (enviada/entregue/lida) das mensagens que mandamos.
+  sock.ev.on('messages.update', async (updates) => {
+    for (const { key, update } of updates) {
+      const status = baileysStatusToName(update?.status);
+      if (!key?.fromMe || !status) continue;
+      try {
+        await applyMessageStatus({ clientId, waMessageId: key.id, status });
+      } catch (error) {
+        console.error('Erro ao atualizar status de mensagem:', error.message);
+      }
+    }
+  });
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
     for (const msg of messages) {
@@ -200,5 +214,7 @@ export async function sendViaBaileys(clientId, waId, body) {
     throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
   }
   const jid = waId.includes('@') ? waId : `${waId}@s.whatsapp.net`;
-  await state.sock.sendMessage(jid, { text: body });
+  const sent = await state.sock.sendMessage(jid, { text: body });
+  // O id é o que liga os avisos de entregue/lida (messages.update) a esta mensagem.
+  return sent?.key?.id || null;
 }

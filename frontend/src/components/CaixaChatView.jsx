@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import ContactDetailPanel from './ContactDetailPanel';
 import { Avatar } from './whatsappMedia';
+import { formatListTime, StatusTicks } from './chatFormat';
 
 const fieldStyle = {
   width: '100%',
@@ -124,6 +125,21 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
     setManualEntryName(null);
   };
 
+  const markReadLocally = (contactId) => {
+    setConversations((prev) => prev.map((c) => (c.id === contactId ? { ...c, unread_count: 0 } : c)));
+  };
+
+  // Total de não lidas no título da aba -- dá pra ver que chegou mensagem mesmo com a
+  // aba em segundo plano, como no WhatsApp Web.
+  const totalUnread = conversations.reduce(
+    (sum, c) => sum + (c.id === selectedContact?.id ? 0 : Number(c.unread_count || 0)),
+    0
+  );
+  useEffect(() => {
+    const baseTitle = 'Further Ads - Caixa';
+    document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+  }, [totalUnread]);
+
   const skipMatch = () => {
     setSelectedContact(null);
     setManualEntryName(query);
@@ -156,27 +172,53 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
               {searchResults !== null ? 'Nenhum contato encontrado.' : 'Nenhuma conversa ainda.'}
             </p>
           )}
-          {listToShow.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => selectConversation(c)}
-              style={{
-                padding: '12px',
-                cursor: 'pointer',
-                backgroundColor: selectedContact?.id === c.id ? 'rgba(255,255,255,0.06)' : 'transparent',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                display: 'flex',
-                gap: '10px',
-                alignItems: 'center'
-              }}
-            >
-              <Avatar apiClient={caixaApi} mediaId={c.profile_pic_media_id} name={c.profile_name || c.wa_id} size={38} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.profile_name || c.wa_id}</div>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{c.wa_id}{c.source === 'ad' ? ' · anúncio' : ''}</div>
+          {listToShow.map((c) => {
+            const selected = selectedContact?.id === c.id;
+            // A conversa aberta nunca mostra "não lida", mesmo no instante entre a lista
+            // recarregar e o painel marcar como lida.
+            const unread = selected ? 0 : Number(c.unread_count || 0);
+            const hasPreview = c.last_body !== undefined && c.last_body !== null;
+            return (
+              <div
+                key={c.id}
+                onClick={() => selectConversation(c)}
+                style={{
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  backgroundColor: selected ? 'rgba(255,255,255,0.06)' : 'transparent',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  display: 'flex',
+                  gap: '10px',
+                  alignItems: 'center'
+                }}
+              >
+                <Avatar apiClient={caixaApi} mediaId={c.profile_pic_media_id} name={c.profile_name || c.wa_id} size={42} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <div style={{ flex: 1, fontWeight: unread > 0 ? 800 : 600, color: '#fff', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.profile_name || c.wa_id}
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: unread > 0 ? '#22c55e' : '#94a3b8', flexShrink: 0, fontWeight: unread > 0 ? 700 : 400 }}>
+                      {formatListTime(c.last_sent_at || c.last_message_at)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', color: unread > 0 ? '#e2e8f0' : '#94a3b8' }}>
+                      {hasPreview && c.last_direction === 'outbound' && <StatusTicks status={c.last_status} size={13} color="#94a3b8" />}
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {hasPreview ? c.last_body : `${c.wa_id}${c.source === 'ad' ? ' · anúncio' : ''}`}
+                      </span>
+                    </div>
+                    {unread > 0 && (
+                      <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, backgroundColor: '#22c55e', color: '#0b0f19', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {searchResults !== null && query && (
             <div
               onClick={skipMatch}
@@ -204,6 +246,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
             contact={selectedContact}
             onUpdated={fetchConversations}
             onDeleted={() => { setSelectedContact(null); fetchConversations(); }}
+            onRead={markReadLocally}
             liveUpdateSignal={liveSignal}
           />
         ) : manualEntryName !== null ? (

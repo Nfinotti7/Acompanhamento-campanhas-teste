@@ -14,7 +14,7 @@ import { trackEvent, getAttributionReport } from './controllers/attributionContr
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
 import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
 import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
-import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
+import { listConversations, getMessages, replyToConversation, markConversationRead } from './controllers/whatsappConversationsController.js';
 import { searchContacts, createConversion, updateConversion, deleteConversion, getRoi } from './controllers/realConversionsController.js';
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
@@ -80,6 +80,7 @@ app.post('/api/whatsapp/settings', requireAdmin, saveWhatsappSettings);
 app.get('/api/whatsapp/conversations', listConversations);
 app.get('/api/whatsapp/conversations/:contactId/messages', getMessages);
 app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
+app.post('/api/whatsapp/conversations/:contactId/read', markConversationRead);
 
 // Real Conversions & ROI
 app.get('/api/whatsapp/contacts/search', searchContacts);

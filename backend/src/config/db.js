@@ -245,6 +245,10 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_source_url TEXT`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_referral_json JSONB`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS tracking_method TEXT`);
+  // Tiques do WhatsApp nas mensagens enviadas (pending/sent/delivered/read/failed) e a
+  // última vez que a equipe abriu a conversa (base da contagem de não lidas).
+  await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS status TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ`);
   // ad_id -> conta/campanha/conjunto/anúncio, resolvido uma vez pela Marketing API e
   // reaproveitado por todos os contatos vindos do mesmo anúncio.
   await query(`

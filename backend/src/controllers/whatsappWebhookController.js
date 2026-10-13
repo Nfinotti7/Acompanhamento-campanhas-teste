@@ -1,5 +1,6 @@
 import db from '../config/db.js';
-import { parseWhatsAppWebhook } from '../utils/whatsappWebhookParser.js';
+import { parseWhatsAppWebhook, parseWhatsAppStatuses } from '../utils/whatsappWebhookParser.js';
+import { applyMessageStatus } from '../services/messageStatus.js';
 import { ingestWhatsAppEvent } from '../services/whatsappIngest.js';
 import { downloadCloudMedia } from '../services/metaWhatsAppApi.js';
 import { isValidMetaSignature } from '../utils/metaSignature.js';
@@ -59,6 +60,15 @@ export async function receiveWebhook(req, res) {
         resolveAd({ adId: event.adId, clientId: settings.client_id })
           .catch((error) => console.error('Erro ao resolver anúncio:', error.message));
       }
+    }
+
+    for (const statusEvent of parseWhatsAppStatuses(req.body)) {
+      const { rows } = await db.query(
+        'SELECT client_id FROM whatsapp_settings WHERE phone_number_id = ?',
+        [statusEvent.phoneNumberId]
+      );
+      if (!rows[0]?.client_id) continue;
+      await applyMessageStatus({ clientId: rows[0].client_id, waMessageId: statusEvent.waMessageId, status: statusEvent.status });
     }
   } catch (error) {
     console.error('WhatsApp webhook processing error:', error);

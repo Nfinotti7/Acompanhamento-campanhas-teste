@@ -26,6 +26,22 @@ function extractMedia(m) {
   return { mediaType: m.type, mediaId: media.id, mimeType: media.mime_type || null, filename: media.filename || null };
 }
 
+// Avisos de status das mensagens que NÓS enviamos (enviada/entregue/lida/falhou).
+export function parseWhatsAppStatuses(payload) {
+  const statuses = [];
+  for (const entry of payload?.entry || []) {
+    for (const change of entry.changes || []) {
+      const value = change.value || {};
+      const phoneNumberId = value.metadata?.phone_number_id;
+      if (!phoneNumberId) continue;
+      for (const s of value.statuses || []) {
+        statuses.push({ phoneNumberId, waMessageId: s.id, status: s.status });
+      }
+    }
+  }
+  return statuses;
+}
+
 export function parseWhatsAppWebhook(payload) {
   const events = [];
   const entries = payload?.entry || [];

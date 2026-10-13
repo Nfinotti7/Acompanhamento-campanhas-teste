@@ -139,6 +139,18 @@ test('ingestWhatsAppEvent sem anuncio nao grava referral nem metodo de rastreame
   assert.equal(contactCall.params[11], null);
 });
 
+test('resposta enviada pelo proprio celular (outbound via Baileys) marca a conversa como lida', async () => {
+  const { db, calls } = makeFakeDb();
+  await ingestWhatsAppEvent(5, baseEvent({ direction: 'outbound' }), { db, broadcast: () => {} });
+  assert.ok(calls.some((c) => /SET last_read_at = CURRENT_TIMESTAMP/.test(c.sql)));
+});
+
+test('mensagem recebida (inbound) nao marca a conversa como lida', async () => {
+  const { db, calls } = makeFakeDb();
+  await ingestWhatsAppEvent(5, baseEvent(), { db, broadcast: () => {} });
+  assert.ok(!calls.some((c) => /last_read_at/.test(c.sql)));
+});
+
 test('ingestWhatsAppEvent marca source como organic quando nao tem ctwa_clid', async () => {
   const { db, calls } = makeFakeDb();
 

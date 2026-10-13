@@ -1,6 +1,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseWhatsAppWebhook } from './whatsappWebhookParser.js';
+import { parseWhatsAppWebhook, parseWhatsAppStatuses } from './whatsappWebhookParser.js';
+
+test('parseWhatsAppStatuses extrai os avisos de enviada/entregue/lida/falhou', () => {
+  const payload = {
+    entry: [{ changes: [{ value: {
+      metadata: { phone_number_id: 'PHONE_123' },
+      statuses: [
+        { id: 'wamid.OUT1', status: 'delivered', timestamp: '1735000000', recipient_id: '5511' },
+        { id: 'wamid.OUT2', status: 'read', timestamp: '1735000100', recipient_id: '5511' },
+        { id: 'wamid.OUT3', status: 'failed', timestamp: '1735000200', recipient_id: '5511', errors: [{ code: 131047 }] }
+      ]
+    } }] }]
+  };
+
+  assert.deepEqual(parseWhatsAppStatuses(payload), [
+    { phoneNumberId: 'PHONE_123', waMessageId: 'wamid.OUT1', status: 'delivered' },
+    { phoneNumberId: 'PHONE_123', waMessageId: 'wamid.OUT2', status: 'read' },
+    { phoneNumberId: 'PHONE_123', waMessageId: 'wamid.OUT3', status: 'failed' }
+  ]);
+});
+
+test('parseWhatsAppStatuses com payload de mensagem (sem statuses) devolve lista vazia', () => {
+  assert.deepEqual(parseWhatsAppStatuses({ entry: [{ changes: [{ value: { metadata: { phone_number_id: 'P' }, messages: [] } }] }] }), []);
+  assert.deepEqual(parseWhatsAppStatuses({}), []);
+});
 
 const payloadComAnuncio = {
   object: 'whatsapp_business_account',

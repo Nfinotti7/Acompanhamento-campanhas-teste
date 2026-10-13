@@ -83,6 +83,12 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
     await storeMedia(dbImpl, clientId, contactId, messageRows[0].id, event.media);
   }
 
+  // Alguém da equipe respondeu direto pelo celular (Baileys entrega essa mensagem
+  // também): igual no WhatsApp, responder conta como ter lido a conversa.
+  if (event.direction === 'outbound') {
+    await dbImpl.query(`UPDATE whatsapp_contacts SET last_read_at = CURRENT_TIMESTAMP WHERE id = ?`, [contactId]);
+  }
+
   broadcastFn(clientId, 'message', {
     contactId,
     direction: event.direction,
