@@ -54,12 +54,12 @@ test('isUsableMessage retorna false quando nao consegue extrair wa_id', () => {
   assert.equal(isUsableMessage(msg), false);
 });
 
-test('isUsableMessage retorna false quando o conteudo nao tem texto reconhecido (ex: figurinha)', () => {
+test('isUsableMessage retorna true pra figurinha (toda mensagem real do contato deve aparecer)', () => {
   const msg = {
     key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'E3', fromMe: false },
     message: { stickerMessage: {} }
   };
-  assert.equal(isUsableMessage(msg), false);
+  assert.equal(isUsableMessage(msg), true);
 });
 
 test('isUsableMessage retorna true pra mensagem de texto normal', () => {
@@ -68,4 +68,48 @@ test('isUsableMessage retorna true pra mensagem de texto normal', () => {
     message: { conversation: 'oi' }
   };
   assert.equal(isUsableMessage(msg), true);
+});
+
+test('isUsableMessage retorna false pra reacao (emoji reagindo a outra mensagem, nao e mensagem nova)', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'E5', fromMe: false },
+    message: { reactionMessage: { text: '👍' } }
+  };
+  assert.equal(isUsableMessage(msg), false);
+});
+
+test('mapBaileysMessageToEvent usa legenda da imagem quando tem', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'IMG1', fromMe: false },
+    messageTimestamp: 1760000300,
+    message: { imageMessage: { caption: 'Olha essa mesa!' } }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).body, 'Olha essa mesa!');
+});
+
+test('mapBaileysMessageToEvent usa rotulo generico quando a imagem nao tem legenda', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'IMG2', fromMe: false },
+    messageTimestamp: 1760000400,
+    message: { imageMessage: {} }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).body, '📷 Imagem');
+});
+
+test('mapBaileysMessageToEvent usa rotulo de audio/mensagem de voz', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'AUD1', fromMe: false },
+    messageTimestamp: 1760000500,
+    message: { audioMessage: { ptt: true } }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).body, '🎤 Mensagem de voz');
+});
+
+test('mapBaileysMessageToEvent usa rotulo de figurinha', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'STK1', fromMe: false },
+    messageTimestamp: 1760000600,
+    message: { stickerMessage: {} }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).body, '😊 Figurinha');
 });

@@ -103,3 +103,39 @@ test('payload vazio ou malformado retorna lista vazia sem lancar erro', () => {
   assert.deepEqual(parseWhatsAppWebhook({}), []);
   assert.deepEqual(parseWhatsAppWebhook({ entry: [] }), []);
 });
+
+test('mensagem de imagem sem legenda usa rotulo generico (contato ainda deve aparecer)', () => {
+  const payload = {
+    entry: [{ changes: [{ value: {
+      metadata: { phone_number_id: 'PHONE_123' },
+      contacts: [{ profile: { name: 'Ana' }, wa_id: '5511977776666' }],
+      messages: [{ from: '5511977776666', id: 'wamid.IMG1', timestamp: '1735000200', type: 'image', image: {} }]
+    } }] }]
+  };
+  const events = parseWhatsAppWebhook(payload);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].body, '📷 Imagem');
+});
+
+test('mensagem de audio usa rotulo de mensagem de voz', () => {
+  const payload = {
+    entry: [{ changes: [{ value: {
+      metadata: { phone_number_id: 'PHONE_123' },
+      contacts: [{ profile: { name: 'Ana' }, wa_id: '5511977776666' }],
+      messages: [{ from: '5511977776666', id: 'wamid.AUD1', timestamp: '1735000300', type: 'audio', audio: { voice: true } }]
+    } }] }]
+  };
+  const events = parseWhatsAppWebhook(payload);
+  assert.equal(events[0].body, '🎤 Mensagem de voz');
+});
+
+test('reacao (emoji a uma mensagem existente) nao vira evento', () => {
+  const payload = {
+    entry: [{ changes: [{ value: {
+      metadata: { phone_number_id: 'PHONE_123' },
+      contacts: [{ profile: { name: 'Ana' }, wa_id: '5511977776666' }],
+      messages: [{ from: '5511977776666', id: 'wamid.REACT1', timestamp: '1735000400', type: 'reaction', reaction: { emoji: '👍', message_id: 'wamid.ABC123' } }]
+    } }] }]
+  };
+  assert.deepEqual(parseWhatsAppWebhook(payload), []);
+});
