@@ -10,6 +10,7 @@ import TrackingPage from './pages/TrackingPage';
 import WhatsAppInboxPage from './pages/WhatsAppInboxPage';
 import WhatsAppKanbanPage from './pages/WhatsAppKanbanPage';
 import WhatsAppAgendaPage from './pages/WhatsAppAgendaPage';
+import WhatsAppDashboardPage from './pages/WhatsAppDashboardPage';
 import ClientsPage from './pages/ClientsPage';
 import LoginPage from './pages/LoginPage';
 import CampaignsTable from './components/CampaignsTable';
@@ -276,6 +277,10 @@ function MainApp() {
               focusContactId={focusContactId}
               onFocusHandled={() => setFocusContactId(null)}
             />
+          )}
+
+          {activeTab === 'whatsapp-dashboard' && (
+            <WhatsAppDashboardPage selectedClient={selectedClientId} selectedRange={selectedRange} />
           )}
 
           {activeTab === 'whatsapp-kanban' && (

@@ -19,10 +19,11 @@ import { searchContacts, createConversion, updateConversion, deleteConversion, g
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
-import { setContactStage, setContactNotes, getContactTimeline, deleteContact } from './controllers/whatsappContactController.js';
+import { setContactStage, setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
 import { resolveMissingAds } from './services/metaAdResolver.js';
+import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -100,8 +101,10 @@ app.patch('/api/whatsapp/contacts/:contactId/stage', setContactStage);
 app.patch('/api/whatsapp/contacts/:contactId/notes', setContactNotes);
 app.get('/api/whatsapp/contacts/:contactId/timeline', getContactTimeline);
 app.delete('/api/whatsapp/contacts/:contactId', deleteContact);
+app.get('/api/whatsapp/contacts/:contactId/attribution', getContactAttribution);
 app.get('/api/whatsapp/events', streamWhatsAppEvents);
 app.get('/api/whatsapp/media/:mediaId', getMedia);
+app.get('/api/whatsapp/dashboard', getWhatsappDashboard);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
