@@ -2,6 +2,7 @@ import db from '../config/db.js';
 import { parseWhatsAppWebhook } from '../utils/whatsappWebhookParser.js';
 import { ingestWhatsAppEvent } from '../services/whatsappIngest.js';
 import { downloadCloudMedia } from '../services/metaWhatsAppApi.js';
+import { isValidMetaSignature } from '../utils/metaSignature.js';
 
 const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'further_whatsapp_verify_2026';
 
@@ -17,6 +18,18 @@ export function verifyWebhook(req, res) {
 }
 
 export async function receiveWebhook(req, res) {
+  // Sem META_APP_SECRET configurado não dá pra saber se a chamada veio mesmo da Meta --
+  // recusa tudo (fail closed) em vez de aceitar qualquer POST.
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) {
+    console.error('Webhook WhatsApp recusado: META_APP_SECRET não configurado no ambiente.');
+    return res.sendStatus(503);
+  }
+  if (!isValidMetaSignature(req.rawBody, req.get('X-Hub-Signature-256'), appSecret)) {
+    console.error('Webhook WhatsApp recusado: assinatura X-Hub-Signature-256 inválida.');
+    return res.sendStatus(401);
+  }
+
   // A Meta reenvia agressivamente em caso de resposta não-2xx — responde logo e processa depois.
   res.sendStatus(200);
 
