@@ -21,7 +21,7 @@ const connections = new Map();
 
 function getOrInitState(clientId) {
   if (!connections.has(clientId)) {
-    connections.set(clientId, { sock: null, status: 'disconnected', qrDataUrl: null });
+    connections.set(clientId, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null });
   }
   return connections.get(clientId);
 }
@@ -30,6 +30,26 @@ export async function connectClient(clientId, deps = {}) {
   const state = getOrInitState(clientId);
   if (state.sock) return state; // ja conectando/conectado
 
+  // Duas chamadas concorrentes (ex: reconexao automatica na subida + alguem abrindo a
+  // pagina de Credenciais ao mesmo tempo) nao podem cada uma abrir o proprio socket --
+  // isso faz duas conexoes tentarem autenticar com a MESMA sessao ao mesmo tempo, e o
+  // WhatsApp derruba as duas. Quem chega depois so espera a tentativa que ja esta em
+  // andamento, em vez de iniciar uma nova.
+  if (state.connectPromise) {
+    await state.connectPromise;
+    return state;
+  }
+
+  state.connectPromise = doConnect(clientId, state, deps);
+  try {
+    await state.connectPromise;
+  } finally {
+    state.connectPromise = null;
+  }
+  return state;
+}
+
+async function doConnect(clientId, state, deps) {
   // Import dinamico: a lib so e necessaria quando alguem de fato usa o modo Baileys.
   const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = deps.baileys || await import('@whiskeysockets/baileys');
 

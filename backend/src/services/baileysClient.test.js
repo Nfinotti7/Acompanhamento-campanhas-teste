@@ -1,6 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient } from './baileysClient.js';
+
+function makeFakeBaileysModule() {
+  let makeWASocketCalls = 0;
+  const fakeSock = {
+    ev: { on: () => {} }
+  };
+  return {
+    module: {
+      default: () => { makeWASocketCalls++; return fakeSock; },
+      useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+      DisconnectReason: { loggedOut: 401 }
+    },
+    getCallCount: () => makeWASocketCalls
+  };
+}
 
 function makeFakeDb(rows) {
   return { query: async () => ({ rows }) };
@@ -39,4 +54,16 @@ test('reconnectAllBaileysClients sem nenhum cliente baileys configurado nao cham
 
   assert.equal(called, false);
   assert.deepEqual(result, []);
+});
+
+test('connectClient chamado duas vezes ao mesmo tempo pro mesmo cliente so abre UM socket (evita a corrida que derruba a conexao)', async () => {
+  const { module: fakeBaileys, getCallCount } = makeFakeBaileysModule();
+
+  const [resultA, resultB] = await Promise.all([
+    connectClient('test-race-client-1', { baileys: fakeBaileys }),
+    connectClient('test-race-client-1', { baileys: fakeBaileys })
+  ]);
+
+  assert.equal(getCallCount(), 1);
+  assert.equal(resultA, resultB);
 });
