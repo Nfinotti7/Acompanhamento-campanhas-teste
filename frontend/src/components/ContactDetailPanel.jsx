@@ -35,7 +35,7 @@ function formatEventDate(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated }) {
+export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, liveUpdateSignal }) {
   const [section, setSection] = useState('conversa');
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -72,6 +72,13 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     fetchMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contact.id]);
+
+  useEffect(() => {
+    if (liveUpdateSignal == null) return;
+    fetchMessages();
+    if (section === 'historico') fetchTimeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveUpdateSignal]);
 
   useEffect(() => {
     if (section === 'historico') fetchTimeline();

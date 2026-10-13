@@ -19,6 +19,7 @@ import { searchContacts, createConversion, getRoi } from './controllers/realConv
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
 import { setContactStage, setContactNotes, getContactTimeline } from './controllers/whatsappContactController.js';
+import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -91,6 +92,7 @@ app.get('/api/whatsapp/baileys/status', getBaileysStatus);
 app.patch('/api/whatsapp/contacts/:contactId/stage', setContactStage);
 app.patch('/api/whatsapp/contacts/:contactId/notes', setContactNotes);
 app.get('/api/whatsapp/contacts/:contactId/timeline', getContactTimeline);
+app.get('/api/whatsapp/events', streamWhatsAppEvents);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);

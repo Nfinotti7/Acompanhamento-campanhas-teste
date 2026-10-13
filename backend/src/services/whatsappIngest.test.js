@@ -74,3 +74,18 @@ test('ingestWhatsAppEvent limpa manual_stage e manual_stage_set_at no upsert', a
   assert.match(contactCall.sql, /manual_stage = NULL/);
   assert.match(contactCall.sql, /manual_stage_set_at = NULL/);
 });
+
+test('ingestWhatsAppEvent notifica via SSE quando a mensagem e gravada', async () => {
+  const { db } = makeFakeDb();
+  const broadcasts = [];
+  const broadcast = (clientId, eventName, data) => broadcasts.push({ clientId, eventName, data });
+
+  await ingestWhatsAppEvent(5, baseEvent(), { db, broadcast });
+
+  assert.equal(broadcasts.length, 1);
+  assert.equal(broadcasts[0].clientId, 5);
+  assert.equal(broadcasts[0].eventName, 'message');
+  assert.equal(broadcasts[0].data.contactId, 1);
+  assert.equal(broadcasts[0].data.direction, 'inbound');
+  assert.equal(broadcasts[0].data.body, 'Oi, quero reservar');
+});

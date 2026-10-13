@@ -1,6 +1,7 @@
 import db from '../config/db.js';
 import { sendWhatsAppMessage } from '../services/metaWhatsAppApi.js';
 import { sendViaBaileys } from '../services/baileysClient.js';
+import { broadcast } from '../services/sseHub.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -108,6 +109,13 @@ export async function replyToConversation(req, res) {
       `UPDATE whatsapp_contacts SET manual_stage = NULL, manual_stage_set_at = NULL WHERE id = ?`,
       [contactId]
     );
+
+    broadcast(clientId, 'message', {
+      contactId: Number(contactId),
+      direction: 'outbound',
+      body,
+      sentAt: new Date().toISOString()
+    });
 
     return res.json({ message: 'Mensagem enviada.' });
   } catch (error) {

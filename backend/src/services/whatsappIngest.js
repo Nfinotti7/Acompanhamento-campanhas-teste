@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import { broadcast } from './sseHub.js';
 
 // Grava contato + mensagem pro client_id já resolvido. Compartilhado pelo webhook
 // oficial da Cloud API (whatsappWebhookController.js) e pela conexão Baileys
@@ -6,6 +7,7 @@ import db from '../config/db.js';
 // diferentes antes de chamar isso.
 export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   const dbImpl = deps.db || db;
+  const broadcastFn = deps.broadcast || broadcast;
 
   const { rows: contactRows } = await dbImpl.query(
     `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, ctwa_clid, ad_id, ad_headline, ad_body, source, last_message_at)
@@ -41,6 +43,13 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
      ON CONFLICT (wa_message_id) DO NOTHING`,
     [clientId, contactId, event.direction, event.body, event.waMessageId, event.sentAt]
   );
+
+  broadcastFn(clientId, 'message', {
+    contactId,
+    direction: event.direction,
+    body: event.body,
+    sentAt: event.sentAt
+  });
 
   return contactId;
 }

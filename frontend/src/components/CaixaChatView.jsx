@@ -73,16 +73,26 @@ function ManualSaleForm({ apiClient, initialName, onDone }) {
   );
 }
 
-export default function CaixaChatView({ caixaApi }) {
+export default function CaixaChatView({ caixaApi, lastEvent }) {
   const [conversations, setConversations] = useState([]);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null); // null = mostra conversas; array = resultado da busca
   const [selectedContact, setSelectedContact] = useState(null);
   const [manualEntryName, setManualEntryName] = useState(null);
+  const [liveSignal, setLiveSignal] = useState(null);
 
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    fetchConversations();
+    if (selectedContact && lastEvent.contactId === selectedContact.id) {
+      setLiveSignal(lastEvent.receivedAt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastEvent]);
 
   const fetchConversations = async () => {
     try {
@@ -182,7 +192,7 @@ export default function CaixaChatView({ caixaApi }) {
 
       <div style={{ padding: '16px', minWidth: 0 }}>
         {selectedContact ? (
-          <ContactDetailPanel apiClient={caixaApi} contact={selectedContact} onUpdated={fetchConversations} />
+          <ContactDetailPanel apiClient={caixaApi} contact={selectedContact} onUpdated={fetchConversations} liveUpdateSignal={liveSignal} />
         ) : manualEntryName !== null ? (
           <ManualSaleForm apiClient={caixaApi} initialName={manualEntryName} onDone={finishManualEntry} />
         ) : (

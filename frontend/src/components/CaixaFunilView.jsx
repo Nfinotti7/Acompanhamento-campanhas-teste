@@ -26,7 +26,7 @@ function formatAppointment(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function CaixaFunilView({ caixaApi, inputStyle, view }) {
+export default function CaixaFunilView({ caixaApi, inputStyle, view, lastEvent }) {
   const [contacts, setContacts] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [date, setDate] = useState(todayISODate());
@@ -41,6 +41,12 @@ export default function CaixaFunilView({ caixaApi, inputStyle, view }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, date]);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (view === 'funil') fetchKanban(); else fetchAgenda();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastEvent]);
 
   const fetchKanban = async () => {
     setLoading(true);

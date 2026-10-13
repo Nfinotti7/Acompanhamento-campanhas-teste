@@ -4,7 +4,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_further_ads_key_2026'
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  // EventSource (usado pelas conexões de Server-Sent Events) não consegue mandar
+  // cabeçalhos customizados, então essa rota autentica via query string em vez
+  // do header -- os demais endpoints continuam usando o header normalmente.
+  const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
 
   if (!token) {
     return res.status(401).json({ error: 'Acesso não autorizado. Token não fornecido.' });
