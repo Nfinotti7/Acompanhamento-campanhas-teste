@@ -2,6 +2,7 @@ import db from '../config/db.js';
 import { computeRoi } from '../utils/whatsappRoi.js';
 import { resolveDateRange } from './campaignController.js';
 import { moveToAutoStage } from '../services/crmStages.js';
+import { fireSaleEvent, inBackground } from '../services/conversionEvents.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -57,6 +58,7 @@ export async function createConversion(req, res) {
 
     if (contactId) {
       await moveToAutoStage(db, { clientId, contactId, event: 'venda' });
+      inBackground(fireSaleEvent({ clientId, contactId, conversionId: rows[0].id, value: Number(amountSpent) }));
     }
 
     return res.status(201).json({ message: 'Conversão registrada com sucesso!', id: rows[0].id });

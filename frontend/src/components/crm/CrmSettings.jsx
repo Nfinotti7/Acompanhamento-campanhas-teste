@@ -10,6 +10,9 @@ const AUTO_EVENT_LABELS = {
   venda: 'Venda lançada move pra cá'
 };
 
+// Purchase não aparece: é enviada a cada venda lançada, com o valor dela.
+const META_EVENTS = ['Lead', 'Contact', 'Schedule', 'CompleteRegistration', 'SubmitApplication'];
+
 const inputStyle = {
   padding: '7px 9px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)',
   backgroundColor: '#131b2e', color: '#fff', fontSize: '0.82rem'
@@ -112,6 +115,15 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
               <option value="">Só manual</option>
               {Object.entries(AUTO_EVENT_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
             </select>
+            <select
+              value={stage.meta_event || ''}
+              onChange={(e) => run(() => apiClient.patch(`/api/crm/stages/${stage.id}`, body({ metaEvent: e.target.value || null })))}
+              title="Evento enviado pra Meta (Conversions API) quando o card entra nesta etapa"
+              style={{ ...inputStyle, maxWidth: 150 }}
+            >
+              <option value="">Sem evento Meta</option>
+              {META_EVENTS.map((ev) => <option key={ev} value={ev}>Meta: {ev}</option>)}
+            </select>
             <button type="button" disabled={index === 0} onClick={() => moveStage(index, -1)} style={{ ...iconBtn, opacity: index === 0 ? 0.3 : 1 }} title="Mover pra antes no funil"><ArrowUp size={14} /></button>
             <button type="button" disabled={index === stages.length - 1} onClick={() => moveStage(index, 1)} style={{ ...iconBtn, opacity: index === stages.length - 1 ? 0.3 : 1 }} title="Mover pra depois no funil"><ArrowDown size={14} /></button>
             <button type="button" onClick={() => deleteStage(stage)} style={{ ...iconBtn, color: '#f87171', background: 'rgba(248,113,113,0.1)' }} title="Apagar etapa"><Trash2 size={14} /></button>
@@ -121,6 +133,8 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
       <AddRow placeholder="Nova etapa" withColor onAdd={(data) => run(() => apiClient.post('/api/crm/stages', body(data)))} />
       <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '6px' }}>
         Mensagem comum não move card. Só lead novo, agendamento e venda movem sozinhos, pra etapa ligada a cada um.
+        O evento Meta é enviado uma vez por contato quando o card entra na etapa (se a Conversions API estiver ativa
+        em "Links e Conversões"). Purchase vai sozinha a cada venda lançada.
       </p>
 
       <h3 style={sectionTitle}>Tags</h3>

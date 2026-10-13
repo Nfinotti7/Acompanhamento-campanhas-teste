@@ -304,6 +304,62 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES crm_stages(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS deal_value NUMERIC(12,2)`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS responsible_id INTEGER REFERENCES crm_team_members(id) ON DELETE SET NULL`);
+  // Link Rastreável (services/trackingLink.js): cada link gera um clique com código curto,
+  // que volta na primeira mensagem do lead e liga a conversa ao clique.
+  await query(`
+    CREATE TABLE IF NOT EXISTS tracking_links (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      phone TEXT NOT NULL,
+      message TEXT,
+      utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, utm_content TEXT, utm_term TEXT,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS tracking_clicks (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      link_id INTEGER NOT NULL REFERENCES tracking_links(id) ON DELETE CASCADE,
+      code TEXT NOT NULL UNIQUE,
+      utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, utm_content TEXT, utm_term TEXT,
+      fbclid TEXT, gclid TEXT, user_agent TEXT, referrer TEXT,
+      contact_id INTEGER REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+      matched_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS tracking_click_id INTEGER REFERENCES tracking_clicks(id) ON DELETE SET NULL`);
+  // Meta Conversions API (services/conversionEvents.js): pixel por cliente, evento por
+  // etapa do funil, e o registro de tudo que foi enviado.
+  await query(`ALTER TABLE crm_stages ADD COLUMN IF NOT EXISTS meta_event TEXT`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS capi_settings (
+      client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+      pixel_id TEXT,
+      test_event_code TEXT,
+      enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS conversion_events (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+      platform TEXT NOT NULL DEFAULT 'meta',
+      event_name TEXT NOT NULL,
+      event_id TEXT NOT NULL UNIQUE,
+      action_source TEXT,
+      value NUMERIC(12,2),
+      status TEXT NOT NULL DEFAULT 'pending',
+      error TEXT,
+      test_mode BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
   await seedData();
 }

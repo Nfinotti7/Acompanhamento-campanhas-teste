@@ -5,6 +5,7 @@
 // - agendado: marcar agendamento
 // - venda: lançar venda
 import { computeStage } from './whatsappStage.js';
+import { fireStageEvent, inBackground } from './conversionEvents.js';
 
 export const AUTO_EVENTS = ['novo_lead', 'agendado', 'venda'];
 
@@ -96,22 +97,31 @@ export async function ensureStages(dbImpl, clientId) {
 }
 
 // Move o contato pra etapa ligada ao evento. novo_lead só vale pra quem ainda não está
-// em etapa nenhuma (contato novo); agendado/venda movem sempre.
-export async function moveToAutoStage(dbImpl, { clientId, contactId, event }) {
+// em etapa nenhuma (contato novo); agendado/venda movem sempre. Se o card mudou de
+// etapa, envia o evento Meta ligado à nova etapa (em segundo plano).
+export async function moveToAutoStage(dbImpl, { clientId, contactId, event }, deps = {}) {
+  const fire = deps.fire || ((args) => fireStageEvent(args, { db: dbImpl }));
+  let result;
   if (event === 'novo_lead') {
-    await dbImpl.query(
+    result = await dbImpl.query(
       `UPDATE whatsapp_contacts SET stage_id = (
          SELECT id FROM crm_stages WHERE client_id = ?
          ORDER BY (auto_event = 'novo_lead') DESC NULLS LAST, position ASC LIMIT 1
-       ) WHERE id = ? AND stage_id IS NULL`,
+       ) WHERE id = ? AND stage_id IS NULL
+       RETURNING id`,
       [clientId, contactId]
     );
-    return;
+  } else {
+    result = await dbImpl.query(
+      `UPDATE whatsapp_contacts SET stage_id = s.id
+       FROM crm_stages s
+       WHERE s.client_id = ? AND s.auto_event = ? AND whatsapp_contacts.id = ?
+         AND whatsapp_contacts.stage_id IS DISTINCT FROM s.id
+       RETURNING whatsapp_contacts.id`,
+      [clientId, event, contactId]
+    );
   }
-  await dbImpl.query(
-    `UPDATE whatsapp_contacts SET stage_id = s.id
-     FROM crm_stages s
-     WHERE s.client_id = ? AND s.auto_event = ? AND whatsapp_contacts.id = ?`,
-    [clientId, event, contactId]
-  );
+  const moved = result.rows.length > 0;
+  if (moved) inBackground(Promise.resolve().then(() => fire({ clientId, contactId })));
+  return moved;
 }

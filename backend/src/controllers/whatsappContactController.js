@@ -81,11 +81,15 @@ export async function getContactTimeline(req, res) {
 const ATTRIBUTION_SQL = `
   SELECT wc.source, wc.tracking_method, wc.ad_id, wc.ad_headline, wc.ad_body, wc.ad_source_url,
          wc.first_seen_at, c.ad_name, c.adset_name, c.campaign_name, c.account_name,
+         tl.name AS link_name, tc.utm_source, tc.utm_medium, tc.utm_campaign, tc.utm_content, tc.utm_term,
+         tc.fbclid, tc.gclid, tc.created_at AS clicked_at,
          (SELECT body FROM whatsapp_messages m
            WHERE m.contact_id = wc.id AND m.direction = 'inbound'
            ORDER BY m.sent_at ASC LIMIT 1) AS initial_message
   FROM whatsapp_contacts wc
   LEFT JOIN meta_ad_cache c ON c.ad_id = wc.ad_id
+  LEFT JOIN tracking_clicks tc ON tc.id = wc.tracking_click_id
+  LEFT JOIN tracking_links tl ON tl.id = tc.link_id
   WHERE wc.id = ? AND wc.client_id = ?`;
 
 export async function getContactAttribution(req, res) {
@@ -121,7 +125,18 @@ export async function getContactAttribution(req, res) {
       adBody: r.ad_body,
       adSourceUrl: r.ad_source_url,
       initialMessage: r.initial_message,
-      firstSeenAt: r.first_seen_at
+      firstSeenAt: r.first_seen_at,
+      link: r.link_name ? {
+        name: r.link_name,
+        clickedAt: r.clicked_at,
+        utmSource: r.utm_source,
+        utmMedium: r.utm_medium,
+        utmCampaign: r.utm_campaign,
+        utmContent: r.utm_content,
+        utmTerm: r.utm_term,
+        hasFbclid: Boolean(r.fbclid),
+        hasGclid: Boolean(r.gclid)
+      } : null
     });
   } catch (error) {
     console.error('Get contact attribution error:', error);

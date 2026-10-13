@@ -43,7 +43,7 @@ Também corrigido nesse mesmo dia: `wa_id` gravado errado quando o WhatsApp usa 
 1. ✅ **Conversa de verdade** — som de mensagem nova, foto do lead, abrir imagem, ouvir áudio, vídeo/documento (ver Registro).
 2. ✅ **Atribuição estilo Tintim** (ver Registro 2026-10-13, Fase 2) — validar assinatura do webhook (`X-Hub-Signature-256`, hoje qualquer um consegue mandar mensagem falsa), resolver `ad_id` → conta/campanha/conjunto/anúncio via Marketing API (credenciais Meta por cliente já existem), painel "Informações da conversa" com método de rastreamento, origens Meta/Google/Outras/Não rastreada, dashboard de conversas (total, % rastreadas, gráfico por dia por origem, funil, vendas/faturamento).
 3. ✅ **CRM estilo Kommo** (ver Registro 2026-10-13, Fase 3) — o usuário escolheu: etapas personalizadas por cliente + arrastar cards; valor do negócio no card (soma por coluna); tags e responsável. (Tarefas/lembretes ficaram de fora por enquanto.) Substitui as 6 etapas fixas calculadas; cada etapa já preparada pra mapear um evento de conversão (Contact/Schedule/Purchase).
-4. ⏳ **Link Rastreável + CAPI** — link próprio que captura UTM/fbclid e redireciona pro `wa.me` com token; disparo dos eventos por etapa pra Meta/Google com log.
+4. ✅ **Link Rastreável + CAPI** (ver Registro 2026-10-13, Fase 4; falta validar com pixel real) — link próprio que captura UTM/fbclid e redireciona pro `wa.me` com token; disparo dos eventos por etapa pra Meta/Google com log.
 - O blueprint propunha criar tabelas novas (`contatos`, `mensagens`...) — **não fazer isso**: as equivalentes já existem (`whatsapp_contacts`, `whatsapp_messages`, `real_conversions`). Estender, não duplicar.
 - ~~Baileys nunca recebe `referral`~~ **ERRADO, corrigido em 2026-10-13**: pelo QR code a primeira mensagem de quem clicou em anúncio CTWA traz `contextInfo.externalAdReply` (`sourceId` = ad id, `ctwaClid`), e agora é lido (ver Registro). O que o Baileys não pega é origem fora de anúncio Meta (Google, orgânico); isso é o Link Rastreável (Fase 4).
 
@@ -196,3 +196,48 @@ Implementação:
 - **Perdido de propósito:** as etapas por tempo ("Não compareceu" quando o agendamento passa, "Remarketing" depois de N dias) não andam mais sozinhas, porque o usuário escolheu que só venda e agendamento movem. Se ele sentir falta, dá pra adicionar `auto_event` por tempo.
 - Testado localmente contra o banco de produção com o Recreio: arrastar, abrir card, criar tag e responsável, valor estimado vs. venda real. **Atenção:** isso já migrou o Recreio (etapas criadas no banco de produção); os outros clientes migram na primeira abertura do funil.
 - Próximo: Fase 4 (Link Rastreável + CAPI). As etapas já têm `auto_event`; o disparo de conversão por etapa vai precisar de um campo novo (ex: `conversion_event` em `crm_stages`).
+
+### 2026-10-13 (continuação) — Fase 4: Link Rastreável + Meta Conversions API
+
+Decisões do usuário:
+- O código vai **visível** na mensagem pronta, no formato `(cód. XXXXX)`.
+- **Só Meta** por enquanto. O Google (upload de conversão offline) fica pra uma etapa seguinte, porque exige criar uma ação de conversão em cada conta Google Ads.
+- Evento de etapa é enviado **uma vez por contato**. Purchase é enviada a cada venda lançada, com o valor.
+
+**Link Rastreável:**
+- `services/trackingLink.js` (testado): gera o código (5 caracteres sem 0/O/1/I/L), monta a mensagem, extrai o código (aceita "cod", "cód." etc.), classifica a origem (`gclid`/utm google → `google_ads`; `fbclid`/utm facebook/instagram → `ad` = Meta; senão `outras`) e detecta robôs de prévia.
+- Rota pública `GET /r/:slug` (`trackingController.redirectTrackingLink`), registrada antes do `/api` e do fallback da SPA. Grava o clique com as UTMs (as da URL têm prioridade sobre os padrões do link), mais `fbclid`/`gclid`, e redireciona pro `wa.me`. Robô de prévia (WhatsApp/Facebook montando o cartão) é redirecionado sem gravar clique.
+- `ingestWhatsAppEvent` → `matchTrackingClick`: mensagem recebida com código liga o clique ao contato. Se o contato não tem `tracking_method` (primeiro toque), grava `source`, `tracking_method='link'` e `tracking_click_id`. Isso roda **antes** de entrar no funil, então o evento Lead já sai com o `fbclid`.
+- Tabelas `tracking_links` (o slug é global) e `tracking_clicks` (o código é UNIQUE). A aba Origem mostra o nome do link, as UTMs e os IDs de clique.
+
+**Meta Conversions API:**
+- `services/metaCapi.js` (testado): `buildCapiEvent`.
+  - Com `ctwa_clid` **e** WABA real (não 'baileys'): `action_source=business_messaging`, `messaging_channel=whatsapp`, `user_data.ctwa_clid` e `whatsapp_business_account_id`.
+  - Senão: `action_source=chat`, com telefone em hash (`ph`), mais `fbc` montado do `fbclid` do Link Rastreável.
+  - Sempre vão `country` e `external_id`. O valor vai em BRL.
+- `services/conversionEvents.js` (testado):
+  - Só envia se `capi_settings.enabled`, pixel preenchido e token Meta em `credentials`.
+  - Reserva o `event_id` em `conversion_events` (UNIQUE) antes de enviar. Stage = `c<contato>-<evento>`, venda = `sale-<id>`.
+  - Evento que **falhou** é retentado no próximo gatilho.
+- Gatilhos:
+  - `moveToAutoStage` (agora devolve se mudou e dispara quando muda).
+  - `PATCH /contacts/:id/crm` com `stageId`.
+  - `createConversion` (Purchase).
+  - Tudo em segundo plano (`inBackground`).
+- `crm_stages.meta_event`: Lead/Contact/Schedule/CompleteRegistration/SubmitApplication, escolhido em "Configurar funil". **Purchase não pode ser ligada a etapa**, pra não contar a venda duas vezes.
+- Rotas `/api/tracking/*` (links, capi, capi/test, events) bloqueadas pro token de staff (`denyStaff`).
+- Nova aba no admin, **"Links e Conversões"** (`pages/TrackingLinksPage.jsx`): criar e copiar links com contagem de cliques e conversas, Pixel + código de teste + ativo, botão "Enviar evento de teste" e tabela de disparos.
+
+**Testado** localmente contra o banco de produção, com o Recreio:
+- link → clique com `gclid` → webhook assinado com o código → contato `google_ads`/`link`, aba Origem certa;
+- staff recebe 403 em `/api/tracking`;
+- Lead enviado uma vez, e mover o card de volta não reenvia;
+- Purchase da venda com valor;
+- com pixel falso, a Meta recusou e o erro ficou registrado.
+
+Dados de teste apagados.
+
+**Não testado:**
+- A tela "Links e Conversões" no navegador (sem senha de admin na sessão de teste). O build passa.
+- Envio com pixel real. O formato `business_messaging` precisa ser confirmado pelo usuário com código de teste no Gerenciador de Eventos.
+- O código passando pelo Baileys real. O texto chega igual, mas confirmar.

@@ -194,3 +194,30 @@ test('ingestWhatsAppEvent marca como anuncio quando so tem o id do anuncio (Bail
   assert.equal(contactCall.params[7], 'ad');
   assert.equal(contactCall.params[11], 'ctwa');
 });
+
+test('mensagem com codigo do Link Rastreavel liga o clique e define a origem (primeiro toque)', async () => {
+  const calls = [];
+  const db = {
+    query: async (sql, params = []) => {
+      calls.push({ sql, params });
+      if (/UPDATE tracking_clicks/.test(sql)) return { rows: [{ id: 33, utm_source: 'google', fbclid: null, gclid: 'G1' }] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  await ingestWhatsAppEvent(5, baseEvent({ body: 'Olá! Quero reservar (cód. A7K2M)' }), { db, broadcast: () => {} });
+
+  const clickCall = calls.find((c) => /UPDATE tracking_clicks/.test(c.sql));
+  assert.deepEqual(clickCall.params, [1, 5, 'A7K2M']);
+  const sourceCall = calls.find((c) => /tracking_method = 'link'/.test(c.sql));
+  assert.deepEqual(sourceCall.params, ['google_ads', 33, 1]);
+  assert.match(sourceCall.sql, /tracking_method IS NULL/);
+  // origem resolvida antes de entrar no funil (o evento Lead já sai com ela)
+  assert.ok(calls.indexOf(sourceCall) < calls.findIndex((c) => /SET stage_id/.test(c.sql)));
+});
+
+test('mensagem sem codigo nao consulta cliques', async () => {
+  const { db, calls } = makeFakeDb();
+  await ingestWhatsAppEvent(5, baseEvent(), { db, broadcast: () => {} });
+  assert.ok(!calls.some((c) => /tracking_clicks/.test(c.sql)));
+});

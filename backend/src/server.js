@@ -24,6 +24,7 @@ import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js'
 import { getMedia } from './controllers/whatsappMediaController.js';
 import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
+import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
@@ -55,6 +56,9 @@ app.get('/api/staff/restaurants', listRestaurants);
 app.post('/api/staff/login', staffLogin);
 app.get('/api/v1/whatsapp/webhook', verifyWebhook);
 app.post('/api/v1/whatsapp/webhook', receiveWebhook);
+
+// Link Rastreável (público): grava o clique e redireciona pro WhatsApp.
+app.get('/r/:slug', redirectTrackingLink);
 
 // Protected Endpoints
 app.use('/api', authenticateToken);
@@ -121,6 +125,17 @@ app.get('/api/whatsapp/contacts/:contactId/attribution', getContactAttribution);
 app.get('/api/whatsapp/events', streamWhatsAppEvents);
 app.get('/api/whatsapp/media/:mediaId', getMedia);
 app.get('/api/whatsapp/dashboard', getWhatsappDashboard);
+
+// Links rastreáveis e Meta Conversions API -- só painel (admin/cliente), não o /caixa.
+const denyStaff = (req, res, next) => (req.user.role === 'staff' ? res.status(403).json({ error: 'Sem acesso.' }) : next());
+app.get('/api/tracking/links', denyStaff, listLinks);
+app.post('/api/tracking/links', denyStaff, createLink);
+app.patch('/api/tracking/links/:id', denyStaff, updateLink);
+app.delete('/api/tracking/links/:id', denyStaff, deleteLink);
+app.get('/api/tracking/capi', denyStaff, getCapiSettings);
+app.put('/api/tracking/capi', denyStaff, saveCapiSettings);
+app.post('/api/tracking/capi/test', denyStaff, sendCapiTest);
+app.get('/api/tracking/events', denyStaff, listConversionEvents);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);

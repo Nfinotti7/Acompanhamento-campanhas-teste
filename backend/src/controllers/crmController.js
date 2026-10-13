@@ -1,5 +1,7 @@
 import db from '../config/db.js';
 import { ensureStages, isValidAutoEvent, effectiveStageId } from '../services/crmStages.js';
+import { isValidStageMetaEvent } from '../services/metaCapi.js';
+import { fireStageEvent, inBackground } from '../services/conversionEvents.js';
 
 // Etapas, tags e equipe podem ser editadas por qualquer papel (admin, cliente e o
 // /caixa) -- decisão do usuário. O clientId vem do token pra quem não é admin.
@@ -19,7 +21,7 @@ function cleanName(value) {
 async function loadConfig(clientId) {
   await ensureStages(db, clientId);
   const [{ rows: stages }, { rows: tags }, { rows: team }] = await Promise.all([
-    db.query(`SELECT id, name, color, position, auto_event FROM crm_stages WHERE client_id = ? ORDER BY position, id`, [clientId]),
+    db.query(`SELECT id, name, color, position, auto_event, meta_event FROM crm_stages WHERE client_id = ? ORDER BY position, id`, [clientId]),
     db.query(`SELECT id, name, color FROM crm_tags WHERE client_id = ? ORDER BY name`, [clientId]),
     db.query(`SELECT id, name FROM crm_team_members WHERE client_id = ? ORDER BY name`, [clientId])
   ]);
@@ -61,7 +63,7 @@ export const createStage = withClient(async (req, res, clientId) => {
 
 export const updateStage = withClient(async (req, res, clientId) => {
   const { stageId } = req.params;
-  const { name, color, autoEvent } = req.body;
+  const { name, color, autoEvent, metaEvent } = req.body;
   const sets = [];
   const params = [];
 
@@ -84,6 +86,11 @@ export const updateStage = withClient(async (req, res, clientId) => {
     }
     sets.push('auto_event = ?');
     params.push(autoEvent || null);
+  }
+  if (metaEvent !== undefined) {
+    if (!isValidStageMetaEvent(metaEvent)) return res.status(400).json({ error: 'Evento Meta inválido.' });
+    sets.push('meta_event = ?');
+    params.push(metaEvent || null);
   }
   if (sets.length === 0) return res.status(400).json({ error: 'Nada pra atualizar.' });
 
@@ -239,6 +246,10 @@ export const updateContactCrm = withClient(async (req, res, clientId) => {
   }
   if (sets.length > 0) {
     await db.query(`UPDATE whatsapp_contacts SET ${sets.join(', ')} WHERE id = ?`, [...params, contactId]);
+  }
+  // Card movido pra uma etapa com evento Meta ligado: envia (uma vez por contato).
+  if (stageId !== undefined) {
+    inBackground(fireStageEvent({ clientId, contactId }));
   }
 
   if (tagIds !== undefined) {

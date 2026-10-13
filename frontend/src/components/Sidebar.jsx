@@ -12,7 +12,8 @@ import {
   MessageCircle,
   Columns3,
   CalendarDays,
-  PieChart
+  PieChart,
+  Radar
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,6 +29,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate })
     { id: 'whatsapp', label: 'WhatsApp & Conversões', icon: MessageCircle },
     { id: 'whatsapp-kanban', label: 'Funil WhatsApp', icon: Columns3 },
     { id: 'whatsapp-agenda', label: 'Agenda', icon: CalendarDays },
+    { id: 'tracking-links', label: 'Links e Conversões', icon: Radar },
   ];
 
   if (user?.role === 'admin') {

@@ -16,7 +16,7 @@ export async function getKanban(req, res) {
 
     await ensureStages(db, clientId);
     const { rows: stages } = await db.query(
-      `SELECT id, name, color, position, auto_event FROM crm_stages WHERE client_id = ? ORDER BY position, id`,
+      `SELECT id, name, color, position, auto_event, meta_event FROM crm_stages WHERE client_id = ? ORDER BY position, id`,
       [clientId]
     );
 

@@ -1,6 +1,7 @@
 import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
+import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -26,6 +27,27 @@ async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
     `UPDATE whatsapp_messages SET media_id = ? WHERE id = ?`,
     [rows[0].id, messageId]
   );
+}
+
+// Mensagem com "(cód. XXXXX)" do Link Rastreável: liga o clique ao contato e, se o
+// contato ainda não tem origem rastreada (primeiro toque), usa a do clique.
+export async function matchTrackingClick(dbImpl, { clientId, contactId, body }) {
+  const code = extractTrackingCode(body);
+  if (!code) return null;
+  const { rows } = await dbImpl.query(
+    `UPDATE tracking_clicks SET contact_id = ?, matched_at = CURRENT_TIMESTAMP
+     WHERE client_id = ? AND code = ? AND contact_id IS NULL
+     RETURNING id, utm_source, fbclid, gclid`,
+    [contactId, clientId, code]
+  );
+  const click = rows[0];
+  if (!click) return null;
+  await dbImpl.query(
+    `UPDATE whatsapp_contacts SET source = ?, tracking_method = 'link', tracking_click_id = ?
+     WHERE id = ? AND tracking_method IS NULL`,
+    [classifyClickSource(click), click.id, contactId]
+  );
+  return click.id;
 }
 
 // Grava contato + mensagem pro client_id já resolvido. Compartilhado pelo webhook
@@ -70,6 +92,12 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
     ]
   );
   const contactId = contactRows[0].id;
+
+  // Antes de entrar no funil: se veio pelo Link Rastreável, a origem já fica certa pro
+  // evento Lead que a entrada no funil pode disparar.
+  if (event.direction === 'inbound') {
+    await matchTrackingClick(dbImpl, { clientId, contactId, body: event.body });
+  }
 
   // Contato novo entra no funil (etapa de "novo lead"). Quem já está numa etapa fica lá:
   // mensagem comum não move card -- só agendamento e venda (ver crmStages.js).

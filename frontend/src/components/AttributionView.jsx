@@ -48,13 +48,26 @@ export default function AttributionView({ data }) {
       <Row label="Anúncio" value={data.adName || (data.adId && !data.campaignName ? `ID ${data.adId} (nome indisponível)` : null)} />
       <Row label="Título do anúncio" value={data.adHeadline} />
       <Row label="Link do anúncio" value={data.adSourceUrl && <a href={data.adSourceUrl} target="_blank" rel="noreferrer" style={{ color: '#a5b4fc' }}>Abrir anúncio</a>} />
+      {data.link && (
+        <>
+          <Row label="Link" value={data.link.name} />
+          <Row label="Clique no link" value={new Date(data.link.clickedAt).toLocaleString('pt-BR')} />
+          <Row label="utm_source" value={data.link.utmSource} />
+          <Row label="utm_medium" value={data.link.utmMedium} />
+          <Row label="utm_campaign" value={data.link.utmCampaign} />
+          <Row label="utm_content" value={data.link.utmContent} />
+          <Row label="utm_term" value={data.link.utmTerm} />
+          <Row label="ID de clique" value={[data.link.hasFbclid && 'fbclid (Meta)', data.link.hasGclid && 'gclid (Google)'].filter(Boolean).join(', ')} />
+        </>
+      )}
       <Row label="Mensagem inicial" value={data.initialMessage} />
       <Row label="Primeiro contato" value={firstSeen} />
 
       {data.origin === 'nao_rastreada' && (
         <p style={{ marginTop: '14px', fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.5 }}>
-          Essa conversa não chegou por um clique em anúncio rastreável. No modo WhatsApp Web (não-oficial)
-          a origem do anúncio nunca é informada pelo WhatsApp — só a API oficial da Meta envia esse dado.
+          Essa conversa não chegou por um anúncio Clique para WhatsApp nem por um Link Rastreável.
+          Pra rastrear Google, Instagram orgânico, site e outras origens, use um Link Rastreável
+          (menu "Links e Conversões").
         </p>
       )}
     </div>
