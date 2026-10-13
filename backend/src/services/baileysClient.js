@@ -10,6 +10,7 @@
 // tentando abrir a mesma sessao ao mesmo tempo quebram a conexao.
 import path from 'node:path';
 import QRCode from 'qrcode';
+import db from '../config/db.js';
 import { ingestWhatsAppEvent } from './whatsappIngest.js';
 import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 
@@ -76,6 +77,29 @@ export async function connectClient(clientId, deps = {}) {
   });
 
   return state;
+}
+
+// Reestabelece a conexao Baileys de todo cliente configurado como 'baileys' --
+// sem isso, depois que o processo reinicia (deploy, crash, etc.) a conexao fica
+// parada ate alguem abrir a pagina de Credenciais e disparar getBaileysStatus
+// manualmente. Chamado uma vez na subida do servidor (server.js).
+export async function reconnectAllBaileysClients(deps = {}) {
+  const dbImpl = deps.db || db;
+  const connect = deps.connect || connectClient;
+
+  const { rows } = await dbImpl.query(
+    `SELECT client_id FROM whatsapp_settings WHERE connection_type = 'baileys'`
+  );
+
+  for (const row of rows) {
+    try {
+      await connect(row.client_id, deps);
+    } catch (error) {
+      console.error(`Erro ao reconectar Baileys pro cliente ${row.client_id}:`, error);
+    }
+  }
+
+  return rows.map((r) => r.client_id);
 }
 
 export function getConnectionState(clientId) {

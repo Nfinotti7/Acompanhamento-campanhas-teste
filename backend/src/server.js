@@ -18,6 +18,7 @@ import { listConversations, getMessages, replyToConversation } from './controlle
 import { searchContacts, createConversion, updateConversion, deleteConversion, getRoi } from './controllers/realConversionsController.js';
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
+import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { setContactStage, setContactNotes, getContactTimeline, deleteContact } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
@@ -119,6 +120,12 @@ initDb()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`🚀 Backend Ad Campaign Tracker rodando na porta ${PORT}`);
+    });
+    // Reconecta sozinho as sessoes Baileys existentes -- sem isso, depois de um
+    // restart (deploy, crash) a conexao fica parada ate alguem abrir a pagina
+    // de Credenciais e disparar getBaileysStatus manualmente.
+    reconnectAllBaileysClients().catch((err) => {
+      console.error('Erro ao reconectar clientes Baileys na subida:', err);
     });
   })
   .catch((err) => {
