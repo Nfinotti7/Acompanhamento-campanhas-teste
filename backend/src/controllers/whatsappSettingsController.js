@@ -55,29 +55,35 @@ export async function saveWhatsappSettings(req, res) {
     const phoneNumberIdParam = phoneNumberId || 'baileys';
     const wabaIdParam = wabaId || 'baileys';
 
-    if (pin) {
-      const pinHash = await hashPin(pin);
+    if (pin && !/^\d{4,8}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN deve ter entre 4 e 8 dígitos numéricos.' });
+    }
+    const pinHash = pin ? await hashPin(pin) : null;
+
+    if (!alreadyExists) {
+      // Linha nova: access_token é NOT NULL, então nesse caminho ele já foi
+      // garantido acima (obrigatório no modo cloud_api, ou preenchido com o
+      // placeholder 'baileys' no modo baileys) — nunca chega null aqui.
       await db.query(
         `INSERT INTO whatsapp_settings (client_id, phone_number_id, waba_id, access_token, display_phone_number, staff_pin_hash, connection_type, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-         ON CONFLICT (client_id) DO UPDATE SET
-           phone_number_id = excluded.phone_number_id,
-           waba_id = excluded.waba_id,
-           access_token = COALESCE(excluded.access_token, whatsapp_settings.access_token),
-           display_phone_number = excluded.display_phone_number,
-           staff_pin_hash = excluded.staff_pin_hash,
-           connection_type = excluded.connection_type,
-           updated_at = CURRENT_TIMESTAMP`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [clientId, phoneNumberIdParam, wabaIdParam, accessTokenParam, displayPhoneNumber || null, pinHash, normalizedConnectionType]
       );
     } else {
+      // Linha já existe: sempre UPDATE (nunca INSERT) pra poder usar COALESCE
+      // contra o valor atual do banco — um INSERT ... ON CONFLICT com
+      // access_token nulo na lista de VALUES viola o NOT NULL antes mesmo de
+      // chegar no ON CONFLICT, mesmo quando o COALESCE do UPDATE nunca usaria
+      // esse null.
       await db.query(
         `UPDATE whatsapp_settings
          SET phone_number_id = ?, waba_id = ?,
              access_token = COALESCE(?, access_token),
-             display_phone_number = ?, connection_type = ?, updated_at = CURRENT_TIMESTAMP
+             display_phone_number = ?,
+             staff_pin_hash = COALESCE(?, staff_pin_hash),
+             connection_type = ?, updated_at = CURRENT_TIMESTAMP
          WHERE client_id = ?`,
-        [phoneNumberIdParam, wabaIdParam, accessTokenParam, displayPhoneNumber || null, normalizedConnectionType, clientId]
+        [phoneNumberIdParam, wabaIdParam, accessTokenParam, displayPhoneNumber || null, pinHash, normalizedConnectionType, clientId]
       );
     }
 
