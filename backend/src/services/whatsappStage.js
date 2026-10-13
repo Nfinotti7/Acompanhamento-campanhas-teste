@@ -14,3 +14,10 @@ export function computeStage({ hasConversion, appointmentAt, hasOutbound, lastAc
 
   return hasOutbound ? 'em_atendimento' : 'novo_lead';
 }
+
+export const STAGE_KEYS = ['novo_lead', 'em_atendimento', 'agendado', 'nao_compareceu', 'compareceu', 'remarketing'];
+
+export function isValidManualStage(value) {
+  if (value === null || value === undefined) return true;
+  return STAGE_KEYS.includes(value);
+}

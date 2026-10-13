@@ -23,7 +23,7 @@ export async function getKanban(req, res) {
     const { rows } = await db.query(
       `SELECT
          wc.id, wc.wa_id, wc.profile_name, wc.source, wc.ad_headline,
-         wc.appointment_at, wc.first_seen_at,
+         wc.appointment_at, wc.first_seen_at, wc.manual_stage,
          EXISTS(SELECT 1 FROM real_conversions rc WHERE rc.contact_id = wc.id) AS has_conversion,
          EXISTS(SELECT 1 FROM whatsapp_messages wm WHERE wm.contact_id = wc.id AND wm.direction = 'outbound') AS has_outbound,
          (SELECT MAX(sent_at) FROM whatsapp_messages wm2 WHERE wm2.contact_id = wc.id) AS last_message_at
@@ -41,7 +41,8 @@ export async function getKanban(req, res) {
       source: r.source,
       ad_headline: r.ad_headline,
       appointment_at: r.appointment_at,
-      stage: computeStage({
+      manual_stage: r.manual_stage,
+      stage: r.manual_stage || computeStage({
         hasConversion: r.has_conversion,
         appointmentAt: r.appointment_at,
         hasOutbound: r.has_outbound,

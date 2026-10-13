@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStage } from './whatsappStage.js';
+import { computeStage, isValidManualStage, STAGE_KEYS } from './whatsappStage.js';
 
 const NOW = new Date('2026-10-12T12:00:00.000Z');
 
@@ -98,4 +98,25 @@ test('sem agendamento e sem nenhuma atividade registrada -> remarketing', () => 
     now: NOW
   });
   assert.equal(stage, 'remarketing');
+});
+
+test('STAGE_KEYS tem as 6 etapas do funil', () => {
+  assert.deepEqual(STAGE_KEYS, ['novo_lead', 'em_atendimento', 'agendado', 'nao_compareceu', 'compareceu', 'remarketing']);
+});
+
+test('isValidManualStage aceita null e undefined (significa "automatico")', () => {
+  assert.equal(isValidManualStage(null), true);
+  assert.equal(isValidManualStage(undefined), true);
+});
+
+test('isValidManualStage aceita qualquer uma das 6 chaves', () => {
+  for (const key of STAGE_KEYS) {
+    assert.equal(isValidManualStage(key), true);
+  }
+});
+
+test('isValidManualStage rejeita valor que nao e uma das 6 chaves', () => {
+  assert.equal(isValidManualStage('etapa_inventada'), false);
+  assert.equal(isValidManualStage(''), false);
+  assert.equal(isValidManualStage(123), false);
 });
