@@ -1,13 +1,16 @@
 // Conexao "nao-oficial" via WhatsApp Web (Baileys), alternativa temporaria a Cloud API
 // oficial da Meta pra clientes com connection_type = 'baileys'. Mantem uma sessao
 // por client_id dentro do MESMO processo Node que ja roda o Express -- sem worker
-// separado. Sessao fica salva em disco (fora do git) em .baileys_sessions/<clientId>,
-// entao sobrevive a reinicios do processo desde que a pasta nao seja apagada.
+// separado.
 //
-// Risco operacional (avisado ao usuario): se a hospedagem apagar o diretorio do
-// projeto a cada deploy, a sessao se perde e precisa escanear o QR code de novo.
+// A sessao fica na pasta HOME da conta, NAO dentro do projeto: o Hostinger sobe cada
+// deploy numa pasta nova (.../hbuilds/versions/<id>/nodejs), entao uma sessao salva
+// dentro do projeto sumia a cada deploy e obrigava escanear o QR de novo.
+// BAILEYS_SESSIONS_DIR sobrescreve o local se precisar.
+//
 // So funciona com UMA instancia do backend rodando por vez -- duas instancias
 // tentando abrir a mesma sessao ao mesmo tempo quebram a conexao.
+import os from 'node:os';
 import path from 'node:path';
 import QRCode from 'qrcode';
 import db from '../config/db.js';
@@ -15,7 +18,7 @@ import { ingestWhatsAppEvent } from './whatsappIngest.js';
 import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
 
-const SESSIONS_DIR = path.resolve(process.cwd(), '.baileys_sessions');
+const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
 
 // Tempo maximo que um socket pode ficar parado em 'connecting' (sem abrir, sem pedir QR,
 // sem fechar) antes de ser considerado travado e descartado pra tentar de novo do zero.
