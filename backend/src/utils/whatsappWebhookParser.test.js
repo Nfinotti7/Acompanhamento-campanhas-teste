@@ -83,6 +83,14 @@ test('extrai ctwa_clid e dados do anuncio quando a mensagem vem de um Click-to-W
     adId: '120211234567890',
     adHeadline: 'Promoção de hoje',
     adBody: 'Peça já pelo WhatsApp',
+    adSourceUrl: null,
+    referral: {
+      source_type: 'ad',
+      source_id: '120211234567890',
+      headline: 'Promoção de hoje',
+      body: 'Peça já pelo WhatsApp',
+      ctwa_clid: 'AfelCsWK_fake_clid'
+    },
     mediaType: null,
     mediaId: null,
     mimeType: null,

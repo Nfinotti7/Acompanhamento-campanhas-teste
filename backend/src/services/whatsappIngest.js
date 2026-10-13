@@ -36,14 +36,17 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   const broadcastFn = deps.broadcast || broadcast;
 
   const { rows: contactRows } = await dbImpl.query(
-    `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, ctwa_clid, ad_id, ad_headline, ad_body, source, last_message_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, ctwa_clid, ad_id, ad_headline, ad_body, source, last_message_at, ad_source_url, ad_referral_json, tracking_method)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (client_id, wa_id) DO UPDATE SET
        profile_name = COALESCE(excluded.profile_name, whatsapp_contacts.profile_name),
        ctwa_clid = COALESCE(whatsapp_contacts.ctwa_clid, excluded.ctwa_clid),
        ad_id = COALESCE(whatsapp_contacts.ad_id, excluded.ad_id),
        ad_headline = COALESCE(whatsapp_contacts.ad_headline, excluded.ad_headline),
        ad_body = COALESCE(whatsapp_contacts.ad_body, excluded.ad_body),
+       ad_source_url = COALESCE(whatsapp_contacts.ad_source_url, excluded.ad_source_url),
+       ad_referral_json = COALESCE(whatsapp_contacts.ad_referral_json, excluded.ad_referral_json),
+       tracking_method = COALESCE(whatsapp_contacts.tracking_method, excluded.tracking_method),
        source = CASE WHEN whatsapp_contacts.source = 'ad' THEN 'ad' ELSE excluded.source END,
        manual_stage = NULL,
        manual_stage_set_at = NULL,
@@ -58,7 +61,10 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       event.adHeadline,
       event.adBody,
       event.ctwaClid ? 'ad' : 'organic',
-      event.sentAt
+      event.sentAt,
+      event.adSourceUrl || null,
+      event.referral ? JSON.stringify(event.referral) : null,
+      event.ctwaClid ? 'ctwa' : null
     ]
   );
   const contactId = contactRows[0].id;

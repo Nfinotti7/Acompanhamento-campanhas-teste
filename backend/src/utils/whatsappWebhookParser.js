@@ -57,6 +57,8 @@ export function parseWhatsAppWebhook(payload) {
           adId: referral?.source_id || null,
           adHeadline: referral?.headline || null,
           adBody: referral?.body || null,
+          adSourceUrl: referral?.source_url || null,
+          referral,
           ...extractMedia(m)
         });
       }

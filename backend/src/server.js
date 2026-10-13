@@ -22,6 +22,7 @@ import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { setContactStage, setContactNotes, getContactTimeline, deleteContact } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
+import { resolveMissingAds } from './services/metaAdResolver.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -130,6 +131,10 @@ initDb()
     // de Credenciais e disparar getBaileysStatus manualmente.
     // BAILEYS_AUTOCONNECT=false desliga isso pra rodar o backend local contra o banco de
     // produção sem abrir uma sessão de WhatsApp paralela à do servidor.
+    resolveMissingAds()
+      .then((count) => { if (count > 0) console.log(`Anúncios resolvidos na subida: ${count}`); })
+      .catch((err) => console.error('Erro ao resolver anúncios pendentes:', err));
+
     if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
       reconnectAllBaileysClients().catch((err) => {
         console.error('Erro ao reconectar clientes Baileys na subida:', err);

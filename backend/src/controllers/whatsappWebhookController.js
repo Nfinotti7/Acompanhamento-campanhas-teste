@@ -3,6 +3,7 @@ import { parseWhatsAppWebhook } from '../utils/whatsappWebhookParser.js';
 import { ingestWhatsAppEvent } from '../services/whatsappIngest.js';
 import { downloadCloudMedia } from '../services/metaWhatsAppApi.js';
 import { isValidMetaSignature } from '../utils/metaSignature.js';
+import { resolveAd } from '../services/metaAdResolver.js';
 
 const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'further_whatsapp_verify_2026';
 
@@ -52,6 +53,12 @@ export async function receiveWebhook(req, res) {
       }
 
       await ingestWhatsAppEvent(settings.client_id, event);
+
+      // Em segundo plano: nome de campanha/conjunto/anúncio não pode atrasar o webhook.
+      if (event.adId) {
+        resolveAd({ adId: event.adId, clientId: settings.client_id })
+          .catch((error) => console.error('Erro ao resolver anúncio:', error.message));
+      }
     }
   } catch (error) {
     console.error('WhatsApp webhook processing error:', error);

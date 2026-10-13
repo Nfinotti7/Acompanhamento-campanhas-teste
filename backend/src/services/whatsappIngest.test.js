@@ -116,6 +116,29 @@ test('ingestWhatsAppEvent marca source como ad quando tem ctwa_clid', async () =
   assert.equal(contactCall.params[7], 'ad'); // source
 });
 
+test('ingestWhatsAppEvent guarda URL do anuncio, referral cru e metodo de rastreamento (primeiro toque)', async () => {
+  const { db, calls } = makeFakeDb();
+  const referral = { source_type: 'ad', source_id: 'AD_1', source_url: 'https://fb.me/x', ctwa_clid: 'CLID_1' };
+
+  await ingestWhatsAppEvent(5, baseEvent({ ctwaClid: 'CLID_1', adId: 'AD_1', adSourceUrl: 'https://fb.me/x', referral }), { db, broadcast: () => {} });
+
+  const contactCall = calls.find((c) => /INSERT INTO whatsapp_contacts/.test(c.sql));
+  assert.equal(contactCall.params[9], 'https://fb.me/x');
+  assert.deepEqual(JSON.parse(contactCall.params[10]), referral);
+  assert.equal(contactCall.params[11], 'ctwa');
+  assert.match(contactCall.sql, /ad_referral_json = COALESCE\(whatsapp_contacts\.ad_referral_json/);
+});
+
+test('ingestWhatsAppEvent sem anuncio nao grava referral nem metodo de rastreamento', async () => {
+  const { db, calls } = makeFakeDb();
+
+  await ingestWhatsAppEvent(5, baseEvent(), { db, broadcast: () => {} });
+
+  const contactCall = calls.find((c) => /INSERT INTO whatsapp_contacts/.test(c.sql));
+  assert.equal(contactCall.params[10], null);
+  assert.equal(contactCall.params[11], null);
+});
+
 test('ingestWhatsAppEvent marca source como organic quando nao tem ctwa_clid', async () => {
   const { db, calls } = makeFakeDb();
 

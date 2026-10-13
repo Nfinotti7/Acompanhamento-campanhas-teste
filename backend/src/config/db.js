@@ -240,6 +240,26 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_filename TEXT`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS profile_pic_media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS profile_pic_checked_at TIMESTAMPTZ`);
+  // Atribuição: dados do clique no anúncio (referral do webhook oficial). Primeiro toque --
+  // um contato que volta por outro anúncio continua atribuído ao primeiro.
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_source_url TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_referral_json JSONB`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS tracking_method TEXT`);
+  // ad_id -> conta/campanha/conjunto/anúncio, resolvido uma vez pela Marketing API e
+  // reaproveitado por todos os contatos vindos do mesmo anúncio.
+  await query(`
+    CREATE TABLE IF NOT EXISTS meta_ad_cache (
+      ad_id TEXT PRIMARY KEY,
+      ad_name TEXT,
+      adset_id TEXT,
+      adset_name TEXT,
+      campaign_id TEXT,
+      campaign_name TEXT,
+      account_id TEXT,
+      account_name TEXT,
+      fetched_at TIMESTAMPTZ NOT NULL
+    )
+  `);
 
   await seedData();
 }
