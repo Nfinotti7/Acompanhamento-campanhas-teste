@@ -7,6 +7,32 @@ function resolveClientId(req) {
     : req.user.clientId;
 }
 
+export async function setContactNotes(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    const { contactId } = req.params;
+    const { notes } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE whatsapp_contacts SET notes = ? WHERE id = ? AND client_id = ? RETURNING id`,
+      [notes || null, contactId, clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Contato não encontrado.' });
+    }
+
+    return res.json({ message: 'Anotação salva com sucesso!' });
+  } catch (error) {
+    console.error('Set contact notes error:', error);
+    return res.status(500).json({ error: 'Erro ao salvar anotação.' });
+  }
+}
+
 export async function setContactStage(req, res) {
   try {
     const clientId = resolveClientId(req);
