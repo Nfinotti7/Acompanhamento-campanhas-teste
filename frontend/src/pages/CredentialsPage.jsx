@@ -32,9 +32,11 @@ export default function CredentialsPage({ selectedClient }) {
     wabaId: '',
     accessToken: '',
     displayPhoneNumber: '',
-    pin: ''
+    pin: '',
+    connectionType: 'cloud_api'
   });
   const [hasWhatsappSettings, setHasWhatsappSettings] = useState(false);
+  const [baileysStatus, setBaileysStatus] = useState(null);
 
   const targetClientId = user?.role === 'admin' ? selectedClient : user?.clientId;
 
@@ -72,17 +74,34 @@ export default function CredentialsPage({ selectedClient }) {
       if (settings) {
         setWhatsappForm(prev => ({
           ...prev,
-          phoneNumberId: settings.phone_number_id || '',
-          wabaId: settings.waba_id || '',
+          phoneNumberId: settings.connection_type === 'baileys' ? '' : (settings.phone_number_id || ''),
+          wabaId: settings.connection_type === 'baileys' ? '' : (settings.waba_id || ''),
           displayPhoneNumber: settings.display_phone_number || '',
           accessToken: '',
-          pin: ''
+          pin: '',
+          connectionType: settings.connection_type || 'cloud_api'
         }));
       }
     } catch (err) {
       console.error('Error fetching WhatsApp settings:', err);
     }
   };
+
+  const fetchBaileysStatus = async () => {
+    try {
+      const res = await axios.get('/api/whatsapp/baileys/status', { params: { clientId: targetClientId } });
+      setBaileysStatus(res.data);
+    } catch (err) {
+      setBaileysStatus({ status: 'error', error: err.response?.data?.error || 'Erro ao conectar.' });
+    }
+  };
+
+  useEffect(() => {
+    if (activePlatform !== 'whatsapp' || whatsappForm.connectionType !== 'baileys' || !targetClientId) return;
+    fetchBaileysStatus();
+    const interval = setInterval(fetchBaileysStatus, 4000);
+    return () => clearInterval(interval);
+  }, [activePlatform, whatsappForm.connectionType, targetClientId]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -369,45 +388,106 @@ export default function CredentialsPage({ selectedClient }) {
               </span>
             </div>
 
-            <div className="form-grid-2col">
-              <div className="form-group">
-                <label className="form-label">Phone Number ID (Meta)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: 123456789012345"
-                  value={whatsappForm.phoneNumberId}
-                  onChange={(e) => setWhatsappForm({ ...whatsappForm, phoneNumberId: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">WhatsApp Business Account ID (WABA ID)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: 987654321098765"
-                  value={whatsappForm.wabaId}
-                  onChange={(e) => setWhatsappForm({ ...whatsappForm, wabaId: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-
             <div className="form-group">
-              <label className="form-label">
-                Access Token {hasWhatsappSettings ? '(deixe em branco para manter o atual)' : ''}
-              </label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder={hasWhatsappSettings ? '••••••••••••••••' : 'Ex: EAAXX_whatsapp_access_token_...'}
-                value={whatsappForm.accessToken}
-                onChange={(e) => setWhatsappForm({ ...whatsappForm, accessToken: e.target.value })}
-                required={!hasWhatsappSettings}
-              />
+              <label className="form-label">Tipo de conexão</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setWhatsappForm({ ...whatsappForm, connectionType: 'cloud_api' })}
+                  className="btn"
+                  style={{
+                    backgroundColor: whatsappForm.connectionType === 'cloud_api' ? '#10b981' : 'rgba(255,255,255,0.05)',
+                    color: whatsappForm.connectionType === 'cloud_api' ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  Oficial (Cloud API)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWhatsappForm({ ...whatsappForm, connectionType: 'baileys' })}
+                  className="btn"
+                  style={{
+                    backgroundColor: whatsappForm.connectionType === 'baileys' ? '#f59e0b' : 'rgba(255,255,255,0.05)',
+                    color: whatsappForm.connectionType === 'baileys' ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  Não-oficial (WhatsApp Web)
+                </button>
+              </div>
+              {whatsappForm.connectionType === 'baileys' && (
+                <p style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '8px' }}>
+                  Modo temporário: conecta direto pelo celular (QR code), sem exigir verificação de pagamento da Meta.
+                  Não identifica "veio de anúncio" automaticamente, e o número corre risco de bloqueio pelo WhatsApp.
+                </p>
+              )}
             </div>
+
+            {whatsappForm.connectionType === 'cloud_api' ? (
+              <>
+                <div className="form-grid-2col">
+                  <div className="form-group">
+                    <label className="form-label">Phone Number ID (Meta)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: 123456789012345"
+                      value={whatsappForm.phoneNumberId}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, phoneNumberId: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">WhatsApp Business Account ID (WABA ID)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: 987654321098765"
+                      value={whatsappForm.wabaId}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, wabaId: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Access Token {hasWhatsappSettings ? '(deixe em branco para manter o atual)' : ''}
+                  </label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder={hasWhatsappSettings ? '••••••••••••••••' : 'Ex: EAAXX_whatsapp_access_token_...'}
+                    value={whatsappForm.accessToken}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, accessToken: e.target.value })}
+                    required={!hasWhatsappSettings}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="form-group" style={{ textAlign: 'center', padding: '20px' }}>
+                {!hasWhatsappSettings ? (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    Salve essas configurações primeiro (com um PIN) pra liberar o QR code de conexão.
+                  </p>
+                ) : baileysStatus?.status === 'qr' && baileysStatus.qrDataUrl ? (
+                  <>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                      Abra o WhatsApp no celular do cliente → Configurações → Aparelhos conectados → Conectar um aparelho, e escaneie:
+                    </p>
+                    <img src={baileysStatus.qrDataUrl} alt="QR code do WhatsApp" style={{ width: '220px', height: '220px' }} />
+                  </>
+                ) : baileysStatus?.status === 'connected' ? (
+                  <p style={{ color: '#34d399', fontWeight: 600 }}>✓ Conectado</p>
+                ) : baileysStatus?.status === 'connecting' ? (
+                  <p style={{ color: 'var(--text-muted)' }}>Conectando...</p>
+                ) : baileysStatus?.status === 'error' ? (
+                  <p style={{ color: '#f87171' }}>{baileysStatus.error}</p>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)' }}>Carregando...</p>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Número de Exibição (opcional, só pra referência na tela)</label>

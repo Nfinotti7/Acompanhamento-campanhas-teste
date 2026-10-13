@@ -17,6 +17,7 @@ import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookCont
 import { listConversations, getMessages, replyToConversation } from './controllers/whatsappConversationsController.js';
 import { searchContacts, createConversion, getRoi } from './controllers/realConversionsController.js';
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
+import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -81,6 +82,9 @@ app.get('/api/whatsapp/roi', getRoi);
 app.get('/api/whatsapp/kanban', getKanban);
 app.get('/api/whatsapp/agenda', getAgenda);
 app.post('/api/whatsapp/contacts/:contactId/appointment', setAppointment);
+
+// WhatsApp Baileys (nao-oficial, WhatsApp Web)
+app.get('/api/whatsapp/baileys/status', getBaileysStatus);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);

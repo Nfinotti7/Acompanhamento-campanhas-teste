@@ -216,6 +216,8 @@ export async function initDb() {
   // appointment_at precisa guardar o instante absoluto (TIMESTAMPTZ), não um horário "sem fuso" —
   // com TIMESTAMP puro, o horário de agendamento lido de volta fica deslocado pelo fuso do servidor.
   await query(`ALTER TABLE whatsapp_contacts ALTER COLUMN appointment_at TYPE TIMESTAMPTZ USING appointment_at AT TIME ZONE 'UTC'`);
+  // 'cloud_api' (API oficial da Meta) ou 'baileys' (WhatsApp Web nao-oficial) -- escolhido por cliente.
+  await query(`ALTER TABLE whatsapp_settings ADD COLUMN IF NOT EXISTS connection_type TEXT NOT NULL DEFAULT 'cloud_api'`);
 
   await seedData();
 }

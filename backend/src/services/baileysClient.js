@@ -1,0 +1,94 @@
+// Conexao "nao-oficial" via WhatsApp Web (Baileys), alternativa temporaria a Cloud API
+// oficial da Meta pra clientes com connection_type = 'baileys'. Mantem uma sessao
+// por client_id dentro do MESMO processo Node que ja roda o Express -- sem worker
+// separado. Sessao fica salva em disco (fora do git) em .baileys_sessions/<clientId>,
+// entao sobrevive a reinicios do processo desde que a pasta nao seja apagada.
+//
+// Risco operacional (avisado ao usuario): se a hospedagem apagar o diretorio do
+// projeto a cada deploy, a sessao se perde e precisa escanear o QR code de novo.
+// So funciona com UMA instancia do backend rodando por vez -- duas instancias
+// tentando abrir a mesma sessao ao mesmo tempo quebram a conexao.
+import path from 'node:path';
+import QRCode from 'qrcode';
+import { ingestWhatsAppEvent } from './whatsappIngest.js';
+import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
+
+const SESSIONS_DIR = path.resolve(process.cwd(), '.baileys_sessions');
+
+// clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl }
+const connections = new Map();
+
+function getOrInitState(clientId) {
+  if (!connections.has(clientId)) {
+    connections.set(clientId, { sock: null, status: 'disconnected', qrDataUrl: null });
+  }
+  return connections.get(clientId);
+}
+
+export async function connectClient(clientId, deps = {}) {
+  const state = getOrInitState(clientId);
+  if (state.sock) return state; // ja conectando/conectado
+
+  // Import dinamico: a lib so e necessaria quando alguem de fato usa o modo Baileys.
+  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = deps.baileys || await import('@whiskeysockets/baileys');
+
+  const { state: authState, saveCreds } = await useMultiFileAuthState(path.join(SESSIONS_DIR, String(clientId)));
+  const sock = makeWASocket({ auth: authState, printQRInTerminal: false });
+  state.sock = sock;
+  state.status = 'connecting';
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      state.status = 'qr';
+      state.qrDataUrl = await QRCode.toDataURL(qr);
+    }
+
+    if (connection === 'open') {
+      state.status = 'connected';
+      state.qrDataUrl = null;
+    }
+
+    if (connection === 'close') {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const loggedOut = statusCode === DisconnectReason.loggedOut;
+      state.sock = null;
+      state.status = 'disconnected';
+      if (!loggedOut) {
+        connectClient(clientId, deps); // reconecta sozinho em quedas que nao sejam logout
+      }
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify') return;
+    for (const msg of messages) {
+      if (!isUsableMessage(msg)) continue;
+      try {
+        await ingestWhatsAppEvent(clientId, mapBaileysMessageToEvent(msg));
+      } catch (error) {
+        console.error('Baileys ingest error:', error);
+      }
+    }
+  });
+
+  return state;
+}
+
+export function getConnectionState(clientId) {
+  const state = connections.get(clientId);
+  if (!state) return { status: 'disconnected', qrDataUrl: null };
+  return { status: state.status, qrDataUrl: state.qrDataUrl };
+}
+
+export async function sendViaBaileys(clientId, waId, body) {
+  const state = connections.get(clientId);
+  if (!state?.sock || state.status !== 'connected') {
+    throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
+  }
+  const jid = waId.includes('@') ? waId : `${waId}@s.whatsapp.net`;
+  await state.sock.sendMessage(jid, { text: body });
+}

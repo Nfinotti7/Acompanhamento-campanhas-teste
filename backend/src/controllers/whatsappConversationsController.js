@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import { sendWhatsAppMessage } from '../services/metaWhatsAppApi.js';
+import { sendViaBaileys } from '../services/baileysClient.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -76,7 +77,7 @@ export async function replyToConversation(req, res) {
     }
 
     const { rows: settingsRows } = await db.query(
-      'SELECT phone_number_id, access_token FROM whatsapp_settings WHERE client_id = ?',
+      'SELECT phone_number_id, access_token, connection_type FROM whatsapp_settings WHERE client_id = ?',
       [clientId]
     );
     const settings = settingsRows[0];
@@ -84,14 +85,18 @@ export async function replyToConversation(req, res) {
       return res.status(400).json({ error: 'WhatsApp não configurado para este cliente.' });
     }
 
-    const sendResult = await sendWhatsAppMessage({
-      phoneNumberId: settings.phone_number_id,
-      accessToken: settings.access_token,
-      to: contact.wa_id,
-      body
-    });
-
-    const waMessageId = sendResult?.messages?.[0]?.id || null;
+    let waMessageId = null;
+    if (settings.connection_type === 'baileys') {
+      await sendViaBaileys(clientId, contact.wa_id, body);
+    } else {
+      const sendResult = await sendWhatsAppMessage({
+        phoneNumberId: settings.phone_number_id,
+        accessToken: settings.access_token,
+        to: contact.wa_id,
+        body
+      });
+      waMessageId = sendResult?.messages?.[0]?.id || null;
+    }
 
     await db.query(
       `INSERT INTO whatsapp_messages (client_id, contact_id, direction, body, wa_message_id, sent_at)
