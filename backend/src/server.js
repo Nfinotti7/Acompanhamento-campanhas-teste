@@ -21,6 +21,7 @@ import { getBaileysStatus } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { setContactStage, setContactNotes, getContactTimeline, deleteContact } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
+import { getMedia } from './controllers/whatsappMediaController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -97,6 +98,7 @@ app.patch('/api/whatsapp/contacts/:contactId/notes', setContactNotes);
 app.get('/api/whatsapp/contacts/:contactId/timeline', getContactTimeline);
 app.delete('/api/whatsapp/contacts/:contactId', deleteContact);
 app.get('/api/whatsapp/events', streamWhatsAppEvents);
+app.get('/api/whatsapp/media/:mediaId', getMedia);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
@@ -124,9 +126,13 @@ initDb()
     // Reconecta sozinho as sessoes Baileys existentes -- sem isso, depois de um
     // restart (deploy, crash) a conexao fica parada ate alguem abrir a pagina
     // de Credenciais e disparar getBaileysStatus manualmente.
-    reconnectAllBaileysClients().catch((err) => {
-      console.error('Erro ao reconectar clientes Baileys na subida:', err);
-    });
+    // BAILEYS_AUTOCONNECT=false desliga isso pra rodar o backend local contra o banco de
+    // produção sem abrir uma sessão de WhatsApp paralela à do servidor.
+    if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
+      reconnectAllBaileysClients().catch((err) => {
+        console.error('Erro ao reconectar clientes Baileys na subida:', err);
+      });
+    }
   })
   .catch((err) => {
     console.error('Falha ao inicializar o banco de dados:', err);

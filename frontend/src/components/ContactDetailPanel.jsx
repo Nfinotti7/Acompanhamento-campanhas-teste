@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Trash2, Check } from 'lucide-react';
+import { Avatar, MessageMedia, ImageLightbox, isPlaceholderBody } from './whatsappMedia';
 
 const STAGES = [
   { key: 'novo_lead', label: 'Novo Lead' },
@@ -37,6 +38,8 @@ function formatEventDate(iso) {
 
 export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, liveUpdateSignal }) {
   const [section, setSection] = useState('conversa');
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const messagesEndRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -77,6 +80,10 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     fetchMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contact.id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages]);
 
   useEffect(() => {
     if (liveUpdateSignal == null) return;
@@ -255,7 +262,10 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+        <Avatar apiClient={apiClient} clientId={clientId} mediaId={contact.profile_pic_media_id} name={contact.profile_name || contact.wa_id} size={44} />
         <div>
           <div style={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>{contact.profile_name || contact.wa_id}</div>
           <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px' }}>{contact.wa_id}</div>
@@ -270,6 +280,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
               <option key={s.key} value={s.key}>{s.label}</option>
             ))}
           </select>
+        </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
           <button type="button" onClick={() => setActionMode('sale')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
@@ -367,16 +378,23 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                         alignSelf: m.direction === 'outbound' ? 'flex-end' : 'flex-start',
                         backgroundColor: m.direction === 'outbound' ? '#6366f1' : '#1e293b',
                         color: '#fff',
-                        padding: '8px 12px',
+                        padding: m.media_id ? '6px' : '8px 12px',
                         borderRadius: '10px',
                         maxWidth: '75%',
-                        fontSize: '0.85rem'
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
                       }}
                     >
-                      {m.body}
+                      <MessageMedia message={m} apiClient={apiClient} clientId={clientId} onOpenImage={setLightboxSrc} />
+                      {!(m.media_id && isPlaceholderBody(m.body)) && (
+                        <span style={{ padding: m.media_id ? '0 6px 2px' : 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</span>
+                      )}
                     </div>
                   ))
                 )}
+                <div ref={messagesEndRef} />
               </div>
               <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px' }}>
                 <input

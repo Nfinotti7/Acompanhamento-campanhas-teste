@@ -82,7 +82,11 @@ test('extrai ctwa_clid e dados do anuncio quando a mensagem vem de um Click-to-W
     ctwaClid: 'AfelCsWK_fake_clid',
     adId: '120211234567890',
     adHeadline: 'Promoção de hoje',
-    adBody: 'Peça já pelo WhatsApp'
+    adBody: 'Peça já pelo WhatsApp',
+    mediaType: null,
+    mediaId: null,
+    mimeType: null,
+    filename: null
   });
 });
 
@@ -127,6 +131,29 @@ test('mensagem de audio usa rotulo de mensagem de voz', () => {
   };
   const events = parseWhatsAppWebhook(payload);
   assert.equal(events[0].body, '🎤 Mensagem de voz');
+});
+
+test('mensagem de midia da Cloud API traz o media id, tipo e mimetype pra baixar depois', () => {
+  const payload = {
+    entry: [{ changes: [{ value: {
+      metadata: { phone_number_id: 'PHONE_123' },
+      contacts: [{ profile: { name: 'Ana' }, wa_id: '5511977776666' }],
+      messages: [
+        { from: '5511977776666', id: 'wamid.IMG9', timestamp: '1735000500', type: 'image', image: { id: 'MEDIA_1', mime_type: 'image/jpeg', caption: 'olha' } },
+        { from: '5511977776666', id: 'wamid.DOC9', timestamp: '1735000600', type: 'document', document: { id: 'MEDIA_2', mime_type: 'application/pdf', filename: 'menu.pdf' } },
+        { from: '5511977776666', id: 'wamid.TXT9', timestamp: '1735000700', type: 'text', text: { body: 'oi' } }
+      ]
+    } }] }]
+  };
+  const [img, doc, txt] = parseWhatsAppWebhook(payload);
+  assert.equal(img.mediaType, 'image');
+  assert.equal(img.mediaId, 'MEDIA_1');
+  assert.equal(img.mimeType, 'image/jpeg');
+  assert.equal(img.body, 'olha');
+  assert.equal(doc.mediaType, 'document');
+  assert.equal(doc.filename, 'menu.pdf');
+  assert.equal(txt.mediaType, null);
+  assert.equal(txt.mediaId, null);
 });
 
 test('reacao (emoji a uma mensagem existente) nao vira evento', () => {

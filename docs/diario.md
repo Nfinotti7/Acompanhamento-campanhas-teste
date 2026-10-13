@@ -39,6 +39,14 @@ Também corrigido nesse mesmo dia: `wa_id` gravado errado quando o WhatsApp usa 
 
 **Em teste agora:** usuário está testando o `/caixa` do Malibu em uso real.
 
+**Roadmap combinado com o usuário (2026-10-13), em ordem — referência: prints do Tintim + `BLUEPRINT_atribuicao_furtherads.md` que o usuário mandou:**
+1. ✅ **Conversa de verdade** — som de mensagem nova, foto do lead, abrir imagem, ouvir áudio, vídeo/documento (ver Registro).
+2. ⏳ **Atribuição estilo Tintim** — validar assinatura do webhook (`X-Hub-Signature-256`, hoje qualquer um consegue mandar mensagem falsa), resolver `ad_id` → conta/campanha/conjunto/anúncio via Marketing API (credenciais Meta por cliente já existem), painel "Informações da conversa" com método de rastreamento, origens Meta/Google/Outras/Não rastreada, dashboard de conversas (total, % rastreadas, gráfico por dia por origem, funil, vendas/faturamento).
+3. ⏳ **CRM estilo Kommo** — o usuário escolheu: etapas personalizadas por cliente + arrastar cards; valor do negócio no card (soma por coluna); tags e responsável. (Tarefas/lembretes ficaram de fora por enquanto.) Substitui as 6 etapas fixas calculadas; cada etapa já preparada pra mapear um evento de conversão (Contact/Schedule/Purchase).
+4. ⏳ **Link Rastreável + CAPI** — link próprio que captura UTM/fbclid e redireciona pro `wa.me` com token; disparo dos eventos por etapa pra Meta/Google com log.
+- O blueprint propunha criar tabelas novas (`contatos`, `mensagens`...) — **não fazer isso**: as equivalentes já existem (`whatsapp_contacts`, `whatsapp_messages`, `real_conversions`). Estender, não duplicar.
+- Baileys nunca recebe `referral` (origem do anúncio) — Malibu fica "não rastreado" enquanto não migrar pra API oficial ou usar Link Rastreável.
+
 ## Registro
 
 ### 2026-10-13 — Sessão longa: CRM de WhatsApp completo, redesign do /caixa, tempo real
@@ -100,3 +108,16 @@ Resumo do que essa sessão cobriu, do início ao fim (sessão muito longa, compa
   - **Correção**: reconexão automática depois de queda (não-logout) agora espera `RECONNECT_DELAY_MS` (5s) antes de tentar de novo, em vez de imediatamente. Testado com `setTimeout` fake injetado via `deps.setTimeout` (`baileysClient.test.js`) — confirma que não reconecta na hora, só quando o atraso "passa".
   - O log de diagnóstico (`lastDisconnectReason` no `getConnectionState`, mais um `console.error` no log do servidor a cada queda) **ficou no código** (não é debug temporário de verdade, é visibilidade operacional útil) — se a conexão cair nesse ou em outro `statusCode` de novo, dá pra ver o motivo direto pela rota de status sem precisar de outro deploy.
   - **Resumo de todo o incidente de hoje** (pra quem ler depois): 1 causa real de queda (processo reiniciava e ninguém reconectava — resolvido com reconexão automática), que ao ser corrigida expôs 2 bugs novos que eu mesmo introduzi nela (corrida entre chamadas concorrentes; `clientId` number vs string como chave de Map — a mesma classe de bug 2 vezes, SSE e Baileys), mais 1 bug pré-existente nunca visto antes (LID do WhatsApp sendo gravado como wa_id), mais 1 comportamento do próprio WhatsApp (conflito 440 por reconectar rápido demais) que só apareceu por causa de tantos reconnects seguidos tentando corrigir os outros bugs. Lição maior: cada correção de um bug de conexão ao vivo força um restart, e cada restart é uma nova chance de expor o próximo bug — vale testar mais synthetically (unit test) antes de depender só de reproduzir em produção quando der pra evitar.
+
+### 2026-10-13 (continuação) — Fase 1 do roadmap: mídia, foto do lead e som
+
+- Depois das correções do Baileys, o Malibu ficou estável (só quedas normais que reconectam sozinhas, sem QR).
+- **Mídia**: tabela nova `whatsapp_media` (BYTEA no Postgres, **não** no disco do Hostinger, que pode sumir em deploy; toda mídia pertence a um contato e cai junto em cascata se ele for apagado). `whatsapp_messages` ganhou `media_id`, `media_type` (`image|video|audio|document|sticker`) e `media_filename`. O download acontece em `ingestWhatsAppEvent` só quando a mensagem é **nova** (reenvio do webhook não baixa de novo), com limite de 15 MB (`MAX_MEDIA_BYTES`). Se o download falhar, a mensagem é gravada mesmo assim e a tela mostra "Mídia indisponível".
+  - Baileys: `downloadMediaMessage` no handler `messages.upsert`. Cloud API: `downloadCloudMedia` (Graph `/{media_id}` → URL temporária → arquivo, as duas chamadas com o token), ligado no webhook controller.
+  - Servida em `GET /api/whatsapp/media/:id`, autenticada por `?token=` (o `<img>`/`<audio>` não mandam header) e escopada por `client_id`.
+- **Foto de perfil**: `profilePicture.js` verifica no máximo 1x por dia por contato (`profile_pic_checked_at`), troca a antiga e apaga a anterior. **Só funciona no Baileys**: a Cloud API oficial não expõe foto de contato, e aí o avatar fica com as iniciais.
+- **Frontend**: `components/whatsappMedia.jsx` (`mediaUrl`, `Avatar`, `MessageMedia`, `ImageLightbox`). Avatar na lista do `/caixa` e no cabeçalho do painel. Imagem abre ampliada, áudio/vídeo com player, documento com link de download. A conversa rola sozinha pra mensagem mais nova.
+- **Som**: `components/notificationSound.js` (Web Audio, sem arquivo). Toca em todo evento SSE `inbound` no `/caixa`. Navegador só libera áudio depois do 1º clique na página: se a sessão voltou sozinha do localStorage, o som só toca depois de um clique.
+- **2 bugs do login persistente (feito antes) achados testando**: (1) token salvo já expirado deixava a tela vazia em vez de voltar pro PIN, porque o interceptor de 401/403 era registrado num `useEffect` do pai, e os filhos fazem a 1ª requisição antes; (2) PIN errado (o backend responde 401) era tratado como sessão expirada e jogava de volta pra lista de restaurantes. Corrigido: interceptor no nível do módulo e só age se já existe sessão (header `Authorization` setado).
+- **Convenção nova pra testar local**: `BAILEYS_AUTOCONNECT=false node src/server.js` desliga a reconexão automática do Baileys, pra rodar o backend local contra o banco de produção sem abrir uma sessão de WhatsApp paralela à do servidor.
+- Não testado com mídia real do WhatsApp (só com mídia inserida direto no banco, já que local não tem sessão): confirmar com o usuário mandando foto/áudio de verdade pro Malibu depois do deploy.

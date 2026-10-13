@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import ContactDetailPanel from './ContactDetailPanel';
+import { Avatar } from './whatsappMedia';
 
 const fieldStyle = {
   width: '100%',
@@ -163,11 +164,17 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                 padding: '12px',
                 cursor: 'pointer',
                 backgroundColor: selectedContact?.id === c.id ? 'rgba(255,255,255,0.06)' : 'transparent',
-                borderBottom: '1px solid rgba(255,255,255,0.04)'
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'center'
               }}
             >
-              <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.88rem' }}>{c.profile_name || c.wa_id}</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{c.wa_id}{c.source === 'ad' ? ' · anúncio' : ''}</div>
+              <Avatar apiClient={caixaApi} mediaId={c.profile_pic_media_id} name={c.profile_name || c.wa_id} size={38} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.profile_name || c.wa_id}</div>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{c.wa_id}{c.source === 'ad' ? ' · anúncio' : ''}</div>
+              </div>
             </div>
           ))}
           {searchResults !== null && query && (

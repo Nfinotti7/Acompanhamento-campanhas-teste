@@ -1,6 +1,7 @@
 import db from '../config/db.js';
 import { parseWhatsAppWebhook } from '../utils/whatsappWebhookParser.js';
 import { ingestWhatsAppEvent } from '../services/whatsappIngest.js';
+import { downloadCloudMedia } from '../services/metaWhatsAppApi.js';
 
 const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'further_whatsapp_verify_2026';
 
@@ -24,13 +25,20 @@ export async function receiveWebhook(req, res) {
 
     for (const event of events) {
       const { rows: settingsRows } = await db.query(
-        'SELECT client_id FROM whatsapp_settings WHERE phone_number_id = ?',
+        'SELECT client_id, access_token FROM whatsapp_settings WHERE phone_number_id = ?',
         [event.phoneNumberId]
       );
-      const clientId = settingsRows[0]?.client_id;
-      if (!clientId) continue; // numero ainda nao cadastrado a nenhum cliente
+      const settings = settingsRows[0];
+      if (!settings?.client_id) continue; // numero ainda nao cadastrado a nenhum cliente
 
-      await ingestWhatsAppEvent(clientId, event);
+      if (event.mediaId) {
+        event.media = {
+          mimeType: event.mimeType,
+          download: () => downloadCloudMedia({ mediaId: event.mediaId, accessToken: settings.access_token })
+        };
+      }
+
+      await ingestWhatsAppEvent(settings.client_id, event);
     }
   } catch (error) {
     console.error('WhatsApp webhook processing error:', error);

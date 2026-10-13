@@ -21,6 +21,23 @@ function extractContent(message) {
   return null;
 }
 
+const MEDIA_KEYS = {
+  imageMessage: 'image',
+  videoMessage: 'video',
+  audioMessage: 'audio',
+  documentMessage: 'document',
+  stickerMessage: 'sticker'
+};
+
+function extractMedia(message) {
+  for (const [key, type] of Object.entries(MEDIA_KEYS)) {
+    if (message?.[key]) {
+      return { mediaType: type, mimeType: message[key].mimetype || null, filename: message[key].fileName || null };
+    }
+  }
+  return { mediaType: null, mimeType: null, filename: null };
+}
+
 // Quando a privacidade de "quem pode ver meu número" do remetente está restrita (ou,
 // cada vez mais, por padrão em contas novas), o WhatsApp manda o remoteJid como um LID
 // (ex: "123456789@lid") -- um id interno opaco, não o número de telefone. O Baileys
@@ -46,6 +63,7 @@ export function mapBaileysMessageToEvent(msg) {
     waMessageId: msg.key?.id || null,
     direction: msg.key?.fromMe ? 'outbound' : 'inbound',
     body: extractContent(msg.message) || '📩 Mensagem',
+    ...extractMedia(msg.message),
     sentAt,
     // O protocolo do WhatsApp Web nao expoe de qual anuncio a conversa veio --
     // todo contato chegado via Baileys e organico.

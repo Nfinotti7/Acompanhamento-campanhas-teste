@@ -19,7 +19,7 @@ export async function searchContacts(req, res) {
 
     const term = `%${q}%`;
     const { rows } = await db.query(
-      `SELECT id, wa_id, profile_name, source, ad_headline
+      `SELECT id, wa_id, profile_name, source, ad_headline, profile_pic_media_id
        FROM whatsapp_contacts
        WHERE client_id = ? AND (profile_name ILIKE ? OR wa_id ILIKE ?)
        ORDER BY last_message_at DESC NULLS LAST

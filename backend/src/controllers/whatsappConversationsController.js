@@ -17,7 +17,7 @@ export async function listConversations(req, res) {
     }
 
     const { rows } = await db.query(
-      `SELECT id, wa_id, profile_name, source, ad_headline, last_message_at,
+      `SELECT id, wa_id, profile_name, source, ad_headline, last_message_at, profile_pic_media_id,
               (SELECT MIN(sent_at) FROM whatsapp_messages WHERE contact_id = whatsapp_contacts.id AND direction = 'inbound') as first_inbound_at,
               (SELECT MIN(sent_at) FROM whatsapp_messages WHERE contact_id = whatsapp_contacts.id AND direction = 'outbound') as first_outbound_at
        FROM whatsapp_contacts
@@ -47,7 +47,7 @@ export async function getMessages(req, res) {
     const { contactId } = req.params;
 
     const { rows } = await db.query(
-      'SELECT id, direction, body, sent_at FROM whatsapp_messages WHERE contact_id = ? AND client_id = ? ORDER BY sent_at ASC',
+      'SELECT id, direction, body, sent_at, media_id, media_type, media_filename FROM whatsapp_messages WHERE contact_id = ? AND client_id = ? ORDER BY sent_at ASC',
       [contactId, clientId]
     );
 

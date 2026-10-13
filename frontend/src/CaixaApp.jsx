@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays, LogOut } from 'lucide-react';
 import CaixaChatView from './components/CaixaChatView';
 import CaixaFunilView from './components/CaixaFunilView';
+import { playNotificationSound, unlockNotificationSound } from './components/notificationSound';
 
 const NAV_ITEMS = [
   { key: 'conversas', label: 'Conversas', icon: MessageCircle },
@@ -14,6 +15,22 @@ const TOKEN_KEY = 'caixa_token';
 const RESTAURANT_KEY = 'caixa_restaurant';
 
 const caixaApi = axios.create();
+
+// Registrado no nível do módulo (não num useEffect): os filhos (CaixaChatView etc.)
+// disparam a primeira requisição no próprio useEffect, que roda ANTES do useEffect do
+// pai -- um token salvo já expirado passaria batido e a tela ficaria vazia. Só reage
+// com sessão ativa (header setado): PIN errado também responde 401 e não pode deslogar.
+let onSessionExpired = null;
+caixaApi.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const hadSession = Boolean(caixaApi.defaults.headers.common['Authorization']);
+    if (hadSession && (err.response?.status === 401 || err.response?.status === 403) && onSessionExpired) {
+      onSessionExpired();
+    }
+    return Promise.reject(err);
+  }
+);
 
 function loadStoredSession() {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -70,18 +87,11 @@ export default function CaixaApp() {
     setStep('select-restaurant');
   };
 
+  onSessionExpired = handleLogout;
+
   useEffect(() => {
-    const interceptorId = caixaApi.interceptors.response.use(
-      (res) => res,
-      (err) => {
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          handleLogout();
-        }
-        return Promise.reject(err);
-      }
-    );
-    return () => caixaApi.interceptors.response.eject(interceptorId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.addEventListener('pointerdown', unlockNotificationSound);
+    return () => window.removeEventListener('pointerdown', unlockNotificationSound);
   }, []);
 
   useEffect(() => {
@@ -93,7 +103,9 @@ export default function CaixaApp() {
     const source = new EventSource(`/api/whatsapp/events?token=${encodeURIComponent(token)}`);
     source.onmessage = (e) => {
       try {
-        setLastEvent({ ...JSON.parse(e.data), receivedAt: Date.now() });
+        const data = JSON.parse(e.data);
+        setLastEvent({ ...data, receivedAt: Date.now() });
+        if (data.direction === 'inbound') playNotificationSound();
       } catch (err) {
         console.error('Error parsing SSE event:', err);
       }

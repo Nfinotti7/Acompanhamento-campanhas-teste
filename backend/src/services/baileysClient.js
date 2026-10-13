@@ -13,6 +13,7 @@ import QRCode from 'qrcode';
 import db from '../config/db.js';
 import { ingestWhatsAppEvent } from './whatsappIngest.js';
 import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
+import { refreshProfilePicture } from './profilePicture.js';
 
 const SESSIONS_DIR = path.resolve(process.cwd(), '.baileys_sessions');
 
@@ -88,7 +89,7 @@ export async function connectClient(clientId, deps = {}) {
 
 async function doConnect(clientId, state, deps) {
   // Import dinamico: a lib so e necessaria quando alguem de fato usa o modo Baileys.
-  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = deps.baileys || await import('@whiskeysockets/baileys');
+  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = deps.baileys || await import('@whiskeysockets/baileys');
 
   const { state: authState, saveCreds } = await useMultiFileAuthState(path.join(SESSIONS_DIR, String(clientId)));
   const sock = makeWASocket({ auth: authState, printQRInTerminal: false });
@@ -136,7 +137,22 @@ async function doConnect(clientId, state, deps) {
     for (const msg of messages) {
       if (!isUsableMessage(msg)) continue;
       try {
-        await ingestWhatsAppEvent(clientId, mapBaileysMessageToEvent(msg));
+        const event = mapBaileysMessageToEvent(msg);
+        if (event.mediaType) {
+          event.media = {
+            mimeType: event.mimeType,
+            download: () => downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage, logger: sock.logger })
+          };
+        }
+        const contactId = await ingestWhatsAppEvent(clientId, event);
+
+        if (!msg.key?.fromMe) {
+          refreshProfilePicture({
+            clientId,
+            contactId,
+            getPictureUrl: () => sock.profilePictureUrl(`${event.waId}@s.whatsapp.net`, 'image')
+          }).catch((error) => console.error('Erro ao atualizar foto de perfil:', error.message));
+        }
       } catch (error) {
         console.error('Baileys ingest error:', error);
       }

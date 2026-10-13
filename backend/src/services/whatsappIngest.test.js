@@ -44,7 +44,67 @@ test('ingestWhatsAppEvent grava o contato e a mensagem pro client_id informado',
 
   const messageCall = calls.find((c) => /INSERT INTO whatsapp_messages/.test(c.sql));
   assert.ok(messageCall);
-  assert.deepEqual(messageCall.params, [5, 1, 'inbound', 'Oi, quero reservar', 'wamid.ABC123', '2026-10-12T12:00:00.000Z']);
+  assert.deepEqual(messageCall.params, [5, 1, 'inbound', 'Oi, quero reservar', 'wamid.ABC123', '2026-10-12T12:00:00.000Z', null, null]);
+});
+
+test('ingestWhatsAppEvent baixa e guarda a midia quando a mensagem e nova', async () => {
+  const { db, calls } = makeFakeDb();
+  let downloads = 0;
+  const event = baseEvent({
+    body: '📷 Imagem',
+    mediaType: 'image',
+    media: { mimeType: 'image/jpeg', download: async () => { downloads++; return Buffer.from('fake-jpeg'); } }
+  });
+
+  await ingestWhatsAppEvent(5, event, { db, broadcast: () => {} });
+
+  assert.equal(downloads, 1);
+  const mediaInsert = calls.find((c) => /INSERT INTO whatsapp_media/.test(c.sql));
+  assert.ok(mediaInsert);
+  assert.equal(mediaInsert.params[2], 'image/jpeg');
+  assert.ok(Buffer.isBuffer(mediaInsert.params[3]));
+  const update = calls.find((c) => /UPDATE whatsapp_messages SET media_id/.test(c.sql));
+  assert.ok(update);
+});
+
+test('ingestWhatsAppEvent nao baixa midia de mensagem repetida (webhook reenviado)', async () => {
+  const calls = [];
+  const db = {
+    query: async (sql, params = []) => {
+      calls.push({ sql, params });
+      if (/INSERT INTO whatsapp_messages/.test(sql)) return { rows: [] }; // ON CONFLICT DO NOTHING
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  let downloads = 0;
+  const event = baseEvent({ mediaType: 'image', media: { mimeType: 'image/jpeg', download: async () => { downloads++; return Buffer.from('x'); } } });
+
+  await ingestWhatsAppEvent(5, event, { db, broadcast: () => {} });
+
+  assert.equal(downloads, 0);
+  assert.ok(!calls.some((c) => /INSERT INTO whatsapp_media/.test(c.sql)));
+});
+
+test('ingestWhatsAppEvent continua gravando a mensagem mesmo se o download da midia falhar', async () => {
+  const { db, calls } = makeFakeDb();
+  const event = baseEvent({ mediaType: 'audio', media: { mimeType: 'audio/ogg', download: async () => { throw new Error('expirou'); } } });
+
+  const contactId = await ingestWhatsAppEvent(5, event, { db, broadcast: () => {} });
+
+  assert.equal(contactId, 1);
+  assert.ok(calls.some((c) => /INSERT INTO whatsapp_messages/.test(c.sql)));
+  assert.ok(!calls.some((c) => /INSERT INTO whatsapp_media/.test(c.sql)));
+});
+
+test('ingestWhatsAppEvent nao guarda midia acima do limite de tamanho', async () => {
+  const { db, calls } = makeFakeDb();
+  const big = Buffer.alloc(16 * 1024 * 1024);
+  const event = baseEvent({ mediaType: 'video', media: { mimeType: 'video/mp4', download: async () => big } });
+
+  await ingestWhatsAppEvent(5, event, { db, broadcast: () => {} });
+
+  assert.ok(!calls.some((c) => /INSERT INTO whatsapp_media/.test(c.sql)));
 });
 
 test('ingestWhatsAppEvent marca source como ad quando tem ctwa_clid', async () => {

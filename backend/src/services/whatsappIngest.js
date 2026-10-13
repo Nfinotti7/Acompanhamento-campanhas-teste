@@ -1,6 +1,32 @@
 import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
 
+// Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
+// Postgres, e vídeos grandes encheriam o banco rápido.
+export const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
+
+async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
+  let data;
+  try {
+    data = await media.download();
+  } catch (error) {
+    console.error(`Falha ao baixar mídia da mensagem ${messageId}:`, error.message);
+    return;
+  }
+  if (!data || data.length === 0 || data.length > MAX_MEDIA_BYTES) return;
+
+  const { rows } = await dbImpl.query(
+    `INSERT INTO whatsapp_media (client_id, contact_id, mime_type, data, size_bytes)
+     VALUES (?, ?, ?, ?, ?)
+     RETURNING id`,
+    [clientId, contactId, media.mimeType || 'application/octet-stream', data, data.length]
+  );
+  await dbImpl.query(
+    `UPDATE whatsapp_messages SET media_id = ? WHERE id = ?`,
+    [rows[0].id, messageId]
+  );
+}
+
 // Grava contato + mensagem pro client_id já resolvido. Compartilhado pelo webhook
 // oficial da Cloud API (whatsappWebhookController.js) e pela conexão Baileys
 // (baileysClient.js) -- os dois so precisam descobrir o client_id de jeitos
@@ -37,12 +63,19 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   );
   const contactId = contactRows[0].id;
 
-  await dbImpl.query(
-    `INSERT INTO whatsapp_messages (client_id, contact_id, direction, body, wa_message_id, sent_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT (wa_message_id) DO NOTHING`,
-    [clientId, contactId, event.direction, event.body, event.waMessageId, event.sentAt]
+  const { rows: messageRows } = await dbImpl.query(
+    `INSERT INTO whatsapp_messages (client_id, contact_id, direction, body, wa_message_id, sent_at, media_type, media_filename)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (wa_message_id) DO NOTHING
+     RETURNING id`,
+    [clientId, contactId, event.direction, event.body, event.waMessageId, event.sentAt, event.mediaType || null, event.filename || null]
   );
+
+  // Só baixa a mídia se a mensagem acabou de ser gravada -- se o WhatsApp reenviou a
+  // mesma mensagem (ON CONFLICT DO NOTHING não devolve linha), já foi baixada antes.
+  if (messageRows.length > 0 && event.media?.download) {
+    await storeMedia(dbImpl, clientId, contactId, messageRows[0].id, event.media);
+  }
 
   broadcastFn(clientId, 'message', {
     contactId,

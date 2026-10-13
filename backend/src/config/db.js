@@ -221,6 +221,25 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS notes TEXT`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS manual_stage TEXT`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS manual_stage_set_at TIMESTAMPTZ`);
+  // Mídias (fotos, áudios, vídeos, documentos, figurinhas, foto de perfil) ficam no
+  // Postgres, não no disco do servidor -- o disco do app pode ser apagado em deploy.
+  // Toda mídia pertence a um contato: apagar o contato apaga as mídias dele junto.
+  await query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_media (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      mime_type TEXT NOT NULL,
+      data BYTEA NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_type TEXT`);
+  await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_filename TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS profile_pic_media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS profile_pic_checked_at TIMESTAMPTZ`);
 
   await seedData();
 }

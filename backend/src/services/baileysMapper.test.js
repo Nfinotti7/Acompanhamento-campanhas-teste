@@ -132,6 +132,27 @@ test('mapBaileysMessageToEvent usa o LID mesmo assim se nao tiver remoteJidAlt (
   assert.equal(mapBaileysMessageToEvent(msg).waId, '145517938012378');
 });
 
+test('mapBaileysMessageToEvent identifica tipo, mimetype e nome de arquivo da midia', () => {
+  const base = { key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'M1', fromMe: false }, messageTimestamp: 1760000900 };
+
+  const img = mapBaileysMessageToEvent({ ...base, message: { imageMessage: { mimetype: 'image/jpeg' } } });
+  assert.equal(img.mediaType, 'image');
+  assert.equal(img.mimeType, 'image/jpeg');
+
+  const audio = mapBaileysMessageToEvent({ ...base, message: { audioMessage: { mimetype: 'audio/ogg; codecs=opus', ptt: true } } });
+  assert.equal(audio.mediaType, 'audio');
+
+  const doc = mapBaileysMessageToEvent({ ...base, message: { documentMessage: { mimetype: 'application/pdf', fileName: 'cardapio.pdf' } } });
+  assert.equal(doc.mediaType, 'document');
+  assert.equal(doc.filename, 'cardapio.pdf');
+
+  const sticker = mapBaileysMessageToEvent({ ...base, message: { stickerMessage: { mimetype: 'image/webp' } } });
+  assert.equal(sticker.mediaType, 'sticker');
+
+  const text = mapBaileysMessageToEvent({ ...base, message: { conversation: 'oi' } });
+  assert.equal(text.mediaType, null);
+});
+
 test('isUsableMessage usa o numero real (remoteJidAlt) pra validar LID', () => {
   const msg = {
     key: { remoteJid: '145517938012378@lid', remoteJidAlt: '5517938012378@s.whatsapp.net', id: 'LID3', fromMe: false },

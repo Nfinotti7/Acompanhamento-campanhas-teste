@@ -16,6 +16,16 @@ function extractBody(m) {
   }
 }
 
+const MEDIA_TYPES = ['image', 'video', 'audio', 'document', 'sticker'];
+
+function extractMedia(m) {
+  if (!MEDIA_TYPES.includes(m.type) || !m[m.type]?.id) {
+    return { mediaType: null, mediaId: null, mimeType: null, filename: null };
+  }
+  const media = m[m.type];
+  return { mediaType: m.type, mediaId: media.id, mimeType: media.mime_type || null, filename: media.filename || null };
+}
+
 export function parseWhatsAppWebhook(payload) {
   const events = [];
   const entries = payload?.entry || [];
@@ -46,7 +56,8 @@ export function parseWhatsAppWebhook(payload) {
           ctwaClid: referral?.ctwa_clid || null,
           adId: referral?.source_id || null,
           adHeadline: referral?.headline || null,
-          adBody: referral?.body || null
+          adBody: referral?.body || null,
+          ...extractMedia(m)
         });
       }
     }
