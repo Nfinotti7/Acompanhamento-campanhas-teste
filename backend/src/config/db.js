@@ -218,6 +218,9 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_contacts ALTER COLUMN appointment_at TYPE TIMESTAMPTZ USING appointment_at AT TIME ZONE 'UTC'`);
   // 'cloud_api' (API oficial da Meta) ou 'baileys' (WhatsApp Web nao-oficial) -- escolhido por cliente.
   await query(`ALTER TABLE whatsapp_settings ADD COLUMN IF NOT EXISTS connection_type TEXT NOT NULL DEFAULT 'cloud_api'`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS notes TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS manual_stage TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS manual_stage_set_at TIMESTAMPTZ`);
 
   await seedData();
 }
