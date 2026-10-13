@@ -67,3 +67,49 @@ test('connectClient chamado duas vezes ao mesmo tempo pro mesmo cliente so abre 
   assert.equal(getCallCount(), 1);
   assert.equal(resultA, resultB);
 });
+
+test('connectClient descarta um socket preso em "connecting" ha tempo demais e tenta de novo', async () => {
+  const endCalls = [];
+  let makeWASocketCalls = 0;
+  const sockets = [];
+  const fakeBaileys = {
+    default: () => {
+      makeWASocketCalls++;
+      const sock = { ev: { on: () => {} }, end: async (err) => { endCalls.push(err); } };
+      sockets.push(sock);
+      return sock;
+    },
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+
+  let now = 1000000;
+  const clock = () => now;
+
+  await connectClient('test-stale-client-1', { baileys: fakeBaileys, now: clock });
+  assert.equal(makeWASocketCalls, 1);
+
+  now += 31000; // passa do limite de staleness (30s) sem nunca abrir nem fechar
+  await connectClient('test-stale-client-1', { baileys: fakeBaileys, now: clock });
+
+  assert.equal(makeWASocketCalls, 2);
+  assert.equal(endCalls.length, 1);
+});
+
+test('connectClient NAO descarta um socket "connecting" ha pouco tempo', async () => {
+  let makeWASocketCalls = 0;
+  const fakeBaileys = {
+    default: () => { makeWASocketCalls++; return { ev: { on: () => {} }, end: async () => {} }; },
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+
+  let now = 2000000;
+  const clock = () => now;
+
+  await connectClient('test-stale-client-2', { baileys: fakeBaileys, now: clock });
+  now += 5000; // bem antes do limite de staleness
+  await connectClient('test-stale-client-2', { baileys: fakeBaileys, now: clock });
+
+  assert.equal(makeWASocketCalls, 1);
+});

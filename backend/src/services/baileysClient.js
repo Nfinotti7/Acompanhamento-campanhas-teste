@@ -16,18 +16,37 @@ import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 
 const SESSIONS_DIR = path.resolve(process.cwd(), '.baileys_sessions');
 
-// clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl }
+// Tempo maximo que um socket pode ficar parado em 'connecting' (sem abrir, sem pedir QR,
+// sem fechar) antes de ser considerado travado e descartado pra tentar de novo do zero.
+// Acontece quando o handshake com o WhatsApp trava sem nunca disparar connection.update.
+const STALE_CONNECTING_MS = 30000;
+
+// clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl, connectingSince }
 const connections = new Map();
 
 function getOrInitState(clientId) {
   if (!connections.has(clientId)) {
-    connections.set(clientId, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null });
+    connections.set(clientId, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null, connectingSince: null });
   }
   return connections.get(clientId);
 }
 
 export async function connectClient(clientId, deps = {}) {
+  const now = deps.now || Date.now;
   const state = getOrInitState(clientId);
+
+  if (state.sock && state.status === 'connecting' && state.connectingSince && now() - state.connectingSince > STALE_CONNECTING_MS) {
+    const staleSock = state.sock;
+    state.sock = null;
+    state.status = 'disconnected';
+    state.connectingSince = null;
+    try {
+      await staleSock.end(new Error('Timeout: conexão Baileys presa em "connecting", descartando pra tentar de novo.'));
+    } catch {
+      // socket ja pode estar numa forma invalida -- so seguimos pra tentar de novo
+    }
+  }
+
   if (state.sock) return state; // ja conectando/conectado
 
   // Duas chamadas concorrentes (ex: reconexao automatica na subida + alguem abrindo a
@@ -57,6 +76,7 @@ async function doConnect(clientId, state, deps) {
   const sock = makeWASocket({ auth: authState, printQRInTerminal: false });
   state.sock = sock;
   state.status = 'connecting';
+  state.connectingSince = (deps.now || Date.now)();
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -66,11 +86,13 @@ async function doConnect(clientId, state, deps) {
     if (qr) {
       state.status = 'qr';
       state.qrDataUrl = await QRCode.toDataURL(qr);
+      state.connectingSince = null;
     }
 
     if (connection === 'open') {
       state.status = 'connected';
       state.qrDataUrl = null;
+      state.connectingSince = null;
     }
 
     if (connection === 'close') {
@@ -78,6 +100,7 @@ async function doConnect(clientId, state, deps) {
       const loggedOut = statusCode === DisconnectReason.loggedOut;
       state.sock = null;
       state.status = 'disconnected';
+      state.connectingSince = null;
       if (!loggedOut) {
         connectClient(clientId, deps); // reconecta sozinho em quedas que nao sejam logout
       }
