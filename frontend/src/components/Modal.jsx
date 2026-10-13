@@ -1,7 +1,10 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
+// Renderizado direto no <body> (portal): dentro da área principal ele herdava o contexto
+// de camadas dela, e a barra lateral ficava por cima do modal.
 export default function Modal({ onClose, children, maxWidth = '720px' }) {
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
@@ -19,6 +22,7 @@ export default function Modal({ onClose, children, maxWidth = '720px' }) {
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

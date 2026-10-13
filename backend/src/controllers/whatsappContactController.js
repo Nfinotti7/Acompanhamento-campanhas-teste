@@ -1,5 +1,7 @@
 import db from '../config/db.js';
 import { isValidManualStage } from '../services/whatsappStage.js';
+import { classifyOrigin } from '../services/whatsappOrigin.js';
+import { resolveAd } from '../services/metaAdResolver.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -74,6 +76,57 @@ export async function getContactTimeline(req, res) {
   } catch (error) {
     console.error('Get contact timeline error:', error);
     return res.status(500).json({ error: 'Erro ao buscar histórico.' });
+  }
+}
+
+const ATTRIBUTION_SQL = `
+  SELECT wc.source, wc.tracking_method, wc.ad_id, wc.ad_headline, wc.ad_body, wc.ad_source_url,
+         wc.first_seen_at, c.ad_name, c.adset_name, c.campaign_name, c.account_name,
+         (SELECT body FROM whatsapp_messages m
+           WHERE m.contact_id = wc.id AND m.direction = 'inbound'
+           ORDER BY m.sent_at ASC LIMIT 1) AS initial_message
+  FROM whatsapp_contacts wc
+  LEFT JOIN meta_ad_cache c ON c.ad_id = wc.ad_id
+  WHERE wc.id = ? AND wc.client_id = ?`;
+
+export async function getContactAttribution(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    const { contactId } = req.params;
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+
+    let { rows } = await db.query(ATTRIBUTION_SQL, [contactId, clientId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Contato não encontrado.' });
+    }
+
+    // Anúncio ainda não resolvido (falha anterior, ou chegou antes do cache existir):
+    // tenta agora, uma vez, antes de responder.
+    if (rows[0].ad_id && !rows[0].campaign_name) {
+      await resolveAd({ adId: rows[0].ad_id, clientId });
+      ({ rows } = await db.query(ATTRIBUTION_SQL, [contactId, clientId]));
+    }
+
+    const r = rows[0];
+    return res.json({
+      origin: classifyOrigin({ source: r.source }),
+      trackingMethod: r.tracking_method,
+      accountName: r.account_name,
+      campaignName: r.campaign_name,
+      adsetName: r.adset_name,
+      adName: r.ad_name,
+      adId: r.ad_id,
+      adHeadline: r.ad_headline,
+      adBody: r.ad_body,
+      adSourceUrl: r.ad_source_url,
+      initialMessage: r.initial_message,
+      firstSeenAt: r.first_seen_at
+    });
+  } catch (error) {
+    console.error('Get contact attribution error:', error);
+    return res.status(500).json({ error: 'Erro ao buscar origem do contato.' });
   }
 }
 

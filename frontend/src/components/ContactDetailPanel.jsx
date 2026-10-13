@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Trash2, Check } from 'lucide-react';
 import { Avatar, MessageMedia, ImageLightbox, isPlaceholderBody } from './whatsappMedia';
+import AttributionView from './AttributionView';
 
 const STAGES = [
   { key: 'novo_lead', label: 'Novo Lead' },
@@ -39,6 +40,7 @@ function formatEventDate(iso) {
 export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, liveUpdateSignal }) {
   const [section, setSection] = useState('conversa');
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [attribution, setAttribution] = useState(null);
   const messagesEndRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -94,8 +96,20 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
 
   useEffect(() => {
     if (section === 'historico') fetchTimeline();
+    if (section === 'origem') fetchAttribution();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, contact.id]);
+
+  const fetchAttribution = async () => {
+    setAttribution(null);
+    try {
+      const res = await apiClient.get(`/api/whatsapp/contacts/${contact.id}/attribution`, { params: clientId ? { clientId } : {} });
+      setAttribution(res.data);
+    } catch (err) {
+      console.error('Error fetching attribution:', err);
+      setAttribution({ error: true });
+    }
+  };
 
   const fetchMessages = async () => {
     setLoadingMessages(true);
@@ -342,7 +356,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
       ) : (
         <>
           <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-            {[['conversa', 'Conversa'], ['historico', 'Histórico'], ['anotacoes', 'Anotações']].map(([key, label]) => (
+            {[['conversa', 'Conversa'], ['historico', 'Histórico'], ['anotacoes', 'Anotações'], ['origem', 'Origem']].map(([key, label]) => (
               <button
                 key={key}
                 type="button"
@@ -463,6 +477,12 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {section === 'origem' && (
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <AttributionView data={attribution} />
             </div>
           )}
 
