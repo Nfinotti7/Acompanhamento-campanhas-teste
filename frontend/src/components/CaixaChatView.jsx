@@ -128,7 +128,7 @@ export default function CaixaChatView({ caixaApi }) {
   const listToShow = searchResults !== null ? searchResults : conversations;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', height: '560px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', height: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
       <div style={{ borderRight: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1420' }}>
         <div style={{ padding: '10px' }}>
           <input

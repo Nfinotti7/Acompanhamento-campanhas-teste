@@ -69,68 +69,73 @@ export default function CaixaFunilView({ caixaApi, inputStyle, view }) {
   const refetch = () => (view === 'funil' ? fetchKanban() : fetchAgenda());
 
   return (
-    <div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {view === 'agenda' && (
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          style={inputStyle}
+          style={{ ...inputStyle, maxWidth: '220px', flexShrink: 0 }}
         />
       )}
 
-      {loading ? (
-        <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Carregando...</p>
-      ) : view === 'funil' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {STAGES.map((stage) => {
-            const stageContacts = contacts.filter((c) => c.stage === stage.key);
-            return (
-              <div key={stage.key}>
-                <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.85rem', marginBottom: '6px' }}>
-                  {stage.label} ({stageContacts.length})
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {loading ? (
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Carregando...</p>
+        ) : view === 'funil' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(200px, 1fr))', gap: '12px' }}>
+            {STAGES.map((stage) => {
+              const stageContacts = contacts.filter((c) => c.stage === stage.key);
+              return (
+                <div key={stage.key} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px', minHeight: '200px' }}>
+                  <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{stage.label}</span>
+                    <span style={{ color: '#64748b' }}>{stageContacts.length}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {stageContacts.length === 0 ? (
+                      <p style={{ color: '#64748b', fontSize: '0.75rem' }}>Vazio</p>
+                    ) : (
+                      stageContacts.map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => setOpenContact(c)}
+                          style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        >
+                          <div style={{ fontWeight: 600, color: '#fff' }}>{c.profile_name || c.wa_id}</div>
+                          <div style={{ color: '#94a3b8' }}>{c.wa_id}</div>
+                          {c.appointment_at && (
+                            <div style={{ color: '#a855f7', marginTop: '2px' }}>📅 {formatAppointment(c.appointment_at)}</div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-                {stageContacts.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '0.78rem' }}>Vazio</p>
-                ) : (
-                  stageContacts.map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => setOpenContact(c)}
-                      style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', marginBottom: '6px', fontSize: '0.8rem', cursor: 'pointer' }}
-                    >
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{c.profile_name || c.wa_id}</div>
-                      <div style={{ color: '#94a3b8' }}>{c.wa_id}</div>
-                      {c.appointment_at && (
-                        <div style={{ color: '#a855f7', marginTop: '2px' }}>📅 {formatAppointment(c.appointment_at)}</div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {appointments.length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nenhum agendamento nesse dia.</p>
-          ) : (
-            appointments.map((a) => (
-              <div
-                key={a.id}
-                onClick={() => setOpenContact(a)}
-                style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem', cursor: 'pointer' }}
-              >
-                <div style={{ fontWeight: 600, color: '#fff' }}>{a.profile_name || a.wa_id}</div>
-                <div style={{ color: '#94a3b8' }}>
-                  {new Date(a.appointment_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {appointments.length === 0 ? (
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nenhum agendamento nesse dia.</p>
+            ) : (
+              appointments.map((a) => (
+                <div
+                  key={a.id}
+                  onClick={() => setOpenContact(a)}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem', cursor: 'pointer' }}
+                >
+                  <div style={{ fontWeight: 600, color: '#fff' }}>{a.profile_name || a.wa_id}</div>
+                  <div style={{ color: '#94a3b8' }}>
+                    {new Date(a.appointment_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {openContact && (
         <Modal onClose={() => setOpenContact(null)} maxWidth="520px">
