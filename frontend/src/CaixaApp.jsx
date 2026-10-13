@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays } from 'lucide-react';
+import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays, LogOut } from 'lucide-react';
 import CaixaChatView from './components/CaixaChatView';
 import CaixaFunilView from './components/CaixaFunilView';
 
@@ -10,15 +10,35 @@ const NAV_ITEMS = [
   { key: 'agenda', label: 'Agenda', icon: CalendarDays }
 ];
 
+const TOKEN_KEY = 'caixa_token';
+const RESTAURANT_KEY = 'caixa_restaurant';
+
 const caixaApi = axios.create();
 
+function loadStoredSession() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const restaurantJson = localStorage.getItem(RESTAURANT_KEY);
+  if (!token || !restaurantJson) return null;
+  try {
+    return { token, restaurant: JSON.parse(restaurantJson) };
+  } catch {
+    return null;
+  }
+}
+
 export default function CaixaApp() {
-  const [step, setStep] = useState('select-restaurant');
+  const stored = loadStoredSession();
+  const [step, setStep] = useState(stored ? 'app' : 'select-restaurant');
   const [view, setView] = useState('conversas');
   const [restaurants, setRestaurants] = useState([]);
-  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState(stored?.restaurant || null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [lastEvent, setLastEvent] = useState(null);
+
+  if (stored) {
+    caixaApi.defaults.headers.common['Authorization'] = `Bearer ${stored.token}`;
+  }
 
   useEffect(() => {
     caixaApi.get('/api/staff/restaurants').then((res) => {
@@ -32,11 +52,55 @@ export default function CaixaApp() {
     try {
       const res = await caixaApi.post('/api/staff/login', { clientId: selectedRestaurant.id, pin });
       caixaApi.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+      localStorage.setItem(TOKEN_KEY, res.data.token);
+      localStorage.setItem(RESTAURANT_KEY, JSON.stringify(selectedRestaurant));
       setStep('app');
     } catch (err) {
       setError(err.response?.data?.error || 'PIN inválido.');
     }
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(RESTAURANT_KEY);
+    delete caixaApi.defaults.headers.common['Authorization'];
+    setSelectedRestaurant(null);
+    setPin('');
+    setView('conversas');
+    setStep('select-restaurant');
+  };
+
+  useEffect(() => {
+    const interceptorId = caixaApi.interceptors.response.use(
+      (res) => res,
+      (err) => {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          handleLogout();
+        }
+        return Promise.reject(err);
+      }
+    );
+    return () => caixaApi.interceptors.response.eject(interceptorId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (step !== 'app') return;
+    const authHeader = caixaApi.defaults.headers.common['Authorization'];
+    const token = authHeader ? authHeader.replace('Bearer ', '') : null;
+    if (!token) return;
+
+    const source = new EventSource(`/api/whatsapp/events?token=${encodeURIComponent(token)}`);
+    source.onmessage = (e) => {
+      try {
+        setLastEvent({ ...JSON.parse(e.data), receivedAt: Date.now() });
+      } catch (err) {
+        console.error('Error parsing SSE event:', err);
+      }
+    };
+
+    return () => source.close();
+  }, [step]);
 
   const inputStyle = {
     width: '100%',
@@ -162,15 +226,41 @@ export default function CaixaApp() {
             <span style={{ fontSize: '0.6rem', fontWeight: 600 }}>{label}</span>
           </button>
         ))}
+
+        <div style={{ flex: 1 }} />
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          title={`Sair (${selectedRestaurant?.name})`}
+          style={{
+            width: '52px',
+            height: '52px',
+            marginBottom: '16px',
+            borderRadius: '12px',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '2px',
+            backgroundColor: 'transparent',
+            color: '#94a3b8'
+          }}
+        >
+          <LogOut size={20} />
+          <span style={{ fontSize: '0.6rem', fontWeight: 600 }}>Sair</span>
+        </button>
       </nav>
 
       <div style={{ flex: 1, overflow: 'hidden', padding: '20px' }}>
         {view === 'conversas' && (
-          <CaixaChatView caixaApi={caixaApi} />
+          <CaixaChatView caixaApi={caixaApi} lastEvent={lastEvent} />
         )}
 
         {(view === 'funil' || view === 'agenda') && (
-          <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} view={view} />
+          <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} view={view} lastEvent={lastEvent} />
         )}
       </div>
     </div>
