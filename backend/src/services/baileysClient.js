@@ -109,6 +109,8 @@ async function doConnect(clientId, state, deps) {
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
+      console.error(`Baileys close [client ${clientId}] statusCode=${statusCode} loggedOut=${loggedOut} message=${lastDisconnect?.error?.message}`);
+      state.lastDisconnectReason = { statusCode, message: lastDisconnect?.error?.message, at: new Date().toISOString() };
       state.sock = null;
       state.status = 'disconnected';
       state.connectingSince = null;
@@ -159,7 +161,7 @@ export async function reconnectAllBaileysClients(deps = {}) {
 export function getConnectionState(clientId) {
   const state = connections.get(normalizeClientId(clientId));
   if (!state) return { status: 'disconnected', qrDataUrl: null };
-  return { status: state.status, qrDataUrl: state.qrDataUrl };
+  return { status: state.status, qrDataUrl: state.qrDataUrl, lastDisconnectReason: state.lastDisconnectReason };
 }
 
 export async function sendViaBaileys(clientId, waId, body) {
