@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -112,4 +112,35 @@ test('connectClient NAO descarta um socket "connecting" ha pouco tempo', async (
   await connectClient('test-stale-client-2', { baileys: fakeBaileys, now: clock });
 
   assert.equal(makeWASocketCalls, 1);
+});
+
+test('clientId numerico e em string (ex: vindo de query param vs corpo da requisicao) apontam pra mesma conexao', async () => {
+  let connectionUpdateHandler = null;
+  const sentMessages = [];
+  const fakeSock = {
+    ev: {
+      on: (event, handler) => {
+        if (event === 'connection.update') connectionUpdateHandler = handler;
+      }
+    },
+    sendMessage: async (jid, msg) => { sentMessages.push({ jid, msg }); }
+  };
+  const fakeBaileys = {
+    default: () => fakeSock,
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+
+  // Abre a conexao com clientId NUMBER (ex: reconexao automatica, client_id vindo
+  // direto do Postgres).
+  await connectClient(777, { baileys: fakeBaileys });
+  await connectionUpdateHandler({ connection: 'open' });
+
+  // Le o status e manda mensagem com clientId STRING (ex: req.query.clientId,
+  // req.body.clientId vindo de JSON) -- tem que enxergar a MESMA conexao que acabou
+  // de abrir, nao uma entrada vazia/diferente.
+  assert.equal(getConnectionState('777').status, 'connected');
+  await sendViaBaileys('777', '5511999998888', 'oi');
+  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages[0].jid, '5511999998888@s.whatsapp.net');
 });

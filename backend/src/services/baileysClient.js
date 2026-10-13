@@ -24,11 +24,22 @@ const STALE_CONNECTING_MS = 30000;
 // clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl, connectingSince }
 const connections = new Map();
 
+// clientId chega como number quando vem do banco (ex: reconexao automatica na subida,
+// que le client_id direto do Postgres) e como string quando vem de query string ou
+// corpo de requisicao (ex: getBaileysStatus, replyToConversation). Sem normalizar,
+// "9" e 9 viram DUAS entradas diferentes nesse Map -- a reconexao automatica abre um
+// socket fantasma numa chave, o QR escaneado fica registrado na outra, e enviar
+// mensagem olha pra entrada errada (mesma classe de bug ja corrigida em sseHub.js).
+function normalizeClientId(clientId) {
+  return String(clientId);
+}
+
 function getOrInitState(clientId) {
-  if (!connections.has(clientId)) {
-    connections.set(clientId, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null, connectingSince: null });
+  const key = normalizeClientId(clientId);
+  if (!connections.has(key)) {
+    connections.set(key, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null, connectingSince: null });
   }
-  return connections.get(clientId);
+  return connections.get(key);
 }
 
 export async function connectClient(clientId, deps = {}) {
@@ -146,13 +157,13 @@ export async function reconnectAllBaileysClients(deps = {}) {
 }
 
 export function getConnectionState(clientId) {
-  const state = connections.get(clientId);
+  const state = connections.get(normalizeClientId(clientId));
   if (!state) return { status: 'disconnected', qrDataUrl: null };
   return { status: state.status, qrDataUrl: state.qrDataUrl };
 }
 
 export async function sendViaBaileys(clientId, waId, body) {
-  const state = connections.get(clientId);
+  const state = connections.get(normalizeClientId(clientId));
   if (!state?.sock || state.status !== 'connected') {
     throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
   }
