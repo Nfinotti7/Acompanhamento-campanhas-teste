@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
+import ContactDetailPanel from './ContactDetailPanel';
 
 const STAGES = [
   { key: 'novo_lead', label: 'Novo Lead' },
@@ -24,20 +26,21 @@ function formatAppointment(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function CaixaFunilView({ caixaApi, inputStyle }) {
-  const [tab, setTab] = useState('kanban');
+export default function CaixaFunilView({ caixaApi, inputStyle, view }) {
   const [contacts, setContacts] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [date, setDate] = useState(todayISODate());
   const [loading, setLoading] = useState(true);
+  const [openContact, setOpenContact] = useState(null);
 
   useEffect(() => {
-    if (tab === 'kanban') {
+    if (view === 'funil') {
       fetchKanban();
     } else {
       fetchAgenda();
     }
-  }, [tab, date]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, date]);
 
   const fetchKanban = async () => {
     setLoading(true);
@@ -63,26 +66,11 @@ export default function CaixaFunilView({ caixaApi, inputStyle }) {
     }
   };
 
-  const tabButtonStyle = (active) => ({
-    flex: 1,
-    padding: '10px',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.85rem',
-    backgroundColor: active ? '#6366f1' : 'rgba(255,255,255,0.05)',
-    color: active ? '#fff' : '#94a3b8'
-  });
+  const refetch = () => (view === 'funil' ? fetchKanban() : fetchAgenda());
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button type="button" onClick={() => setTab('kanban')} style={tabButtonStyle(tab === 'kanban')}>Funil</button>
-        <button type="button" onClick={() => setTab('agenda')} style={tabButtonStyle(tab === 'agenda')}>Agenda</button>
-      </div>
-
-      {tab === 'agenda' && (
+      {view === 'agenda' && (
         <input
           type="date"
           value={date}
@@ -93,7 +81,7 @@ export default function CaixaFunilView({ caixaApi, inputStyle }) {
 
       {loading ? (
         <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Carregando...</p>
-      ) : tab === 'kanban' ? (
+      ) : view === 'funil' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {STAGES.map((stage) => {
             const stageContacts = contacts.filter((c) => c.stage === stage.key);
@@ -106,7 +94,11 @@ export default function CaixaFunilView({ caixaApi, inputStyle }) {
                   <p style={{ color: '#64748b', fontSize: '0.78rem' }}>Vazio</p>
                 ) : (
                   stageContacts.map((c) => (
-                    <div key={c.id} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', marginBottom: '6px', fontSize: '0.8rem' }}>
+                    <div
+                      key={c.id}
+                      onClick={() => setOpenContact(c)}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', marginBottom: '6px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
                       <div style={{ fontWeight: 600, color: '#fff' }}>{c.profile_name || c.wa_id}</div>
                       <div style={{ color: '#94a3b8' }}>{c.wa_id}</div>
                       {c.appointment_at && (
@@ -125,7 +117,11 @@ export default function CaixaFunilView({ caixaApi, inputStyle }) {
             <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nenhum agendamento nesse dia.</p>
           ) : (
             appointments.map((a) => (
-              <div key={a.id} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem' }}>
+              <div
+                key={a.id}
+                onClick={() => setOpenContact(a)}
+                style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem', cursor: 'pointer' }}
+              >
                 <div style={{ fontWeight: 600, color: '#fff' }}>{a.profile_name || a.wa_id}</div>
                 <div style={{ color: '#94a3b8' }}>
                   {new Date(a.appointment_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -134,6 +130,19 @@ export default function CaixaFunilView({ caixaApi, inputStyle }) {
             ))
           )}
         </div>
+      )}
+
+      {openContact && (
+        <Modal onClose={() => setOpenContact(null)} maxWidth="520px">
+          <div style={{ height: '70vh' }}>
+            <ContactDetailPanel
+              apiClient={caixaApi}
+              contact={openContact}
+              onClose={() => setOpenContact(null)}
+              onUpdated={refetch}
+            />
+          </div>
+        </Modal>
       )}
     </div>
   );

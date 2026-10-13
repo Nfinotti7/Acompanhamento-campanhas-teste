@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { CalendarDays, ExternalLink } from 'lucide-react';
+import Modal from '../components/Modal';
+import ContactDetailPanel from '../components/ContactDetailPanel';
 
 function todayISODate() {
   // new Date().toISOString() usa UTC: depois das 21h em fusos como o do Brasil (UTC-3),
@@ -16,6 +18,7 @@ export default function WhatsAppAgendaPage({ selectedClient, onViewConversation 
   const [date, setDate] = useState(todayISODate());
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openContact, setOpenContact] = useState(null);
 
   useEffect(() => {
     fetchAgenda();
@@ -79,7 +82,7 @@ export default function WhatsAppAgendaPage({ selectedClient, onViewConversation 
                   </div>
                 </div>
                 <button
-                  onClick={() => onViewConversation && onViewConversation(a.id)}
+                  onClick={() => setOpenContact(a)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -91,13 +94,27 @@ export default function WhatsAppAgendaPage({ selectedClient, onViewConversation 
                     fontSize: '0.8rem'
                   }}
                 >
-                  <ExternalLink size={14} /> Ver conversa
+                  <ExternalLink size={14} /> Abrir
                 </button>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {openContact && (
+        <Modal onClose={() => setOpenContact(null)} maxWidth="640px">
+          <div style={{ height: '70vh' }}>
+            <ContactDetailPanel
+              apiClient={axios}
+              clientId={selectedClient}
+              contact={openContact}
+              onClose={() => setOpenContact(null)}
+              onUpdated={fetchAgenda}
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

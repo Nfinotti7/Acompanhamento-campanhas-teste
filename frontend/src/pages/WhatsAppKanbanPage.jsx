@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Columns3, ExternalLink } from 'lucide-react';
+import { Columns3 } from 'lucide-react';
+import Modal from '../components/Modal';
+import ContactDetailPanel from '../components/ContactDetailPanel';
 
 const STAGES = [
   { key: 'novo_lead', label: 'Novo Lead' },
@@ -19,6 +21,7 @@ function formatAppointment(iso) {
 export default function WhatsAppKanbanPage({ selectedClient, onViewConversation }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openContact, setOpenContact] = useState(null);
 
   useEffect(() => {
     fetchKanban();
@@ -65,7 +68,11 @@ export default function WhatsAppKanbanPage({ selectedClient, onViewConversation 
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Vazio</div>
                   )}
                   {stageContacts.map((c) => (
-                    <div key={c.id} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem' }}>
+                    <div
+                      key={c.id}
+                      onClick={() => setOpenContact(c)}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
                       <div style={{ fontWeight: 600, color: '#fff' }}>{c.profile_name || c.wa_id}</div>
                       <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
                         {c.source === 'ad' ? `📢 ${c.ad_headline || 'Veio de anúncio'}` : 'Contato direto'}
@@ -75,23 +82,6 @@ export default function WhatsAppKanbanPage({ selectedClient, onViewConversation 
                           📅 {formatAppointment(c.appointment_at)}
                         </div>
                       )}
-                      <button
-                        onClick={() => onViewConversation && onViewConversation(c.id)}
-                        style={{
-                          marginTop: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--accent-primary)',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          padding: 0
-                        }}
-                      >
-                        <ExternalLink size={12} /> Ver conversa
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -99,6 +89,20 @@ export default function WhatsAppKanbanPage({ selectedClient, onViewConversation 
             );
           })}
         </div>
+      )}
+
+      {openContact && (
+        <Modal onClose={() => setOpenContact(null)} maxWidth="640px">
+          <div style={{ height: '70vh' }}>
+            <ContactDetailPanel
+              apiClient={axios}
+              clientId={selectedClient}
+              contact={openContact}
+              onClose={() => setOpenContact(null)}
+              onUpdated={fetchKanban}
+            />
+          </div>
+        </Modal>
       )}
     </div>
   );

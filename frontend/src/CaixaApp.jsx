@@ -1,26 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Store, Lock, Search, CheckCircle2, ArrowLeft, DollarSign, CalendarPlus } from 'lucide-react';
+import { Store, Lock, ArrowLeft } from 'lucide-react';
+import CaixaChatView from './components/CaixaChatView';
 import CaixaFunilView from './components/CaixaFunilView';
 
 const caixaApi = axios.create();
 
 export default function CaixaApp() {
   const [step, setStep] = useState('select-restaurant');
-  const [view, setView] = useState('atender');
+  const [view, setView] = useState('conversas');
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [selectedContact, setSelectedContact] = useState(null);
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [amountSpent, setAmountSpent] = useState('');
-  const [appointmentDate, setAppointmentDate] = useState('');
-  const [appointmentTime, setAppointmentTime] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     caixaApi.get('/api/staff/restaurants').then((res) => {
@@ -34,83 +26,10 @@ export default function CaixaApp() {
     try {
       const res = await caixaApi.post('/api/staff/login', { clientId: selectedRestaurant.id, pin });
       caixaApi.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-      setStep('search');
+      setStep('app');
     } catch (err) {
       setError(err.response?.data?.error || 'PIN inválido.');
     }
-  };
-
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    try {
-      const res = await caixaApi.get('/api/whatsapp/contacts/search', { params: { q: query } });
-      setResults(res.data.contacts || []);
-    } catch (err) {
-      setError('Erro ao buscar.');
-    }
-  };
-
-  const selectContact = (contact) => {
-    setSelectedContact(contact);
-    setCustomerName(contact.profile_name || '');
-    setPhone(contact.wa_id || '');
-    setStep('choose-action');
-  };
-
-  const skipMatch = () => {
-    setSelectedContact(null);
-    setCustomerName(query);
-    setPhone('');
-    setStep('choose-action');
-  };
-
-  const handleConfirmSale = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-    try {
-      await caixaApi.post('/api/whatsapp/conversions', {
-        contactId: selectedContact?.id || null,
-        customerName,
-        phone,
-        amountSpent: Number(amountSpent),
-        matchedBy: selectedContact ? 'phone' : 'manual'
-      });
-      setStep('success');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao lançar conversão.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleConfirmAppointment = async (e) => {
-    e.preventDefault();
-    if (!selectedContact) return;
-    setSubmitting(true);
-    setError('');
-    try {
-      const appointmentAt = new Date(`${appointmentDate}T${appointmentTime}`).toISOString();
-      await caixaApi.post(`/api/whatsapp/contacts/${selectedContact.id}/appointment`, { appointmentAt });
-      setStep('success');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao marcar agendamento.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const resetForNext = () => {
-    setQuery('');
-    setResults([]);
-    setSelectedContact(null);
-    setCustomerName('');
-    setPhone('');
-    setAmountSpent('');
-    setAppointmentDate('');
-    setAppointmentTime('');
-    setStep('search');
   };
 
   const inputStyle = {
@@ -142,56 +61,46 @@ export default function CaixaApp() {
       backgroundColor: '#0b0f19',
       color: '#f8fafc',
       display: 'flex',
-      alignItems: 'center',
+      alignItems: step === 'app' ? 'flex-start' : 'center',
       justifyContent: 'center',
       padding: '20px',
       fontFamily: "'Inter', sans-serif"
     }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
-        {step !== 'select-restaurant' && step !== 'pin' && (
+      <div style={{ width: '100%', maxWidth: step === 'app' ? '900px' : '400px' }}>
+        {step === 'app' && (
           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-            <button
-              type="button"
-              onClick={() => setView('atender')}
-              style={{
-                flex: 1,
-                padding: '10px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                backgroundColor: view === 'atender' ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                color: view === 'atender' ? '#fff' : '#94a3b8'
-              }}
-            >
-              Atender
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('funil')}
-              style={{
-                flex: 1,
-                padding: '10px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                backgroundColor: view === 'funil' ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                color: view === 'funil' ? '#fff' : '#94a3b8'
-              }}
-            >
-              Funil
-            </button>
+            {[['conversas', 'Conversas'], ['funil', 'Funil'], ['agenda', 'Agenda']].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setView(key)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  backgroundColor: view === key ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                  color: view === key ? '#fff' : '#94a3b8'
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
-        {view === 'funil' && step !== 'select-restaurant' && step !== 'pin' && (
-          <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} />
+        {step === 'app' && view === 'conversas' && (
+          <CaixaChatView caixaApi={caixaApi} />
         )}
 
-        {view === 'atender' && step === 'select-restaurant' && (
+        {step === 'app' && (view === 'funil' || view === 'agenda') && (
+          <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} view={view} />
+        )}
+
+        {step === 'select-restaurant' && (
           <div>
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Store size={22} /> Selecione o restaurante
@@ -209,7 +118,7 @@ export default function CaixaApp() {
           </div>
         )}
 
-        {view === 'atender' && step === 'pin' && (
+        {step === 'pin' && (
           <form onSubmit={handlePinSubmit}>
             <button type="button" onClick={() => setStep('select-restaurant')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <ArrowLeft size={16} /> Voltar
@@ -229,145 +138,6 @@ export default function CaixaApp() {
             {error && <p style={{ color: '#f87171', marginBottom: '12px' }}>{error}</p>}
             <button type="submit" style={buttonStyle}>Entrar</button>
           </form>
-        )}
-
-        {view === 'atender' && step === 'search' && (
-          <form onSubmit={handleSearch}>
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Search size={22} /> Buscar cliente
-            </h1>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Nome ou telefone"
-              autoFocus
-              style={inputStyle}
-            />
-            <button type="submit" style={{ ...buttonStyle, marginBottom: '16px' }}>Buscar</button>
-
-            {results.map((c) => (
-              <button
-                type="button"
-                key={c.id}
-                onClick={() => selectContact(c)}
-                style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left' }}
-              >
-                <div style={{ fontWeight: 600 }}>{c.profile_name || 'Sem nome'}</div>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{c.wa_id}{c.source === 'ad' ? ' · veio de anúncio' : ''}</div>
-              </button>
-            ))}
-
-            {query && (
-              <button
-                type="button"
-                onClick={skipMatch}
-                style={{ ...inputStyle, cursor: 'pointer', border: '1px dashed rgba(255,255,255,0.2)', backgroundColor: 'transparent', color: '#94a3b8', textAlign: 'center' }}
-              >
-                Não achei — lançar mesmo assim
-              </button>
-            )}
-          </form>
-        )}
-
-        {view === 'atender' && step === 'choose-action' && (
-          <div>
-            <button type="button" onClick={() => setStep('search')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <ArrowLeft size={16} /> Voltar
-            </button>
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '8px' }}>{customerName || 'Cliente'}</h1>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '20px' }}>O que você quer fazer?</p>
-
-            <button
-              type="button"
-              onClick={() => setStep('confirm-sale')}
-              style={{ ...buttonStyle, background: 'linear-gradient(135deg, #10b981, #059669)', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            >
-              <DollarSign size={18} /> Lançar venda
-            </button>
-
-            {selectedContact ? (
-              <button
-                type="button"
-                onClick={() => setStep('confirm-appointment')}
-                style={{ ...buttonStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <CalendarPlus size={18} /> Marcar agendamento
-              </button>
-            ) : (
-              <p style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center' }}>
-                Agendamento só é possível pra contato encontrado na busca.
-              </p>
-            )}
-          </div>
-        )}
-
-        {view === 'atender' && step === 'confirm-sale' && (
-          <form onSubmit={handleConfirmSale}>
-            <button type="button" onClick={() => setStep('choose-action')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <ArrowLeft size={16} /> Voltar
-            </button>
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px' }}>Confirmar venda</h1>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Nome do cliente"
-              required
-              style={inputStyle}
-            />
-            <input
-              type="number"
-              step="0.01"
-              value={amountSpent}
-              onChange={(e) => setAmountSpent(e.target.value)}
-              placeholder="Valor gasto (R$)"
-              required
-              autoFocus
-              style={{ ...inputStyle, fontSize: '1.2rem' }}
-            />
-            {error && <p style={{ color: '#f87171', marginBottom: '12px' }}>{error}</p>}
-            <button type="submit" disabled={submitting} style={{ ...buttonStyle, background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-              {submitting ? 'Salvando...' : 'Lançar venda'}
-            </button>
-          </form>
-        )}
-
-        {view === 'atender' && step === 'confirm-appointment' && (
-          <form onSubmit={handleConfirmAppointment}>
-            <button type="button" onClick={() => setStep('choose-action')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <ArrowLeft size={16} /> Voltar
-            </button>
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px' }}>Marcar agendamento</h1>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '12px' }}>{customerName}</p>
-            <input
-              type="date"
-              value={appointmentDate}
-              onChange={(e) => setAppointmentDate(e.target.value)}
-              required
-              autoFocus
-              style={inputStyle}
-            />
-            <input
-              type="time"
-              value={appointmentTime}
-              onChange={(e) => setAppointmentTime(e.target.value)}
-              required
-              style={inputStyle}
-            />
-            {error && <p style={{ color: '#f87171', marginBottom: '12px' }}>{error}</p>}
-            <button type="submit" disabled={submitting} style={buttonStyle}>
-              {submitting ? 'Salvando...' : 'Confirmar agendamento'}
-            </button>
-          </form>
-        )}
-
-        {view === 'atender' && step === 'success' && (
-          <div style={{ textAlign: 'center' }}>
-            <CheckCircle2 size={56} color="#10b981" style={{ margin: '0 auto 16px' }} />
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '20px' }}>Feito!</h1>
-            <button onClick={resetForNext} style={buttonStyle}>Lançar próxima</button>
-          </div>
         )}
       </div>
     </div>
