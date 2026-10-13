@@ -34,6 +34,9 @@ async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
 export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   const dbImpl = deps.db || db;
   const broadcastFn = deps.broadcast || broadcast;
+  // Pela Cloud API o ctwa_clid sempre vem; pelo Baileys o cartão do anúncio às vezes
+  // traz só o id do anúncio. Qualquer um dos dois prova que veio de anúncio.
+  const fromAd = Boolean(event.ctwaClid || event.adId);
 
   const { rows: contactRows } = await dbImpl.query(
     `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, ctwa_clid, ad_id, ad_headline, ad_body, source, last_message_at, ad_source_url, ad_referral_json, tracking_method)
@@ -60,11 +63,11 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       event.adId,
       event.adHeadline,
       event.adBody,
-      event.ctwaClid ? 'ad' : 'organic',
+      fromAd ? 'ad' : 'organic',
       event.sentAt,
       event.adSourceUrl || null,
       event.referral ? JSON.stringify(event.referral) : null,
-      event.ctwaClid ? 'ctwa' : null
+      fromAd ? 'ctwa' : null
     ]
   );
   const contactId = contactRows[0].id;

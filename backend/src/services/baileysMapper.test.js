@@ -160,3 +160,66 @@ test('isUsableMessage usa o numero real (remoteJidAlt) pra validar LID', () => {
   };
   assert.equal(isUsableMessage(msg), true);
 });
+
+test('mensagem vinda de anuncio (Clique para WhatsApp) traz id do anuncio e do clique', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'AD1', fromMe: false },
+    messageTimestamp: 1760000000,
+    message: {
+      extendedTextMessage: {
+        text: 'Olá! Tenho interesse e queria mais informações, por favor.',
+        contextInfo: {
+          externalAdReply: {
+            title: 'Rodízio de sushi',
+            body: 'Reserve sua mesa',
+            sourceType: 'ad',
+            sourceId: '120200000000001',
+            sourceUrl: 'https://fb.me/abc',
+            thumbnailUrl: 'https://scontent.example/thumb.jpg',
+            thumbnail: Buffer.from('bytes-grandes'),
+            ctwaClid: 'CLID_XYZ'
+          }
+        }
+      }
+    }
+  };
+
+  const event = mapBaileysMessageToEvent(msg);
+
+  assert.equal(event.adId, '120200000000001');
+  assert.equal(event.ctwaClid, 'CLID_XYZ');
+  assert.equal(event.adHeadline, 'Rodízio de sushi');
+  assert.equal(event.adBody, 'Reserve sua mesa');
+  assert.equal(event.adSourceUrl, 'https://fb.me/abc');
+  assert.equal(event.referral.source_id, '120200000000001');
+  assert.equal(event.referral.thumbnail, undefined); // bytes da miniatura não vão pro banco
+  assert.equal(event.body, 'Olá! Tenho interesse e queria mais informações, por favor.');
+});
+
+test('cartao de anuncio tambem e lido em mensagem de imagem', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'AD2', fromMe: false },
+    message: { imageMessage: { caption: 'oi', contextInfo: { externalAdReply: { sourceType: 'ad', sourceId: 'AD_9' } } } }
+  };
+  const event = mapBaileysMessageToEvent(msg);
+  assert.equal(event.adId, 'AD_9');
+  assert.equal(event.ctwaClid, null);
+});
+
+test('preview de link comum (externalAdReply sem ser anuncio) nao conta como anuncio', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'L1', fromMe: false },
+    message: { extendedTextMessage: { text: 'olha isso', contextInfo: { externalAdReply: { title: 'Site', sourceUrl: 'https://site.com' } } } }
+  };
+  const event = mapBaileysMessageToEvent(msg);
+  assert.equal(event.adId, null);
+  assert.equal(event.referral, null);
+});
+
+test('mensagem enviada por nos nunca carrega atribuicao de anuncio', () => {
+  const msg = {
+    key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'O1', fromMe: true },
+    message: { extendedTextMessage: { text: 'x', contextInfo: { externalAdReply: { sourceType: 'ad', sourceId: 'AD_1' } } } }
+  };
+  assert.equal(mapBaileysMessageToEvent(msg).adId, null);
+});

@@ -18,6 +18,7 @@ import { ingestWhatsAppEvent } from './whatsappIngest.js';
 import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
+import { resolveAd } from './metaAdResolver.js';
 
 const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
 
@@ -162,6 +163,14 @@ async function doConnect(clientId, state, deps) {
           };
         }
         const contactId = await ingestWhatsAppEvent(clientId, event);
+
+        // Veio de anúncio: busca campanha/conjunto/anúncio na Marketing API em segundo
+        // plano, igual ao webhook oficial.
+        if (event.adId) {
+          console.log(`Baileys [client ${clientId}]: conversa de anúncio (ad ${event.adId}, clid ${event.ctwaClid ? 'sim' : 'não'})`);
+          resolveAd({ adId: event.adId, clientId })
+            .catch((error) => console.error('Erro ao resolver anúncio:', error.message));
+        }
 
         if (!msg.key?.fromMe) {
           refreshProfilePicture({

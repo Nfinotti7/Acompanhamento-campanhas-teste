@@ -45,7 +45,7 @@ Também corrigido nesse mesmo dia: `wa_id` gravado errado quando o WhatsApp usa 
 3. ⏳ **CRM estilo Kommo** — o usuário escolheu: etapas personalizadas por cliente + arrastar cards; valor do negócio no card (soma por coluna); tags e responsável. (Tarefas/lembretes ficaram de fora por enquanto.) Substitui as 6 etapas fixas calculadas; cada etapa já preparada pra mapear um evento de conversão (Contact/Schedule/Purchase).
 4. ⏳ **Link Rastreável + CAPI** — link próprio que captura UTM/fbclid e redireciona pro `wa.me` com token; disparo dos eventos por etapa pra Meta/Google com log.
 - O blueprint propunha criar tabelas novas (`contatos`, `mensagens`...) — **não fazer isso**: as equivalentes já existem (`whatsapp_contacts`, `whatsapp_messages`, `real_conversions`). Estender, não duplicar.
-- Baileys nunca recebe `referral` (origem do anúncio) — Malibu fica "não rastreado" enquanto não migrar pra API oficial ou usar Link Rastreável.
+- ~~Baileys nunca recebe `referral`~~ **ERRADO, corrigido em 2026-10-13**: pelo QR code a primeira mensagem de quem clicou em anúncio CTWA traz `contextInfo.externalAdReply` (`sourceId` = ad id, `ctwaClid`), e agora é lido (ver Registro). O que o Baileys não pega é origem fora de anúncio Meta (Google, orgânico); isso é o Link Rastreável (Fase 4).
 
 ## Registro
 
@@ -157,3 +157,12 @@ O usuário relatou que a janela da conversa no `/caixa` não tinha rolagem nem d
 - `ContactDetailPanel`: `minHeight: 0` na raiz e nas áreas com rolagem.
 - A rolagem automática agora usa `scrollTop = scrollHeight` no próprio container, em vez de `scrollIntoView`, que rolava a página inteira. Ela é "grudenta": só puxa pro fim se a pessoa já estava perto do fim (menos de 80px). Quem subiu pra ler o histórico não é puxado de volta. Trocar de contato, voltar pra aba Conversa e enviar resposta forçam a ida pro fim. Imagem ou vídeo que termina de carregar (`onLoad` no `MessageMedia`) também re-rola, porque muda a altura da lista.
 - Testado localmente com 40 mensagens: abre no fim e rola manualmente.
+
+### 2026-10-13 (continuação) — Atribuição de anúncio também pelo Baileys (QR code)
+
+O usuário viu que o Tintim rastreia anúncio mesmo conectado por QR code e sugeriu montar um fluxo n8n/VPS que lesse o webhook do Baileys, extraísse o id do anúncio e consultasse a Graph API. Expliquei que não precisa de nada disso, porque o nosso servidor já roda o Baileys e já tem o `resolveAd`. Vercel nem serviria, já que o Baileys precisa de conexão aberta 24h. Faltava só ler o campo certo:
+- `baileysMapper.js`: `extractAdReferral` procura `contextInfo.externalAdReply` em qualquer tipo de mensagem. Só conta se `sourceType === 'ad'` ou se tem `ctwaClid`, porque preview de link comum também usa `externalAdReply`. Só vale pra mensagem recebida. Monta o objeto no **mesmo formato do `referral` da Cloud API** (`source_id`, `source_url`, `headline`, `body`, `ctwa_clid`...) e não guarda os bytes da miniatura.
+- `whatsappIngest.js`: "veio de anúncio" agora é `ctwaClid || adId`, porque o cartão pelo Baileys pode vir sem `ctwaClid`.
+- `baileysClient.js`: quando há `adId`, chama `resolveAd` em segundo plano e loga `Baileys [client X]: conversa de anúncio (ad ..., clid sim/não)`. Isso serve pra conferir nos logs do Hostinger.
+- **Ainda não validado com mensagem real.** Falta alguém clicar num anúncio ativo do Malibu e mandar mensagem, e conferir a aba Origem e o log. Se o lead apagar a prévia do anúncio antes de enviar, o cartão não vem e a conversa fica "não rastreada" (limitação do WhatsApp).
+- Risco de banimento discutido com o usuário: só receber e responder quem chamou, no ritmo de um atendente, é o uso de menor risco. Disparo em massa e remarketing só pela API oficial. O usuário concorda.

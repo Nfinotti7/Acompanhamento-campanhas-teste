@@ -52,10 +52,37 @@ function extractWaId(key) {
   return jid.split('@')[0] || null;
 }
 
+// Clique em anúncio "Clique para WhatsApp": a primeira mensagem do lead chega com o
+// cartão do anúncio em contextInfo.externalAdReply (sourceId = id do anúncio, ctwaClid =
+// id do clique) -- o mesmo dado que a Cloud API manda em "referral". Pode vir em qualquer
+// tipo de mensagem (texto, imagem...), então procura em todas.
+function extractAdReferral(message) {
+  for (const value of Object.values(message || {})) {
+    const ad = value?.contextInfo?.externalAdReply;
+    if (!ad) continue;
+    // Link de site compartilhado também gera externalAdReply; só conta se for anúncio.
+    if (ad.sourceType !== 'ad' && !ad.ctwaClid) continue;
+    // Mesmo formato do referral da Cloud API, pra aba Origem e o resto tratarem igual.
+    return {
+      source_type: ad.sourceType || 'ad',
+      source_id: ad.sourceId || null,
+      source_url: ad.sourceUrl || null,
+      headline: ad.title || null,
+      body: ad.body || null,
+      media_type: ad.mediaType ?? null,
+      thumbnail_url: ad.thumbnailUrl || null,
+      ctwa_clid: ad.ctwaClid || null
+    };
+  }
+  return null;
+}
+
 export function mapBaileysMessageToEvent(msg) {
   const sentAt = msg.messageTimestamp
     ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
     : new Date().toISOString();
+  // Só a mensagem do lead traz o anúncio de onde ele veio.
+  const referral = msg.key?.fromMe ? null : extractAdReferral(msg.message);
 
   return {
     waId: extractWaId(msg.key),
@@ -65,12 +92,12 @@ export function mapBaileysMessageToEvent(msg) {
     body: extractContent(msg.message) || '📩 Mensagem',
     ...extractMedia(msg.message),
     sentAt,
-    // O protocolo do WhatsApp Web nao expoe de qual anuncio a conversa veio --
-    // todo contato chegado via Baileys e organico.
-    ctwaClid: null,
-    adId: null,
-    adHeadline: null,
-    adBody: null
+    ctwaClid: referral?.ctwa_clid || null,
+    adId: referral?.source_id || null,
+    adHeadline: referral?.headline || null,
+    adBody: referral?.body || null,
+    adSourceUrl: referral?.source_url || null,
+    referral
   };
 }
 

@@ -184,3 +184,11 @@ test('ingestWhatsAppEvent notifica via SSE quando a mensagem e gravada', async (
   assert.equal(broadcasts[0].data.direction, 'inbound');
   assert.equal(broadcasts[0].data.body, 'Oi, quero reservar');
 });
+
+test('ingestWhatsAppEvent marca como anuncio quando so tem o id do anuncio (Baileys sem ctwa_clid)', async () => {
+  const { db, calls } = makeFakeDb();
+  await ingestWhatsAppEvent(5, baseEvent({ adId: 'AD_9' }), { db, broadcast: () => {} });
+  const contactCall = calls.find((c) => /INSERT INTO whatsapp_contacts/.test(c.sql));
+  assert.equal(contactCall.params[7], 'ad');
+  assert.equal(contactCall.params[11], 'ctwa');
+});

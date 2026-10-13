@@ -1,8 +1,8 @@
 // Origem da conversa, no mesmo modelo do painel de atribuição:
-// - meta_ads: clique em anúncio Meta (referral da Cloud API oficial)
+// - meta_ads: clique em anúncio Meta (referral da Cloud API oficial, ou cartão do
+//   anúncio -- externalAdReply -- no modo Baileys)
 // - google_ads / outras: chegaram por link rastreável (UTM) -- ainda não implementado
-// - nao_rastreada: nenhuma das anteriores (inclui TODO contato do modo Baileys, que
-//   nunca recebe a origem do anúncio)
+// - nao_rastreada: nenhuma das anteriores
 export const ORIGINS = ['meta_ads', 'google_ads', 'outras', 'nao_rastreada'];
 
 export function classifyOrigin({ source } = {}) {
