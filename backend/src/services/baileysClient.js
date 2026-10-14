@@ -10,6 +10,7 @@
 //
 // So funciona com UMA instancia do backend rodando por vez -- duas instancias
 // tentando abrir a mesma sessao ao mesmo tempo quebram a conexao.
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import QRCode from 'qrcode';
@@ -36,6 +37,80 @@ const RECONNECT_DELAY_MS = 5000;
 
 // clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl, connectingSince }
 const connections = new Map();
+
+// ---- Um processo dono da sessão por vez ----
+// A sessão fica na home (compartilhada entre deploys). Se o Hostinger deixa o processo
+// do deploy anterior vivo, os dois abrem a MESMA sessão e um derruba o outro sem parar
+// (conflito 440: "conectando/conectado" a cada poucos segundos). owner.json diz quem é
+// o dono: o processo mais novo assume na subida; os outros, ao ver que não são mais
+// donos, fecham a conexão e param de reconectar. Se o dono parar de dar sinal de vida
+// (heartbeat), outro assume.
+const INSTANCE_ID = `${process.pid}-${Date.now()}`;
+const OWNER_HEARTBEAT_MS = 10000;
+const OWNER_STALE_MS = 60000;
+let ownerWatchdog = null;
+
+function ownerFile() {
+  return path.join(SESSIONS_DIR, 'owner.json');
+}
+
+function readOwner() {
+  try {
+    return JSON.parse(fs.readFileSync(ownerFile(), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeOwner() {
+  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+  fs.writeFileSync(ownerFile(), JSON.stringify({ instanceId: INSTANCE_ID, pid: process.pid, heartbeatAt: Date.now() }));
+}
+
+// 'owner': sou o dono (ou não há dono); 'yield': outro processo vivo é o dono;
+// 'takeover': o dono parou de dar sinal, posso assumir.
+export function decideOwnership({ owner, instanceId, now = Date.now(), staleMs = OWNER_STALE_MS }) {
+  if (!owner || owner.instanceId === instanceId) return 'owner';
+  if (now - Number(owner.heartbeatAt || 0) > staleMs) return 'takeover';
+  return 'yield';
+}
+
+function isOwner() {
+  return decideOwnership({ owner: readOwner(), instanceId: INSTANCE_ID }) === 'owner';
+}
+
+function stopAllConnections(reason) {
+  for (const [clientId, state] of connections) {
+    if (!state.sock) continue;
+    console.error(`Baileys [client ${clientId}]: ${reason} -- fechando a conexão deste processo.`);
+    const sock = state.sock;
+    state.sock = null;
+    state.status = 'disconnected';
+    state.connectingSince = null;
+    try {
+      sock.end(new Error(reason));
+    } catch {
+      // já fechado
+    }
+  }
+}
+
+function startOwnerWatchdog(reconnect) {
+  if (ownerWatchdog) return;
+  ownerWatchdog = setInterval(() => {
+    const decision = decideOwnership({ owner: readOwner(), instanceId: INSTANCE_ID });
+    if (decision === 'owner') {
+      writeOwner(); // heartbeat
+    } else if (decision === 'yield') {
+      stopAllConnections('outro processo do servidor assumiu a sessão do WhatsApp');
+    } else {
+      console.error('Baileys: o processo dono da sessão parou de responder; este processo assume.');
+      writeOwner();
+      reconnect().catch((error) => console.error('Erro ao reassumir conexões Baileys:', error));
+    }
+  }, OWNER_HEARTBEAT_MS);
+  ownerWatchdog.unref?.();
+}
 
 // clientId chega como number quando vem do banco (ex: reconexao automatica na subida,
 // que le client_id direto do Postgres) e como string quando vem de query string ou
@@ -72,6 +147,12 @@ export async function connectClient(clientId, deps = {}) {
   }
 
   if (state.sock) return state; // ja conectando/conectado
+
+  // Outro processo é o dono da sessão: abrir aqui só derrubaria a conexão dele.
+  if (!deps.baileys && !isOwner()) {
+    state.status = 'standby';
+    return state;
+  }
 
   // Duas chamadas concorrentes (ex: reconexao automatica na subida + alguem abrindo a
   // pagina de Credenciais ao mesmo tempo) nao podem cada uma abrir o proprio socket --
@@ -127,7 +208,9 @@ async function doConnect(clientId, state, deps) {
       state.sock = null;
       state.status = 'disconnected';
       state.connectingSince = null;
-      if (!loggedOut) {
+      if (!deps.baileys && !isOwner()) {
+        console.error(`Baileys [client ${clientId}]: este processo não é mais o dono da sessão; não reconecta.`);
+      } else if (!loggedOut) {
         // Reconecta sozinho em quedas que nao sejam logout, mas so depois de um atraso
         // (ver RECONNECT_DELAY_MS) pra nao disparar o conflito 440 reconectando rapido
         // demais.
@@ -195,6 +278,12 @@ async function doConnect(clientId, state, deps) {
 export async function reconnectAllBaileysClients(deps = {}) {
   const dbImpl = deps.db || db;
   const connect = deps.connect || connectClient;
+
+  // Subida do servidor: o processo mais novo vira o dono da sessão (ver owner.json).
+  if (!deps.db) {
+    writeOwner();
+    startOwnerWatchdog(() => reconnectAllBaileysClients(deps));
+  }
 
   const { rows } = await dbImpl.query(
     `SELECT client_id FROM whatsapp_settings WHERE connection_type = 'baileys'`

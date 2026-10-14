@@ -241,3 +241,18 @@ Dados de teste apagados.
 - A tela "Links e Conversões" no navegador (sem senha de admin na sessão de teste). O build passa.
 - Envio com pixel real. O formato `business_messaging` precisa ser confirmado pelo usuário com código de teste no Gerenciador de Eventos.
 - O código passando pelo Baileys real. O texto chega igual, mas confirmar.
+
+### 2026-10-14 — Baileys "conectando/conectado" a cada poucos segundos
+
+O usuário relatou que o sistema funcionava, mas o status ficava alternando entre conectando e conectado a cada uns 3 segundos. A página de credenciais consulta o status a cada 4s. Não havia nenhum backend meu rodando localmente.
+
+**Hipótese principal (não confirmada):** dois processos no Hostinger com a mesma sessão. O processo de um deploy anterior continuaria vivo junto com o novo. Desde que a sessão foi pra home (`~/.further_baileys_sessions`), os dois leem a mesma sessão e se derrubam (conflito 440). Antes, cada deploy tinha a própria pasta. Houve 3 deploys seguidos no dia 13.
+
+**Correção:**
+- `baileysClient.js` ganhou um dono único da sessão, `owner.json` na pasta de sessões.
+- O processo que sobe por último (`reconnectAllBaileysClients`) vira o dono e dá heartbeat a cada 10s.
+- Um processo que vê outro dono vivo fecha as conexões e não reconecta. `connectClient` nele devolve o status `standby`.
+- Se o heartbeat do dono passar de 60s, outro processo assume. A regra pura `decideOwnership` está testada.
+- **Limitação:** um processo antigo que ainda roda código anterior a essa correção não sabe ceder. Depois do deploy pode precisar de um Restart no hPanel.
+- A página "Chaves e APIs" agora mostra a **última queda**, com horário, código e mensagem (e explica o 440), e os status `standby` e `disconnected`. Assim fica possível confirmar a causa.
+- Se o código mostrado não for 440, a hipótese estava errada e é preciso olhar a mensagem.

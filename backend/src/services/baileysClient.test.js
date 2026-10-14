@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -191,4 +191,17 @@ test('logout nao agenda reconexao nenhuma', async () => {
   await connectionUpdateHandler({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 401 } } } });
 
   assert.equal(scheduled.length, 0);
+});
+
+test('decideOwnership: sem dono ou eu mesmo -> owner', () => {
+  assert.equal(decideOwnership({ owner: null, instanceId: 'A' }), 'owner');
+  assert.equal(decideOwnership({ owner: { instanceId: 'A', heartbeatAt: 0 }, instanceId: 'A', now: 999999 }), 'owner');
+});
+
+test('decideOwnership: outro processo vivo e dono -> este cede (fecha a conexao)', () => {
+  assert.equal(decideOwnership({ owner: { instanceId: 'B', heartbeatAt: 100000 }, instanceId: 'A', now: 120000 }), 'yield');
+});
+
+test('decideOwnership: dono parou de dar sinal ha mais de 1 minuto -> assume', () => {
+  assert.equal(decideOwnership({ owner: { instanceId: 'B', heartbeatAt: 0 }, instanceId: 'A', now: 61000 }), 'takeover');
 });

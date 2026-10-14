@@ -481,10 +481,22 @@ export default function CredentialsPage({ selectedClient }) {
                   <p style={{ color: '#34d399', fontWeight: 600 }}>✓ Conectado</p>
                 ) : baileysStatus?.status === 'connecting' ? (
                   <p style={{ color: 'var(--text-muted)' }}>Conectando...</p>
+                ) : baileysStatus?.status === 'standby' ? (
+                  <p style={{ color: 'var(--text-muted)' }}>Outro processo do servidor está com a conexão (normal logo após um deploy).</p>
                 ) : baileysStatus?.status === 'error' ? (
                   <p style={{ color: '#f87171' }}>{baileysStatus.error}</p>
+                ) : baileysStatus?.status === 'disconnected' ? (
+                  <p style={{ color: 'var(--text-muted)' }}>Desconectado, tentando de novo...</p>
                 ) : (
                   <p style={{ color: 'var(--text-muted)' }}>Carregando...</p>
+                )}
+                {baileysStatus?.lastDisconnectReason && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '8px' }}>
+                    Última queda: {new Date(baileysStatus.lastDisconnectReason.at).toLocaleString('pt-BR')}
+                    {' · '}código {baileysStatus.lastDisconnectReason.statusCode ?? '?'}
+                    {baileysStatus.lastDisconnectReason.statusCode === 440 && ' (sessão aberta em outro lugar ao mesmo tempo)'}
+                    {baileysStatus.lastDisconnectReason.message ? ` · ${baileysStatus.lastDisconnectReason.message}` : ''}
+                  </p>
                 )}
               </div>
             )}
