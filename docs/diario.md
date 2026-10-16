@@ -392,3 +392,15 @@ Spec: `docs/superpowers/specs/2026-10-15-responsivo-tema-pwa-design.md`. Plano: 
 **Não testado:** instalação em Android/iPhone reais, nem o Safari de verdade (o Playwright usa Chromium).
 
 **Ferramentas úteis que ficaram no scratchpad da sessão** (não commitadas): `colormod.cjs` (converte cor fixa pela tabela do plano) e o roteiro de screenshots via `browser_run_code_unsafe`.
+
+**Revisão final (2026-10-16, revisor novo):** "pronto com correções". Em andamento nesta sessão; os itens marcados com ✅ abaixo já foram corrigidos no commit seguinte, os outros ficaram pendentes:
+1. Inbox do Further (WhatsApp & Conversões): mensagem recebida branca no branco no tema claro.
+2. Caixa no celular: "Configurar funil" abre modal tela cheia sem botão fechar.
+3. Caixa no celular: fechar a conversa por outros caminhos deixa entradas sobrando no histórico (voltar do Android "não faz nada").
+4. Caixa no celular: formulário de venda manual sem voltar.
+5. iPhone instalado no tema claro: relógio/bateria da barra de status invisíveis; `theme-color` não acompanha o tema ao abrir.
+6. Inbox do Further rola pro lado no celular.
+7. Link de documento / "Mídia indisponível" ilegíveis no balão enviado.
+8. Chaves e APIs: abas selecionadas com texto marinho sobre cor (tema claro).
+9. Service worker: não guardar resposta com erro como shell; não guardar index.html no lugar de JS que sumiu num deploy.
+Menores anotados (não feitos): ícones lucide com var() no atributo podem sumir no Safari (testar no iPhone), tema não acompanha o sistema no Caixa celular sem toggle montado, safe-area duplicada embaixo no app iOS, 16px nos campos só até 640px, 44px mínimo em todos os botões até 1024px, rotação no Caixa perde a conversa aberta, sobras de cor na apresentação, Ctrl+P imprime no tema da tela, aviso de instalar aparece no PC e cobre a barra de abas, gráficos apertados no Dashboard WhatsApp no celular, chartColors recalculado a cada render.
