@@ -8,14 +8,14 @@ function minutesSince(ts, now) {
 }
 
 const WA_LABEL = {
-  qr: 'WhatsApp desconectado: avisos não estão saindo. Peça pra reconectar o QR em Chaves e APIs.',
+  qr: 'WhatsApp desconectado: os avisos não estão saindo. Escaneie o QR pra reconectar.',
   disconnected: 'WhatsApp desconectado: avisos não estão saindo.',
   connecting: 'WhatsApp reconectando... avisos podem atrasar.',
   standby: 'WhatsApp em espera: avisos podem não estar saindo.',
   not_configured: 'WhatsApp não configurado pra este restaurante.'
 };
 
-export default function QueueBoard({ api, refreshKey }) {
+export default function QueueBoard({ api, refreshKey, onReconnect }) {
   const bp = useBreakpoint();
   const phone = bp === 'phone';
   const [data, setData] = useState(null);
@@ -173,6 +173,9 @@ export default function QueueBoard({ api, refreshKey }) {
           color: 'var(--text-primary)', padding: '12px', borderRadius: '10px', marginBottom: '12px'
         }}>
           <AlertTriangle size={16} style={{ verticalAlign: 'middle', color: 'var(--accent-danger)' }} /> {waWarning}
+          {onReconnect && ['qr', 'disconnected', 'connecting', 'standby'].includes(data.whatsappStatus) && (
+            <button className="nm-btn nm-btn-primary" style={{ marginTop: '10px', width: phone ? '100%' : undefined }} onClick={onReconnect}>Reconectar o WhatsApp</button>
+          )}
         </div>
       )}
 

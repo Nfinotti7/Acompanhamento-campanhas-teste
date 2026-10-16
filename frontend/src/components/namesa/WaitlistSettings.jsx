@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, Save } from 'lucide-react';
 import { useBreakpoint } from '../../responsive/useBreakpoint';
+import WhatsAppConnect from '../WhatsAppConnect';
 
 const MESSAGE_LABELS = {
   askSize: 'Pergunta de quantas pessoas',
@@ -73,6 +74,7 @@ export default function WaitlistSettings({ api }) {
 
   return (
     <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))' }}>
+      <div style={{ gridColumn: '1 / -1' }}><WhatsAppConnect api={api} /></div>
       <section className="nm-card" style={{ padding: '16px' }}>
         <h3 style={{ marginTop: 0 }}>Fila</h3>
         <label style={{ display: 'block', marginBottom: '12px' }}>

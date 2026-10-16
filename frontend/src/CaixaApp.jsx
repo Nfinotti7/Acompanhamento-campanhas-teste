@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays, LogOut, MoreHorizontal } from 'lucide-react';
+import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays, LogOut, MoreHorizontal, QrCode, AlertTriangle } from 'lucide-react';
+import WhatsAppConnect from './components/WhatsAppConnect';
 import CaixaChatView from './components/CaixaChatView';
 import CaixaFunilView from './components/CaixaFunilView';
 import { playNotificationSound, unlockNotificationSound } from './components/notificationSound';
@@ -59,6 +60,7 @@ export default function CaixaApp() {
   const [lastEvent, setLastEvent] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const bp = useBreakpoint();
+  const [waStatus, setWaStatus] = useState(null);
 
   if (stored) {
     caixaApi.defaults.headers.common['Authorization'] = `Bearer ${stored.token}`;
@@ -120,6 +122,19 @@ export default function CaixaApp() {
 
     return () => source.close();
   }, [step]);
+
+  // Status do WhatsApp pra mostrar a faixa "desconectado" com atalho pro QR. Cliente na
+  // API oficial responde 400 aqui: nesse caso não tem QR, e a faixa não aparece.
+  useEffect(() => {
+    if (step !== 'app') return undefined;
+    let alive = true;
+    const check = () => caixaApi.get('/api/whatsapp/baileys/status')
+      .then((res) => { if (alive) setWaStatus(res.data.status); })
+      .catch(() => { if (alive) setWaStatus(null); });
+    check();
+    const t = setInterval(check, 30000);
+    return () => { alive = false; clearInterval(t); };
+  }, [step, view]);
 
   const inputStyle = {
     width: '100%',
@@ -207,8 +222,19 @@ export default function CaixaApp() {
   }
 
   const phone = bp === 'phone';
+  const waDown = ['qr', 'disconnected'].includes(waStatus) && view !== 'whatsapp';
   const content = (
-    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: phone ? 0 : bp === 'tablet' ? '12px' : '20px' }}>
+    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: phone ? 0 : bp === 'tablet' ? '12px' : '20px', display: 'flex', flexDirection: 'column' }}>
+      {waDown && (
+        <button type="button" onClick={() => setView('whatsapp')} style={{
+          display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', cursor: 'pointer', flexShrink: 0,
+          margin: phone ? 0 : '0 0 12px', padding: '12px 14px', borderRadius: phone ? 0 : '10px', fontWeight: 600,
+          background: 'color-mix(in srgb, var(--accent-danger) 12%, var(--bg-card))', color: 'var(--text-primary)', border: '1px solid var(--accent-danger)'
+        }}>
+          <AlertTriangle size={18} style={{ color: 'var(--accent-danger)', flexShrink: 0 }} /> WhatsApp desconectado: toque aqui pra reconectar
+        </button>
+      )}
+      <div style={{ flex: 1, minHeight: 0 }}>
       {view === 'conversas' && (
         <CaixaChatView caixaApi={caixaApi} lastEvent={lastEvent} />
       )}
@@ -217,6 +243,12 @@ export default function CaixaApp() {
           <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} view={view} lastEvent={lastEvent} />
         </div>
       )}
+      {view === 'whatsapp' && (
+        <div style={{ height: '100%', overflow: 'auto', padding: phone ? '12px' : 0, maxWidth: '560px' }}>
+          <WhatsAppConnect api={caixaApi} />
+        </div>
+      )}
+      </div>
     </div>
   );
 
@@ -244,6 +276,9 @@ export default function CaixaApp() {
         </nav>
         <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title={selectedRestaurant?.name || 'Caixa'}>
           <div style={{ display: 'grid', gap: '8px' }}>
+            <button type="button" onClick={() => { setMoreOpen(false); setView('whatsapp'); }} style={{ ...inputStyle, marginBottom: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+              <QrCode size={18} /> Conexão do WhatsApp
+            </button>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', minHeight: '48px' }}>
               <span>Tema claro / escuro</span>
               <ThemeToggle />
@@ -278,6 +313,7 @@ export default function CaixaApp() {
         <AppIcon app="caixa" size={40} />
         <div style={{ height: '8px' }} />
         {NAV_ITEMS.map(({ key, label, icon: Icon }) => railButton(key, label, Icon, () => setView(key), view === key))}
+        {railButton('whatsapp', 'WhatsApp', QrCode, () => setView('whatsapp'), view === 'whatsapp', 'Conexão do WhatsApp')}
         <div style={{ flex: 1 }} />
         <ThemeToggle />
         <div style={{ marginBottom: '16px' }}>

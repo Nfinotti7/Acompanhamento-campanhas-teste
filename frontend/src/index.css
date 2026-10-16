@@ -513,3 +513,6 @@ body { padding-bottom: env(safe-area-inset-bottom); }
   .kpi-grid > * { padding: 14px !important; min-width: 0; }
   .kpi-grid h3, .kpi-grid .kpi-value { font-size: 1.25rem !important; }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }

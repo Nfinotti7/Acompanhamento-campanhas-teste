@@ -122,7 +122,7 @@ export default function NaMesaApp() {
           {step === 'select' && (
             <div style={{ display: 'grid', gap: '10px' }}>
               {restaurants === null && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Carregando...</p>}
-              {restaurants?.length === 0 && !error && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Nenhum restaurante com fila ativa.</p>}
+              {restaurants?.length === 0 && !error && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Nenhum restaurante pronto ainda. Peça pra agência ativar o Na Mesa e definir o PIN do restaurante.</p>}
               {(restaurants || []).map((r) => (
                 <button key={r.id} className="nm-btn nm-btn-primary" style={{ width: '100%', minHeight: '54px', fontSize: '1.05rem' }}
                   onClick={() => { setRestaurant(r); setError(''); setStep('pin'); }}>
@@ -177,7 +177,7 @@ export default function NaMesaApp() {
         <button onClick={handleLogout} title="Sair" aria-label="Sair" className="icon-button"><LogOut size={18} /></button>
       </header>
       <main className="page-pad" style={{ paddingTop: '16px', paddingBottom: '16px', maxWidth: '1100px', margin: '0 auto' }}>
-        {tab === 'fila' ? <QueueBoard api={api} refreshKey={refreshKey} /> : <WaitlistSettings api={api} />}
+        {tab === 'fila' ? <QueueBoard api={api} refreshKey={refreshKey} onReconnect={() => setTab('config')} /> : <WaitlistSettings api={api} />}
       </main>
     </div>
   );

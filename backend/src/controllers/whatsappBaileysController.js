@@ -1,7 +1,7 @@
 import db from '../config/db.js';
 import { connectClient, getConnectionState } from '../services/baileysClient.js';
 
-function resolveClientId(req) {
+export function resolveClientId(req) {
   return req.user.role === 'admin'
     ? (req.query.clientId || req.body.clientId || req.user.clientId)
     : req.user.clientId;
