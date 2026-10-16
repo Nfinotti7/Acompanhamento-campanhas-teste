@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { BarChart3, ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import BrandLogo from '../brand/BrandLogo';
+import ThemeToggle from '../theme/ThemeToggle';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -24,34 +26,23 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      minHeight: '100dvh',
+      position: 'relative',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'var(--bg-dark)',
-      backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 60%)',
-      padding: '20px'
+      backgroundImage: 'radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent-primary) 15%, transparent) 0%, transparent 60%)',
+      padding: '20px 16px'
     }}>
-      <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '440px', padding: '40px' }}>
+      <div style={{ position: 'absolute', top: 'calc(12px + env(safe-area-inset-top))', right: '12px' }}><ThemeToggle /></div>
+      <div className="glass-card animate-fade-in" style={{ width: 'min(440px, 100%)', padding: 'clamp(24px, 6vw, 40px)' }}>
         
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '54px',
-            height: '54px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px auto',
-            boxShadow: '0 8px 25px rgba(99, 102, 241, 0.4)'
-          }}>
-            <BarChart3 size={30} color="#fff" />
-          </div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>Further Ads</h1>
-          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Painel de Campanhas Google Ads & Meta Ads
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '28px' }}>
+          <BrandLogo variant="vertical" height={130} />
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '14px' }}>
+            Painel de campanhas
           </p>
         </div>
 
@@ -59,9 +50,9 @@ export default function LoginPage() {
           <div style={{
             padding: '12px 14px',
             borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            color: '#f87171',
+            backgroundColor: 'color-mix(in srgb, var(--accent-danger) 15%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--accent-danger) 30%, transparent)',
+            color: 'var(--accent-danger)',
             fontSize: '0.85rem',
             marginBottom: '20px',
             display: 'flex',

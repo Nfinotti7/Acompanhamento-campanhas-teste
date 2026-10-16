@@ -1,6 +1,15 @@
-import React from 'react';
-import { RefreshCw, Filter, Calendar, Building2, Search, FileText, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, Calendar, Building2, FileText, Menu, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from '../theme/ThemeToggle';
+import Sheet from './ui/Sheet';
+import { useBreakpoint } from '../responsive/useBreakpoint';
+
+const PLATFORMS = [
+  ['all', 'Todas APIs', 'var(--accent-primary)'],
+  ['google', 'Google Ads', 'var(--accent-google)'],
+  ['meta', 'Meta Ads', 'var(--accent-meta)']
+];
 
 export default function Navbar({
   clients,
@@ -16,42 +25,112 @@ export default function Navbar({
   onToggleSidebar
 }) {
   const { user } = useAuth();
+  const phone = useBreakpoint() === 'phone';
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = (selectedClient ? 1 : 0) + (selectedPlatform !== 'all' ? 1 : 0) + (selectedRange !== '30d' ? 1 : 0);
+
+  const clientSelect = user?.role === 'admin' && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: phone ? '100%' : undefined }}>
+      <Building2 size={18} color="var(--accent-primary)" />
+      <select
+        value={selectedClient}
+        onChange={(e) => setSelectedClient(e.target.value)}
+        className="form-select"
+        aria-label="Cliente"
+        style={{ width: phone ? '100%' : '220px', fontWeight: 600, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+      >
+        <option value="">Todos os Clientes (Visão Geral)</option>
+        {clients.map(c => (
+          <option key={c.id} value={c.id}>
+            {c.name} ({c.company}){c.dashboard_enabled === false ? ' · Na Mesa' : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const platformPicker = (
+    <div style={{
+      display: 'flex', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-sm)',
+      padding: '4px', border: '1px solid var(--border-color)', width: phone ? '100%' : undefined
+    }}>
+      {PLATFORMS.map(([key, label, color]) => (
+        <button
+          key={key}
+          onClick={() => setSelectedPlatform(key)}
+          style={{
+            flex: phone ? 1 : undefined, padding: '6px 12px', borderRadius: '6px', border: 'none',
+            backgroundColor: selectedPlatform === key ? color : 'transparent',
+            color: selectedPlatform === key ? 'var(--on-accent)' : 'var(--text-secondary)',
+            fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const rangeSelect = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: phone ? '100%' : undefined }}>
+      <Calendar size={16} color="var(--text-muted)" />
+      <select
+        value={selectedRange}
+        onChange={(e) => setSelectedRange(e.target.value)}
+        className="form-select"
+        aria-label="Período"
+        style={{ width: phone ? '100%' : '140px', fontSize: '0.85rem', backgroundColor: 'var(--bg-card)' }}
+      >
+        <option value="today">Hoje</option>
+        <option value="7d">Últimos 7 dias</option>
+        <option value="30d">Últimos 30 dias</option>
+        <option value="this_month">Este Mês</option>
+      </select>
+    </div>
+  );
+
+  const actions = (
+    <>
+      <button onClick={onOpenReport} className="btn btn-primary" style={{ fontSize: '0.82rem', padding: '8px 14px' }} title="Gerar Relatório">
+        <FileText size={15} />
+        <span className="btn-label">Gerar Relatório</span>
+      </button>
+      <button onClick={onSync} disabled={isSyncing} className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 12px' }} title="Atualizar Dados">
+        <RefreshCw size={14} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+        <span className="btn-label">{isSyncing ? 'Sincronizando...' : 'Atualizar Dados'}</span>
+      </button>
+      <ThemeToggle />
+    </>
+  );
+
+  if (phone) {
+    return (
+      <header className="navbar" style={{ flexWrap: 'nowrap', gap: '8px', paddingTop: 'calc(10px + env(safe-area-inset-top))' }}>
+        <button className="mobile-menu-btn" onClick={onToggleSidebar} aria-label="Abrir menu"><Menu size={20} /></button>
+        <button onClick={() => setFiltersOpen(true)} className="btn btn-secondary" style={{ fontSize: '0.85rem', padding: '8px 12px', marginRight: 'auto' }}>
+          <SlidersHorizontal size={15} /> Filtros{activeFilters > 0 ? ` (${activeFilters})` : ''}
+        </button>
+        {actions}
+        <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filtros">
+          <div style={{ display: 'grid', gap: '14px' }}>
+            {clientSelect}
+            {user?.role !== 'admin' && (
+              <div style={{ fontWeight: 700 }}>{user?.clientCompany || user?.clientName}</div>
+            )}
+            {platformPicker}
+            {rangeSelect}
+            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setFiltersOpen(false)}>Ver resultados</button>
+          </div>
+        </Sheet>
+      </header>
+    );
+  }
 
   return (
     <header className="navbar">
-      {/* Client Switcher (Admin) or Client Title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <button
-          className="mobile-menu-btn"
-          onClick={onToggleSidebar}
-          aria-label="Abrir menu"
-        >
-          <Menu size={20} />
-        </button>
-
-        {user?.role === 'admin' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Building2 size={18} color="var(--accent-primary)" />
-            <select
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-              className="form-select"
-              style={{
-                width: '220px',
-                fontWeight: 600,
-                backgroundColor: 'var(--bg-card)',
-                borderColor: 'var(--border-color)'
-              }}
-            >
-              <option value="">Todos os Clientes (Visão Geral)</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.company}){c.dashboard_enabled === false ? ' · Na Mesa' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
+        <button className="mobile-menu-btn" onClick={onToggleSidebar} aria-label="Abrir menu"><Menu size={20} /></button>
+        {user?.role === 'admin' ? clientSelect : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={20} color="var(--accent-primary)" />
             <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -61,105 +140,11 @@ export default function Navbar({
         )}
       </div>
 
-      {/* Global Filters: Platform, Date Range, Report & Sync */}
       <div className="navbar-filters">
-        {/* Platform Selector */}
-        <div style={{
-          display: 'flex',
-          backgroundColor: 'var(--bg-card)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '4px',
-          border: '1px solid var(--border-color)'
-        }}>
-          <button
-            onClick={() => setSelectedPlatform('all')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: selectedPlatform === 'all' ? 'var(--accent-primary)' : 'transparent',
-              color: selectedPlatform === 'all' ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '0.82rem',
-              cursor: 'pointer'
-            }}
-          >
-            Todas APIs
-          </button>
-          <button
-            onClick={() => setSelectedPlatform('google')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: selectedPlatform === 'google' ? '#4285f4' : 'transparent',
-              color: selectedPlatform === 'google' ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '0.82rem',
-              cursor: 'pointer'
-            }}
-          >
-            Google Ads
-          </button>
-          <button
-            onClick={() => setSelectedPlatform('meta')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: selectedPlatform === 'meta' ? '#0084ff' : 'transparent',
-              color: selectedPlatform === 'meta' ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '0.82rem',
-              cursor: 'pointer'
-            }}
-          >
-            Meta Ads
-          </button>
-        </div>
-
-        {/* Date Range Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Calendar size={16} color="var(--text-muted)" />
-          <select
-            value={selectedRange}
-            onChange={(e) => setSelectedRange(e.target.value)}
-            className="form-select"
-            style={{
-              width: '140px',
-              fontSize: '0.85rem',
-              backgroundColor: 'var(--bg-card)'
-            }}
-          >
-            <option value="today">Hoje</option>
-            <option value="7d">Últimos 7 dias</option>
-            <option value="30d">Últimos 30 dias</option>
-            <option value="this_month">Este Mês</option>
-          </select>
-        </div>
-
-        {/* Report Export Button */}
-        <button
-          onClick={onOpenReport}
-          className="btn btn-primary"
-          style={{ fontSize: '0.82rem', padding: '8px 14px' }}
-        >
-          <FileText size={15} />
-          <span className="btn-label">Gerar Relatório</span>
-        </button>
-
-        {/* Sync button */}
-        <button
-          onClick={onSync}
-          disabled={isSyncing}
-          className="btn btn-secondary"
-          style={{ fontSize: '0.82rem', padding: '8px 12px' }}
-        >
-          <RefreshCw size={14} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
-          <span className="btn-label">{isSyncing ? 'Sincronizando...' : 'Atualizar Dados'}</span>
-        </button>
+        {platformPicker}
+        {rangeSelect}
+        {actions}
       </div>
     </header>
   );
 }
-

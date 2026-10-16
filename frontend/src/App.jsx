@@ -205,18 +205,18 @@ function MainApp() {
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         />
 
-        <main className="main-content">
+        <main className="main-content page-pad">
           {syncResult && (
             <div
               className="glass-card"
               style={{
                 padding: '16px 20px',
                 marginBottom: '20px',
-                border: syncResult.type === 'error' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+                border: syncResult.type === 'error' ? '1px solid color-mix(in srgb, var(--accent-danger) 30%, transparent)' : '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                <strong style={{ color: syncResult.type === 'error' ? '#f87171' : '#34d399' }}>
+                <strong style={{ color: syncResult.type === 'error' ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
                   {syncResult.message}
                 </strong>
                 <button onClick={() => setSyncResult(null)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
@@ -228,7 +228,7 @@ function MainApp() {
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                   {syncResult.details.map((r) => (
                     <div key={r.clientId} style={{ color: 'var(--text-secondary)' }}>
-                      <strong style={{ color: '#fff' }}>{r.clientName}:</strong>{' '}
+                      <strong style={{ color: 'var(--text-primary)' }}>{r.clientName}:</strong>{' '}
                       Google {r.google.status === 'ok' ? `✔ (${r.google.campaigns} campanhas)` : r.google.status === 'skipped' ? '— sem credenciais' : `✖ ${r.google.error}`}
                       {' · '}
                       Meta {r.meta.status === 'ok' ? `✔ (${r.meta.campaigns} campanhas)` : r.meta.status === 'skipped' ? '— sem credenciais' : `✖ ${r.meta.error}`}
@@ -253,7 +253,7 @@ function MainApp() {
 
           {activeTab === 'campaigns' && (
             <div className="animate-fade-in">
-              <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', marginBottom: '24px' }}>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '24px' }}>
                 Gerenciador Completo de Campanhas
               </h1>
               <CampaignsTable campaigns={campaigns} />

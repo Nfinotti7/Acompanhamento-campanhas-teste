@@ -9,54 +9,54 @@ export default function KPICards({ summary }) {
       title: 'Investimento Total',
       value: `R$ ${summary.spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       icon: DollarSign,
-      color: '#6366f1',
-      bgGlow: 'rgba(99, 102, 241, 0.12)',
+      color: 'var(--accent-primary)',
+      bgGlow: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
       subtext: `CPM Médio: R$ ${summary.cpm.toFixed(2)}`
     },
     {
       title: 'Conversões',
       value: summary.conversions.toLocaleString('pt-BR'),
       icon: ShoppingCart,
-      color: '#10b981',
-      bgGlow: 'rgba(16, 185, 129, 0.12)',
+      color: 'var(--accent-success)',
+      bgGlow: 'color-mix(in srgb, var(--accent-success) 12%, transparent)',
       subtext: `Receita: R$ ${summary.conversion_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
     },
     {
       title: 'Custo / Conversão (CPA)',
       value: `R$ ${summary.cpa.toFixed(2)}`,
       icon: Target,
-      color: '#f59e0b',
-      bgGlow: 'rgba(245, 158, 11, 0.12)',
+      color: 'var(--accent-warning)',
+      bgGlow: 'color-mix(in srgb, var(--accent-warning) 12%, transparent)',
       subtext: `Eficiência de Captação`
     },
     {
       title: 'ROAS (Retorno de Mídia)',
       value: `${summary.roas.toFixed(2)}x`,
       icon: TrendingUp,
-      color: '#a855f7',
-      bgGlow: 'rgba(168, 85, 247, 0.12)',
+      color: 'var(--chart-6)',
+      bgGlow: 'color-mix(in srgb, var(--chart-6) 12%, transparent)',
       subtext: `Retorno sobre Investimento`
     },
     {
       title: 'Total de Cliques',
       value: summary.clicks.toLocaleString('pt-BR'),
       icon: MousePointerClick,
-      color: '#3b82f6',
-      bgGlow: 'rgba(59, 130, 246, 0.12)',
+      color: 'var(--chart-2)',
+      bgGlow: 'color-mix(in srgb, var(--accent-google) 12%, transparent)',
       subtext: `CPC Médio: R$ ${summary.cpc.toFixed(2)}`
     },
     {
       title: 'Taxa de Cliques (CTR)',
       value: `${summary.ctr.toFixed(2)}%`,
       icon: Percent,
-      color: '#ec4899',
-      bgGlow: 'rgba(236, 72, 153, 0.12)',
+      color: 'var(--chart-5)',
+      bgGlow: 'color-mix(in srgb, var(--chart-5) 12%, transparent)',
       subtext: `${summary.impressions.toLocaleString('pt-BR')} Impressões`
     }
   ];
 
   return (
-    <div style={{
+    <div className="kpi-grid" style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
       gap: '20px',

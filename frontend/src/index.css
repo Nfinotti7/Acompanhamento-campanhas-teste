@@ -526,3 +526,10 @@ body { padding-bottom: env(safe-area-inset-bottom); }
   display: flex; align-items: center; justify-content: center;
 }
 .nm-phone-actions .nm-btn { padding: 8px 4px; font-size: 0.88rem; gap: 4px; }
+
+/* ===== Dashboard ===== */
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; margin-bottom: 20px !important; }
+  .kpi-grid > * { padding: 14px !important; min-width: 0; }
+  .kpi-grid h3, .kpi-grid .kpi-value { font-size: 1.25rem !important; }
+}
