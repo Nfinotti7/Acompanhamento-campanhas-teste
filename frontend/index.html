@@ -2,6 +2,16 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <meta name="theme-color" content="#000D30" />
+    <script>
+      // Aplica o tema antes do React, pra não piscar.
+      (function () {
+        var s = null;
+        try { s = localStorage.getItem('theme'); } catch (e) {}
+        var dark = s === 'dark' || (s !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Further Ads - Painel de Campanhas Google Ads & Meta Ads</title>
