@@ -474,3 +474,5 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - Backend: 235 testes (2 novos, com socket falso). Frontend: 52.
 - Tela no celular. Número inválido recusado.
 - **Não testado:** gerar um código de verdade, porque precisa do número do restaurante (o WhatsApp manda notificação pro número informado). Confirmar com o usuário no celular dele.
+
+**No ar (2026-10-16):** push `b50224c`; o bundle de produção já tem "Conectar com código". Falta o usuário testar um código de verdade no celular do restaurante.
