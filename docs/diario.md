@@ -29,7 +29,7 @@
 - `/caixa`: shell estilo WhatsApp Web (rail de ícones à esquerda: Conversas/Funil/Agenda), login persistente (localStorage, não desloga no F5), atualização em tempo real via Server-Sent Events (mensagem nova aparece sozinha, sem precisar recarregar).
 - Toda mensagem real (texto, foto, áudio, figurinha, documento, localização) cria/atualiza o contato — só reação (emoji a outra mensagem) é ignorada.
 
-**Enviado pra produção em 2026-10-16 (merge do `feat/namesa` na `main` + push; confirmar no ar):**
+**Em produção desde 2026-10-16 (push `c40a53d`; confirmado no ar: `/namesa`, manifestos, `sw.js`, `/api/staff/restaurants?product=waitlist`):**
 - **Na Mesa**: fila de espera de restaurante pelo WhatsApp, produto separado da dashboard (tela `/namesa` pra recepcionista, robô no WhatsApp). Primeiro cliente: **Mercearia** (cliente novo, só fila). Ver Registro 2026-10-15.
 - **Os 3 apps (Further Ads `/`, Caixa `/caixa`, Na Mesa `/namesa`)**:
   - Layout próprio pra celular, tablet e PC.
@@ -411,3 +411,5 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - conferir `https://furtherads.online/namesa`, `/caixa` e `/` no ar;
 - seguir os passos de "Pra colocar a Mercearia no ar" (Registro 2026-10-15);
 - instalar os PWAs num Android e num iPhone de verdade.
+
+**Confirmado no ar (2026-10-16):** depois do push `c40a53d`, `https://furtherads.online/namesa.webmanifest` respondeu `application/manifest+json`, e `/namesa`, `/sw.js` e `GET /api/staff/restaurants?product=waitlist` responderam (lista vazia, porque a Mercearia ainda não foi cadastrada). Próximo passo é do usuário: cadastrar a Mercearia e testar com celular real.
