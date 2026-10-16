@@ -7,6 +7,8 @@ Status: aprovado em conversa (funcionamento e mensagens); parte técnica aguarda
 
 Um produto separado da dashboard, chamado **Na Mesa**, para organizar a fila de espera na porta de um restaurante. O primeiro cliente não é cliente de tráfego, então não deve ver dashboard nem CRM. O cliente final entra na fila lendo um QR code que abre o WhatsApp do restaurante. Um robô responde a posição e a espera e avisa nos momentos certos. A recepcionista controla tudo por uma tela no tablet.
 
+Primeiro cliente: **Mercearia**, um cliente novo, separado dos quatro da dashboard (Recreio, Malibu, Alma, Giulí). Por enquanto ele quer só o Na Mesa, e vai ser cadastrado com `dashboard_enabled=false, waitlist_enabled=true`.
+
 O critério de sucesso é rodar numa noite real com o mínimo de peças: entrar pelo QR, ver a posição, receber "mesa pronta" e a recepcionista dar baixa sem travar.
 
 ## Fora do escopo (v1)
@@ -30,7 +32,7 @@ O critério de sucesso é rodar numa noite real com o mínimo de peças: entrar 
 ### Separação dos produtos
 
 - `clients` ganha duas colunas: `dashboard_enabled BOOLEAN DEFAULT true` e `waitlist_enabled BOOLEAN DEFAULT false`. O restaurante novo fica com `dashboard_enabled=false, waitlist_enabled=true`. Um cliente da dashboard (ex.: Malibu) pode ligar a fila depois sem migrar nada.
-- Clientes com `dashboard_enabled=false` não aparecem no seletor de clientes da dashboard nem na lista de restaurantes do `/caixa`. Eles continuam aparecendo na página de Clientes do admin, com um selo "Na Mesa" e as duas chaves editáveis.
+- Clientes com `dashboard_enabled=false` não aparecem na lista de restaurantes do `/caixa` e não passam pelo CRM. Eles **continuam** no seletor de clientes do admin, marcados com "· Na Mesa", porque é por esse seletor que se abre a página "Chaves e APIs" para conectar o WhatsApp e definir o PIN. Na página de Clientes do admin, eles aparecem com um selo "Na Mesa" e as duas chaves editáveis.
 - A conexão do WhatsApp (QR do Baileys) e o PIN continuam na página "Chaves e APIs" do admin, como hoje.
 - A tela de login principal ganha um link "Acessar o Na Mesa", que leva para `/namesa`.
 
@@ -52,7 +54,7 @@ O critério de sucesso é rodar numa noite real com o mínimo de peças: entrar 
 | Marco | Gatilho | Texto padrão |
 |---|---|---|
 | Entrou | tamanho do grupo válido | "Pronto, {nome}! Você está na fila. Posição: {posicao}. Espera estimada: ~{espera} min. Mande qualquer mensagem pra ver sua posição, ou SAIR pra sair da fila." |
-| Quase lá | a posição da pessoa chega a `near_threshold + 1` (padrão: faltam 2 grupos), uma vez por entrada | "Faltam {faltam} grupos na sua frente. Fique por perto!" |
+| Quase lá | a posição da pessoa chega a `near_threshold + 1` (padrão: faltam 2 grupos), uma vez por entrada | "Só {faltam} na sua frente. Fique por perto!" ({faltam} = "1 grupo" / "2 grupos") |
 | Chamado | recepcionista aperta "Chamar" | "{nome}, sua mesa está pronta! Dirija-se à recepção. Seguramos por {tolerancia} minutos." |
 | Não veio | recepcionista aperta "Não veio" (a mensagem pode ser desligada) | "Como não te encontramos, liberamos a vaga. Se ainda quiser, mande FILA." |
 
@@ -143,7 +145,7 @@ CREATE INDEX IF NOT EXISTS idx_waitlist_active ON waitlist_entries (client_id, s
   - `GET` e `PUT /settings`
   - `GET /qr` (PNG do QR do `wa.me` gerado com a lib `qrcode`, que já é dependência)
 - **Login:** `GET /api/staff/restaurants?product=waitlist` filtra por `waitlist_enabled`. Sem o parâmetro, o comportamento atual continua e passa a esconder quem tem `dashboard_enabled=false`.
-- **Clientes:** `clientController` aceita e devolve `dashboard_enabled` e `waitlist_enabled`. Os seletores da dashboard filtram `dashboard_enabled`.
+- **Clientes:** `clientController` aceita e devolve `dashboard_enabled` e `waitlist_enabled`. O seletor do admin marca com "· Na Mesa" quem tem `dashboard_enabled=false`.
 
 ### Frontend
 
