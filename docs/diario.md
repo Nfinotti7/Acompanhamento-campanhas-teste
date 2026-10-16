@@ -476,3 +476,31 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - **Não testado:** gerar um código de verdade, porque precisa do número do restaurante (o WhatsApp manda notificação pro número informado). Confirmar com o usuário no celular dele.
 
 **No ar (2026-10-16):** push `b50224c`; o bundle de produção já tem "Conectar com código". Falta o usuário testar um código de verdade no celular do restaurante.
+
+### 2026-10-16 — Na Mesa: voltar pra fila e desfazer saída (branch `feat/namesa-voltar-fila`)
+
+Pedido do usuário (escolheu a opção C):
+- quem foi **chamado** pode voltar pra fila **no mesmo lugar** ou **no fim**;
+- dá pra **desfazer "Sentou" / "Não veio" / "Remover"** marcados por engano.
+
+**Como ficou:**
+- **Transições novas em `waitlistQueue.js`:**
+  - `requeue`: chamado → esperando, mantém o `joined_at` (mesmo lugar). Mensagem `requeued`: "Sua mesa ainda não ficou pronta, mas você continua na fila. Posição: X."
+  - `requeueEnd`: chamado → esperando com `joined_at = agora` (fim da fila) e `notified_near = false`. Mensagem `requeuedEnd` com posição e espera.
+  - `restore`: sentou/não veio/saiu/removido → esperando no mesmo lugar, **sem mensagem**.
+- As duas mensagens novas aparecem no Configurar e podem ser editadas.
+- Depois de `requeue`/`requeueEnd`, se a pessoa já cai perto da vez, o "quase lá" fica marcado como enviado (não manda logo em seguida).
+- **Pessoa que já entrou de novo pelo WhatsApp:** o `restore` esbarra no índice único (um registro ativo por telefone) e devolve 409 "Essa pessoa já está na fila de novo".
+- **API:** `GET /api/waitlist` devolve `recent` (quem saiu nas últimas 2h). Rotas novas: `POST /api/waitlist/:id/requeue|requeue-end|restore`.
+- **Tela:**
+  - card chamado com "Voltar pra fila" e "Fim da fila" (no celular, dentro do ⋯);
+  - seção "Saíram há pouco" com "Voltar pra fila".
+
+**Testado:**
+- Backend: 240 testes (5 novos). Frontend: 52.
+- Ponta a ponta local por webhook:
+  - chamar → voltar pro mesmo lugar: posição 1;
+  - chamar → fim da fila: posição 3;
+  - sentou → desfazer: voltou pra posição 1;
+  - desfazer de novo: 409, sem duplicar.
+- Tela conferida no celular e no PC.
