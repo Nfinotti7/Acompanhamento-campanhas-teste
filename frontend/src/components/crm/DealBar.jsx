@@ -6,10 +6,10 @@ import { brl, TagChip } from './crmUi';
 // Cada mudança salva na hora.
 
 const selectStyle = {
-  padding: '6px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)',
-  backgroundColor: '#131b2e', color: '#fff', fontSize: '0.76rem'
+  padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-strong)',
+  backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.76rem'
 };
-const labelStyle = { fontSize: '0.66rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, marginBottom: '3px' };
+const labelStyle = { fontSize: '0.66rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '3px' };
 
 export default function DealBar({ apiClient, clientId, contactId, version, onChanged }) {
   const [crm, setCrm] = useState(null);
@@ -60,13 +60,13 @@ export default function DealBar({ apiClient, clientId, contactId, version, onCha
   const availableTags = crm.tags.filter((t) => !crm.tagIds.includes(t.id));
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
       <div>
         <div style={labelStyle}>Etapa</div>
         <select
           value={crm.stageId ?? ''}
           onChange={(e) => save({ stageId: Number(e.target.value) })}
-          style={{ ...selectStyle, borderLeft: `4px solid ${stage?.color || '#6366f1'}` }}
+          style={{ ...selectStyle, borderLeft: `4px solid ${stage?.color || 'var(--accent-primary)'}` }}
         >
           {crm.stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -110,7 +110,7 @@ export default function DealBar({ apiClient, clientId, contactId, version, onCha
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
             >
               <TagChip tag={tagsById[id]} />
-              <X size={11} color="#94a3b8" />
+              <X size={11} color="var(--text-secondary)" />
             </button>
           ))}
           {availableTags.length > 0 && (
@@ -123,7 +123,7 @@ export default function DealBar({ apiClient, clientId, contactId, version, onCha
               {availableTags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
-          {crm.tags.length === 0 && <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Crie tags em "Configurar funil"</span>}
+          {crm.tags.length === 0 && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Crie tags em "Configurar funil"</span>}
         </div>
       </div>
     </div>

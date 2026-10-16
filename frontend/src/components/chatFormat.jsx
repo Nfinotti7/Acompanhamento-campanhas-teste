@@ -44,14 +44,14 @@ const STATUS_TITLES = {
 };
 
 // Tiques do WhatsApp: relógio (enviando), ✓ (enviada), ✓✓ (entregue), ✓✓ azul (lida).
-export function StatusTicks({ status, size = 14, color = 'rgba(255,255,255,0.7)' }) {
+export function StatusTicks({ status, size = 14, color = 'currentColor', readColor = 'var(--accent-link)' }) {
   if (!status) return null;
   const title = STATUS_TITLES[status];
   const style = { flexShrink: 0, verticalAlign: 'middle' };
   if (status === 'pending') return <Clock size={size - 2} color={color} style={style} aria-label={title}><title>{title}</title></Clock>;
   if (status === 'sent') return <Check size={size} color={color} style={style} aria-label={title}><title>{title}</title></Check>;
   if (status === 'delivered') return <CheckCheck size={size} color={color} style={style} aria-label={title}><title>{title}</title></CheckCheck>;
-  if (status === 'read') return <CheckCheck size={size} color="#38bdf8" style={style} aria-label={title}><title>{title}</title></CheckCheck>;
-  if (status === 'failed') return <AlertCircle size={size - 1} color="#f87171" style={style} aria-label={title}><title>{title}</title></AlertCircle>;
+  if (status === 'read') return <CheckCheck size={size} color={readColor} style={style} aria-label={title}><title>{title}</title></CheckCheck>;
+  if (status === 'failed') return <AlertCircle size={size - 1} color="var(--accent-danger)" style={style} aria-label={title}><title>{title}</title></AlertCircle>;
   return null;
 }

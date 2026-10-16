@@ -14,14 +14,14 @@ const AUTO_EVENT_LABELS = {
 const META_EVENTS = ['Lead', 'Contact', 'Schedule', 'CompleteRegistration', 'SubmitApplication'];
 
 const inputStyle = {
-  padding: '7px 9px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)',
-  backgroundColor: '#131b2e', color: '#fff', fontSize: '0.82rem'
+  padding: '7px 9px', borderRadius: '6px', border: '1px solid var(--border-color)',
+  backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.82rem'
 };
 const iconBtn = {
-  padding: '6px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.06)',
-  color: '#cbd5e1', cursor: 'pointer', display: 'inline-flex'
+  padding: '6px', borderRadius: '6px', border: 'none', background: 'var(--border-color)',
+  color: 'var(--text-primary)', cursor: 'pointer', display: 'inline-flex'
 };
-const sectionTitle = { fontSize: '0.95rem', fontWeight: 800, color: '#fff', margin: '18px 0 10px' };
+const sectionTitle = { fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', margin: '18px 0 10px' };
 
 function NameInput({ value, onSave, style }) {
   const [draft, setDraft] = useState(value);
@@ -45,7 +45,7 @@ function NameInput({ value, onSave, style }) {
 
 function AddRow({ placeholder, onAdd, withColor }) {
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState('#0097B2'); // cor-fixa-ok: vai pro banco, o backend exige hex
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -56,7 +56,7 @@ function AddRow({ placeholder, onAdd, withColor }) {
     <form onSubmit={submit} style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
       {withColor && <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 34, height: 32, border: 'none', background: 'none', padding: 0 }} />}
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder={placeholder} maxLength={60} style={{ ...inputStyle, flex: 1 }} />
-      <button type="submit" style={{ ...iconBtn, background: '#6366f1', color: '#fff', padding: '6px 10px', gap: '4px', alignItems: 'center', fontSize: '0.78rem', fontWeight: 700 }}>
+      <button type="submit" style={{ ...iconBtn, background: 'var(--accent-primary)', color: 'var(--on-accent)', padding: '6px 10px', gap: '4px', alignItems: 'center', fontSize: '0.78rem', fontWeight: 700 }}>
         <Plus size={14} /> Adicionar
       </button>
     </form>
@@ -92,8 +92,8 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
 
   return (
     <div>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>Configurar funil</h2>
-      {error && <p style={{ color: '#f87171', fontSize: '0.82rem', marginTop: '8px' }}>{error}</p>}
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>Configurar funil</h2>
+      {error && <p style={{ color: 'var(--accent-danger)', fontSize: '0.82rem', marginTop: '8px' }}>{error}</p>}
 
       <h3 style={sectionTitle}>Etapas</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -126,12 +126,12 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
             </select>
             <button type="button" disabled={index === 0} onClick={() => moveStage(index, -1)} style={{ ...iconBtn, opacity: index === 0 ? 0.3 : 1 }} title="Mover pra antes no funil"><ArrowUp size={14} /></button>
             <button type="button" disabled={index === stages.length - 1} onClick={() => moveStage(index, 1)} style={{ ...iconBtn, opacity: index === stages.length - 1 ? 0.3 : 1 }} title="Mover pra depois no funil"><ArrowDown size={14} /></button>
-            <button type="button" onClick={() => deleteStage(stage)} style={{ ...iconBtn, color: '#f87171', background: 'rgba(248,113,113,0.1)' }} title="Apagar etapa"><Trash2 size={14} /></button>
+            <button type="button" onClick={() => deleteStage(stage)} style={{ ...iconBtn, color: 'var(--accent-danger)', background: 'color-mix(in srgb, var(--accent-danger) 10%, transparent)' }} title="Apagar etapa"><Trash2 size={14} /></button>
           </div>
         ))}
       </div>
       <AddRow placeholder="Nova etapa" withColor onAdd={(data) => run(() => apiClient.post('/api/crm/stages', body(data)))} />
-      <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '6px' }}>
+      <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
         Mensagem comum não move card. Só lead novo, agendamento e venda movem sozinhos, pra etapa ligada a cada um.
         O evento Meta é enviado uma vez por contato quando o card entra na etapa (se a Conversions API estiver ativa
         em "Links e Conversões"). Purchase vai sozinha a cada venda lançada.
@@ -139,12 +139,12 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
 
       <h3 style={sectionTitle}>Tags</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {config.tags.length === 0 && <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Nenhuma tag ainda.</p>}
+        {config.tags.length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nenhuma tag ainda.</p>}
         {config.tags.map((tag) => (
           <div key={tag.id} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <input type="color" value={tag.color} onChange={(e) => run(() => apiClient.patch(`/api/crm/tags/${tag.id}`, body({ color: e.target.value })))} style={{ width: 34, height: 32, border: 'none', background: 'none', padding: 0 }} />
             <NameInput value={tag.name} onSave={(name) => run(() => apiClient.patch(`/api/crm/tags/${tag.id}`, body({ name })))} style={{ flex: 1 }} />
-            <button type="button" onClick={() => window.confirm(`Apagar a tag "${tag.name}"?`) && run(() => apiClient.delete(`/api/crm/tags/${tag.id}`, { params }))} style={{ ...iconBtn, color: '#f87171', background: 'rgba(248,113,113,0.1)' }}><Trash2 size={14} /></button>
+            <button type="button" onClick={() => window.confirm(`Apagar a tag "${tag.name}"?`) && run(() => apiClient.delete(`/api/crm/tags/${tag.id}`, { params }))} style={{ ...iconBtn, color: 'var(--accent-danger)', background: 'color-mix(in srgb, var(--accent-danger) 10%, transparent)' }}><Trash2 size={14} /></button>
           </div>
         ))}
       </div>
@@ -152,11 +152,11 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
 
       <h3 style={sectionTitle}>Equipe (responsáveis)</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {config.team.length === 0 && <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Ninguém cadastrado ainda.</p>}
+        {config.team.length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ninguém cadastrado ainda.</p>}
         {config.team.map((member) => (
           <div key={member.id} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <NameInput value={member.name} onSave={(name) => run(() => apiClient.patch(`/api/crm/team/${member.id}`, body({ name })))} style={{ flex: 1 }} />
-            <button type="button" onClick={() => window.confirm(`Remover "${member.name}" da equipe? Os leads dele ficam sem responsável.`) && run(() => apiClient.delete(`/api/crm/team/${member.id}`, { params }))} style={{ ...iconBtn, color: '#f87171', background: 'rgba(248,113,113,0.1)' }}><Trash2 size={14} /></button>
+            <button type="button" onClick={() => window.confirm(`Remover "${member.name}" da equipe? Os leads dele ficam sem responsável.`) && run(() => apiClient.delete(`/api/crm/team/${member.id}`, { params }))} style={{ ...iconBtn, color: 'var(--accent-danger)', background: 'color-mix(in srgb, var(--accent-danger) 10%, transparent)' }}><Trash2 size={14} /></button>
           </div>
         ))}
       </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBreakpoint } from '../responsive/useBreakpoint';
 import { CheckCircle2 } from 'lucide-react';
 import ContactDetailPanel from './ContactDetailPanel';
 import { Avatar } from './whatsappMedia';
@@ -8,9 +9,9 @@ const fieldStyle = {
   width: '100%',
   padding: '12px',
   borderRadius: '8px',
-  border: '1px solid rgba(255,255,255,0.1)',
-  backgroundColor: '#131b2e',
-  color: '#fff',
+  border: '1px solid var(--border-color)',
+  backgroundColor: 'var(--bg-card)',
+  color: 'var(--text-primary)',
   marginBottom: '10px',
   fontSize: '0.95rem'
 };
@@ -19,7 +20,7 @@ const primaryBtn = {
   padding: '12px',
   borderRadius: '8px',
   border: 'none',
-  color: '#fff',
+  color: 'var(--on-accent)',
   fontWeight: 700,
   cursor: 'pointer',
   width: '100%'
@@ -55,9 +56,9 @@ function ManualSaleForm({ apiClient, initialName, onDone }) {
   if (done) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
-        <CheckCircle2 size={48} color="#10b981" />
+        <CheckCircle2 size={48} color="var(--accent-success)" />
         <p style={{ fontWeight: 700, fontSize: '1.1rem' }}>Feito!</p>
-        <button onClick={onDone} style={{ ...primaryBtn, maxWidth: '200px', background: '#6366f1' }}>Voltar</button>
+        <button onClick={onDone} style={{ ...primaryBtn, maxWidth: '200px', background: 'var(--accent-primary)' }}>Voltar</button>
       </div>
     );
   }
@@ -67,8 +68,8 @@ function ManualSaleForm({ apiClient, initialName, onDone }) {
       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '14px' }}>Lançar venda (sem conversa)</h3>
       <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nome do cliente" required style={fieldStyle} />
       <input type="number" step="0.01" value={amountSpent} onChange={(e) => setAmountSpent(e.target.value)} placeholder="Valor gasto (R$)" required autoFocus style={fieldStyle} />
-      {error && <p style={{ color: '#f87171', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
-      <button type="submit" disabled={submitting} style={{ ...primaryBtn, background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+      {error && <p style={{ color: 'var(--accent-danger)', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
+      <button type="submit" disabled={submitting} style={{ ...primaryBtn, background: 'linear-gradient(135deg, var(--accent-success), var(--accent-success))' }}>
         {submitting ? 'Salvando...' : 'Lançar venda'}
       </button>
     </form>
@@ -76,6 +77,8 @@ function ManualSaleForm({ apiClient, initialName, onDone }) {
 }
 
 export default function CaixaChatView({ caixaApi, lastEvent }) {
+  const bp = useBreakpoint();
+  const phone = bp === 'phone';
   const [conversations, setConversations] = useState([]);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null); // null = mostra conversas; array = resultado da busca
@@ -136,7 +139,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
     0
   );
   useEffect(() => {
-    const baseTitle = 'Further Ads - Caixa';
+    const baseTitle = 'Caixa';
     document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
   }, [totalUnread]);
 
@@ -153,12 +156,24 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
   };
 
   const listToShow = searchResults !== null ? searchResults : conversations;
+  const detailOpen = Boolean(selectedContact) || manualEntryName !== null;
+
+  // Celular: lista e conversa são duas telas. Abrir a conversa empilha um item no
+  // histórico, então o "voltar" do Android/iOS (e o botão de voltar do painel) volta pra lista.
+  useEffect(() => {
+    if (!phone || !detailOpen) return undefined;
+    window.history.pushState({ caixaChat: true }, '');
+    const onPop = () => { setSelectedContact(null); setManualEntryName(null); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [phone, detailOpen]);
+  const backToList = () => window.history.back();
 
   return (
     // minmax(0, 1fr) / minHeight: 0: sem isso as áreas com rolagem crescem do tamanho
     // do conteúdo em vez de rolar, e as mensagens mais novas ficam cortadas.
-    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gridTemplateRows: 'minmax(0, 1fr)', height: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
-      <div style={{ borderRight: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1420', minHeight: 0 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: phone ? '1fr' : bp === 'tablet' ? '280px 1fr' : '300px 1fr', gridTemplateRows: 'minmax(0, 1fr)', height: '100%', border: phone ? 'none' : '1px solid var(--border-color)', borderRadius: phone ? 0 : '12px', overflow: 'hidden' }}>
+      <div style={{ borderRight: phone ? 'none' : '1px solid var(--border-color)', display: phone && detailOpen ? 'none' : 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)', minHeight: 0 }}>
         <div style={{ padding: '10px' }}>
           <input
             type="text"
@@ -170,7 +185,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
         </div>
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {listToShow.length === 0 && (
-            <p style={{ padding: '14px', color: '#64748b', fontSize: '0.8rem' }}>
+            <p style={{ padding: '14px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
               {searchResults !== null ? 'Nenhum contato encontrado.' : 'Nenhuma conversa ainda.'}
             </p>
           )}
@@ -187,8 +202,8 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                 style={{
                   padding: '10px 12px',
                   cursor: 'pointer',
-                  backgroundColor: selected ? 'rgba(255,255,255,0.06)' : 'transparent',
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  backgroundColor: selected ? 'var(--surface-subtle)' : 'transparent',
+                  borderBottom: '1px solid var(--border-color)',
                   display: 'flex',
                   gap: '10px',
                   alignItems: 'center'
@@ -197,22 +212,22 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                 <Avatar apiClient={caixaApi} mediaId={c.profile_pic_media_id} name={c.profile_name || c.wa_id} size={42} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <div style={{ flex: 1, fontWeight: unread > 0 ? 800 : 600, color: '#fff', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ flex: 1, fontWeight: unread > 0 ? 800 : 600, color: 'var(--text-primary)', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.profile_name || c.wa_id}
                     </div>
-                    <span style={{ fontSize: '0.68rem', color: unread > 0 ? '#22c55e' : '#94a3b8', flexShrink: 0, fontWeight: unread > 0 ? 700 : 400 }}>
+                    <span style={{ fontSize: '0.68rem', color: unread > 0 ? 'var(--accent-success)' : 'var(--text-secondary)', flexShrink: 0, fontWeight: unread > 0 ? 700 : 400 }}>
                       {formatListTime(c.last_sent_at || c.last_message_at)}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', color: unread > 0 ? '#e2e8f0' : '#94a3b8' }}>
-                      {hasPreview && c.last_direction === 'outbound' && <StatusTicks status={c.last_status} size={13} color="#94a3b8" />}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', color: unread > 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                      {hasPreview && c.last_direction === 'outbound' && <StatusTicks status={c.last_status} size={13} color="var(--text-secondary)" />}
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {hasPreview ? c.last_body : `${c.wa_id}${c.source === 'ad' ? ' · anúncio' : ''}`}
                       </span>
                     </div>
                     {unread > 0 && (
-                      <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, backgroundColor: '#22c55e', color: '#0b0f19', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, backgroundColor: 'var(--accent-success)', color: 'var(--bg-dark)', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {unread > 99 ? '99+' : unread}
                       </span>
                     )}
@@ -229,9 +244,9 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                 padding: '12px',
                 cursor: 'pointer',
                 textAlign: 'center',
-                color: '#94a3b8',
+                color: 'var(--text-secondary)',
                 fontSize: '0.78rem',
-                border: '1px dashed rgba(255,255,255,0.15)',
+                border: '1px dashed var(--border-strong)',
                 borderRadius: '8px'
               }}
             >
@@ -241,7 +256,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
         </div>
       </div>
 
-      <div style={{ padding: '16px', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ padding: phone ? '12px' : '16px', minWidth: 0, minHeight: 0, overflow: 'hidden', display: phone && !detailOpen ? 'none' : 'block' }}>
         {selectedContact ? (
           <ContactDetailPanel
             apiClient={caixaApi}
@@ -250,11 +265,12 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
             onDeleted={() => { setSelectedContact(null); fetchConversations(); }}
             onRead={markReadLocally}
             liveUpdateSignal={liveSignal}
+            onBack={phone ? backToList : undefined}
           />
         ) : manualEntryName !== null ? (
           <ManualSaleForm apiClient={caixaApi} initialName={manualEntryName} onDone={finishManualEntry} />
         ) : (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             Selecione uma conversa
           </div>
         )}

@@ -1,10 +1,10 @@
 import React from 'react';
 
 export const ORIGIN_META = {
-  meta_ads: { label: 'Meta Ads', color: '#3b82f6' },
-  google_ads: { label: 'Google Ads', color: '#10b981' },
-  outras: { label: 'Outras Origens', color: '#94a3b8' },
-  nao_rastreada: { label: 'Não rastreada', color: '#f59e0b' }
+  meta_ads: { label: 'Meta Ads', color: 'var(--chart-2)' },
+  google_ads: { label: 'Google Ads', color: 'var(--accent-success)' },
+  outras: { label: 'Outras Origens', color: 'var(--text-secondary)' },
+  nao_rastreada: { label: 'Não rastreada', color: 'var(--accent-warning)' }
 };
 
 const METHOD_LABELS = {
@@ -15,9 +15,9 @@ const METHOD_LABELS = {
 function Row({ label, value }) {
   if (!value) return null;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: '12px', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.82rem' }}>
-      <div style={{ color: '#94a3b8' }}>{label}</div>
-      <div style={{ color: '#fff', wordBreak: 'break-word' }}>{value}</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: '12px', padding: '9px 0', borderBottom: '1px solid var(--border-color)', fontSize: '0.82rem' }}>
+      <div style={{ color: 'var(--text-secondary)' }}>{label}</div>
+      <div style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{value}</div>
     </div>
   );
 }
@@ -33,8 +33,8 @@ export function OriginBadge({ origin }) {
 }
 
 export default function AttributionView({ data }) {
-  if (!data) return <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Carregando...</p>;
-  if (data.error) return <p style={{ color: '#f87171', fontSize: '0.85rem' }}>Não foi possível carregar a origem.</p>;
+  if (!data) return <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carregando...</p>;
+  if (data.error) return <p style={{ color: 'var(--accent-danger)', fontSize: '0.85rem' }}>Não foi possível carregar a origem.</p>;
 
   const firstSeen = data.firstSeenAt ? new Date(data.firstSeenAt).toLocaleString('pt-BR') : null;
 
@@ -47,7 +47,7 @@ export default function AttributionView({ data }) {
       <Row label="Conjunto de anúncios" value={data.adsetName} />
       <Row label="Anúncio" value={data.adName || (data.adId && !data.campaignName ? `ID ${data.adId} (nome indisponível)` : null)} />
       <Row label="Título do anúncio" value={data.adHeadline} />
-      <Row label="Link do anúncio" value={data.adSourceUrl && <a href={data.adSourceUrl} target="_blank" rel="noreferrer" style={{ color: '#a5b4fc' }}>Abrir anúncio</a>} />
+      <Row label="Link do anúncio" value={data.adSourceUrl && <a href={data.adSourceUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-link)' }}>Abrir anúncio</a>} />
       {data.link && (
         <>
           <Row label="Link" value={data.link.name} />
@@ -64,7 +64,7 @@ export default function AttributionView({ data }) {
       <Row label="Primeiro contato" value={firstSeen} />
 
       {data.origin === 'nao_rastreada' && (
-        <p style={{ marginTop: '14px', fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.5 }}>
+        <p style={{ marginTop: '14px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
           Essa conversa não chegou por um anúncio Clique para WhatsApp nem por um Link Rastreável.
           Pra rastrear Google, Instagram orgânico, site e outras origens, use um Link Rastreável
           (menu "Links e Conversões").

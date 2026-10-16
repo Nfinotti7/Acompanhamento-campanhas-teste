@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBreakpoint } from '../../responsive/useBreakpoint';
 import { Settings2, User } from 'lucide-react';
 import Modal from '../Modal';
 import ContactDetailPanel from '../ContactDetailPanel';
@@ -15,12 +16,14 @@ function formatAppointment(iso) {
 }
 
 const filterStyle = {
-  padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
-  backgroundColor: '#131b2e', color: '#fff', fontSize: '0.82rem'
+  padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)',
+  backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.82rem'
 };
 
 
 export default function CrmBoard({ apiClient, clientId, lastEvent }) {
+  const bp = useBreakpoint();
+  const phone = bp === 'phone';
   const [stages, setStages] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [config, setConfig] = useState({ stages: [], tags: [], team: [] });
@@ -87,7 +90,7 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
     }
   };
 
-  if (loading) return <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Carregando...</p>;
+  if (loading) return <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Carregando...</p>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -107,7 +110,7 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
         </button>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '6px' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '6px', scrollSnapType: phone ? 'x mandatory' : undefined }}>
         {stages.map((stage) => {
           const stageCards = visible.filter((c) => c.stage_id === stage.id);
           const total = stageCards.reduce((sum, c) => sum + Number(c.value || 0), 0);
@@ -123,21 +126,21 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
                 moveCard(Number(e.dataTransfer.getData('text/plain')), stage.id);
               }}
               style={{
-                flex: '0 0 260px', display: 'flex', flexDirection: 'column', minHeight: 0,
-                backgroundColor: isOver ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+                flex: phone ? '0 0 85vw' : bp === 'tablet' ? '0 0 280px' : '0 0 260px', scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column', minHeight: 0,
+                backgroundColor: isOver ? 'color-mix(in srgb, var(--accent-primary) 10%, transparent)' : 'var(--surface-subtle)',
                 // Bordas em propriedades separadas: misturar border e borderTop faz o React
                 // perder a cor do topo ao re-renderizar (realce do arrastar).
                 borderStyle: 'solid', borderWidth: '3px 1px 1px 1px',
-                borderColor: `${stage.color} ${isOver ? '#6366f1' : 'rgba(255,255,255,0.06)'} ${isOver ? '#6366f1' : 'rgba(255,255,255,0.06)'} ${isOver ? '#6366f1' : 'rgba(255,255,255,0.06)'}`,
+                borderColor: `${stage.color} ${isOver ? 'var(--accent-primary)' : 'var(--border-color)'} ${isOver ? 'var(--accent-primary)' : 'var(--border-color)'} ${isOver ? 'var(--accent-primary)' : 'var(--border-color)'}`,
                 borderRadius: '10px', padding: '10px'
               }}
             >
               <div style={{ marginBottom: '10px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: '#fff', fontSize: '0.84rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.84rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stage.name}</span>
-                  <span style={{ color: '#64748b' }}>{stageCards.length}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{stageCards.length}</span>
                 </div>
-                <div style={{ fontSize: '0.76rem', color: total > 0 ? '#34d399' : '#64748b', marginTop: '2px' }}>{brl(total)}</div>
+                <div style={{ fontSize: '0.76rem', color: total > 0 ? 'var(--accent-success)' : 'var(--text-muted)', marginTop: '2px' }}>{brl(total)}</div>
               </div>
               <div style={{ flex: 1, minHeight: 60, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {stageCards.map((c) => (
@@ -146,23 +149,23 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
                     draggable
                     onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(c.id)); e.dataTransfer.effectAllowed = 'move'; }}
                     onClick={() => setOpenContact(c)}
-                    style={{ backgroundColor: '#131b2e', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', cursor: 'grab' }}
+                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', cursor: 'grab' }}
                   >
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <Avatar apiClient={apiClient} clientId={clientId} mediaId={c.profile_pic_media_id} name={c.profile_name || c.wa_id} size={28} />
-                      <div style={{ flex: 1, minWidth: 0, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ flex: 1, minWidth: 0, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.profile_name || c.wa_id}
                       </div>
-                      {c.value > 0 && <span style={{ color: '#34d399', fontWeight: 700, fontSize: '0.76rem', flexShrink: 0 }}>{brl(c.value)}</span>}
+                      {c.value > 0 && <span style={{ color: 'var(--accent-success)', fontWeight: 700, fontSize: '0.76rem', flexShrink: 0 }}>{brl(c.value)}</span>}
                     </div>
                     {c.tag_ids.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
                         {c.tag_ids.map((id) => tagsById[id] && <TagChip key={id} tag={tagsById[id]} small />)}
                       </div>
                     )}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', fontSize: '0.72rem', color: '#94a3b8' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                       {c.source === 'ad' && <span>📢 Anúncio</span>}
-                      {c.appointment_at && <span style={{ color: '#c084fc' }}>📅 {formatAppointment(c.appointment_at)}</span>}
+                      {c.appointment_at && <span style={{ color: 'var(--chart-6)' }}>📅 {formatAppointment(c.appointment_at)}</span>}
                       {c.responsible_name && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><User size={11} /> {c.responsible_name}</span>}
                     </div>
                   </div>

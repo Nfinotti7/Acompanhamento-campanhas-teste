@@ -6,7 +6,7 @@ export function TagChip({ tag, small }) {
   return (
     <span style={{
       display: 'inline-block', padding: small ? '1px 6px' : '2px 8px', borderRadius: '10px',
-      fontSize: small ? '0.66rem' : '0.72rem', fontWeight: 700, color: '#fff',
+      fontSize: small ? '0.66rem' : '0.72rem', fontWeight: 700, color: 'var(--text-primary)',
       backgroundColor: `${tag.color}55`, border: `1px solid ${tag.color}`
     }}>
       {tag.name}

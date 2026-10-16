@@ -9,7 +9,7 @@ export function mediaUrl(apiClient, mediaId, clientId) {
   return `/api/whatsapp/media/${mediaId}?${params.toString()}`;
 }
 
-const AVATAR_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#ef4444'];
+const AVATAR_COLORS = ['var(--accent-primary)', 'var(--accent-success)', 'var(--accent-warning)', 'var(--chart-5)', 'var(--chart-1)', 'var(--chart-6)', 'var(--accent-danger)'];
 
 function initials(name) {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
@@ -34,7 +34,7 @@ export function Avatar({ apiClient, clientId, mediaId, name, size = 36 }) {
   }
 
   return (
-    <div style={{ ...base, backgroundColor: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38 }}>
+    <div style={{ ...base, backgroundColor: color, color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38 }}>
       {initials(name)}
     </div>
   );
@@ -52,7 +52,7 @@ export function isPlaceholderBody(body) {
 export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad }) {
   if (!message.media_type) return null;
   if (!message.media_id) {
-    return <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>Mídia indisponível</div>;
+    return <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Mídia indisponível</div>;
   }
 
   const src = mediaUrl(apiClient, message.media_id, clientId);
@@ -75,7 +75,7 @@ export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad
     return <video controls preload="metadata" src={src} onLoadedMetadata={onLoad} style={{ display: 'block', maxWidth: 280, maxHeight: 280, borderRadius: 8 }} />;
   }
   return (
-    <a href={src} download={message.media_filename || 'arquivo'} style={{ color: '#c7d2fe', textDecoration: 'underline' }}>
+    <a href={src} download={message.media_filename || 'arquivo'} style={{ color: 'var(--accent-link)', textDecoration: 'underline' }}>
       📎 {message.media_filename || 'Baixar documento'}
     </a>
   );
@@ -86,7 +86,7 @@ export function ImageLightbox({ src, onClose }) {
   return (
     <div
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, cursor: 'zoom-out', padding: 20 }}
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, cursor: 'zoom-out', padding: 20 }}
     >
       <img src={src} alt="" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }} />
     </div>

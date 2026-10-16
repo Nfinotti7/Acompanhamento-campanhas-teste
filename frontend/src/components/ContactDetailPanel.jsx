@@ -10,9 +10,9 @@ const fieldStyle = {
   width: '100%',
   padding: '12px',
   borderRadius: '8px',
-  border: '1px solid rgba(255,255,255,0.1)',
-  backgroundColor: '#131b2e',
-  color: '#fff',
+  border: '1px solid var(--border-color)',
+  backgroundColor: 'var(--bg-card)',
+  color: 'var(--text-primary)',
   marginBottom: '10px',
   fontSize: '0.95rem'
 };
@@ -21,7 +21,7 @@ const primaryBtn = {
   padding: '12px',
   borderRadius: '8px',
   border: 'none',
-  color: '#fff',
+  color: 'var(--on-accent)',
   fontWeight: 700,
   cursor: 'pointer',
   width: '100%'
@@ -31,7 +31,7 @@ function formatEventDate(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, onRead, liveUpdateSignal }) {
+export default function ContactDetailPanel({ apiClient, clientId, contact, onClose, onUpdated, onDeleted, onRead, liveUpdateSignal, onBack }) {
   const [section, setSection] = useState('conversa');
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [attribution, setAttribution] = useState(null);
@@ -281,19 +281,22 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: 0 }}>
+        {onBack && (
+          <button type="button" className="icon-button" onClick={onBack} aria-label="Voltar pra lista"><ArrowLeft size={18} /></button>
+        )}
         <Avatar apiClient={apiClient} clientId={clientId} mediaId={contact.profile_pic_media_id} name={contact.profile_name || contact.wa_id} size={44} />
         <div>
-          <div style={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>{contact.profile_name || contact.wa_id}</div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{contact.wa_id}</div>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>{contact.profile_name || contact.wa_id}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{contact.wa_id}</div>
         </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-          <button type="button" onClick={() => setActionMode('sale')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+          <button type="button" onClick={() => setActionMode('sale')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: 'var(--accent-success)', color: 'var(--on-accent)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
             <DollarSign size={14} /> Venda
           </button>
-          <button type="button" onClick={() => setActionMode('appointment')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#fff', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+          <button type="button" onClick={() => setActionMode('appointment')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
             <CalendarPlus size={14} /> Agendar
           </button>
           <button
@@ -301,12 +304,12 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
             onClick={handleDeleteContact}
             disabled={deletingContact}
             title="Apagar contato"
-            style={{ padding: '8px', borderRadius: '8px', border: 'none', background: 'rgba(248,113,113,0.12)', color: '#f87171', cursor: 'pointer' }}
+            style={{ padding: '8px', borderRadius: '8px', border: 'none', background: 'color-mix(in srgb, var(--accent-danger) 12%, transparent)', color: 'var(--accent-danger)', cursor: 'pointer' }}
           >
             <Trash2 size={14} />
           </button>
           {onClose && (
-            <button type="button" onClick={onClose} style={{ padding: '8px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer' }}>
+            <button type="button" onClick={onClose} style={{ padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
               <X size={14} />
             </button>
           )}
@@ -317,40 +320,40 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
 
       {actionMode === 'success' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
-          <CheckCircle2 size={48} color="#10b981" />
+          <CheckCircle2 size={48} color="var(--accent-success)" />
           <p style={{ fontWeight: 700, fontSize: '1.1rem' }}>Feito!</p>
-          <button onClick={backFromAction} style={{ ...primaryBtn, maxWidth: '200px', background: '#6366f1' }}>Voltar</button>
+          <button onClick={backFromAction} style={{ ...primaryBtn, maxWidth: '200px', background: 'var(--accent-primary)' }}>Voltar</button>
         </div>
       ) : actionMode === 'sale' ? (
         <form onSubmit={handleConfirmSale} style={{ maxWidth: '360px' }}>
-          <button type="button" onClick={backFromAction} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button type="button" onClick={backFromAction} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', marginBottom: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <ArrowLeft size={16} /> Voltar
           </button>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '14px' }}>Lançar venda</h3>
           <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nome do cliente" required style={fieldStyle} />
           <input type="number" step="0.01" value={amountSpent} onChange={(e) => setAmountSpent(e.target.value)} placeholder="Valor gasto (R$)" required autoFocus style={fieldStyle} />
-          {error && <p style={{ color: '#f87171', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
-          <button type="submit" disabled={submitting} style={{ ...primaryBtn, background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+          {error && <p style={{ color: 'var(--accent-danger)', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
+          <button type="submit" disabled={submitting} style={{ ...primaryBtn, background: 'linear-gradient(135deg, var(--accent-success), var(--accent-success))' }}>
             {submitting ? 'Salvando...' : 'Lançar venda'}
           </button>
         </form>
       ) : actionMode === 'appointment' ? (
         <form onSubmit={handleConfirmAppointment} style={{ maxWidth: '360px' }}>
-          <button type="button" onClick={backFromAction} style={{ background: 'none', border: 'none', color: '#94a3b8', marginBottom: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button type="button" onClick={backFromAction} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', marginBottom: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <ArrowLeft size={16} /> Voltar
           </button>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '6px' }}>Marcar agendamento</h3>
-          <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '14px' }}>{customerName}</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>{customerName}</p>
           <input type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} required autoFocus style={fieldStyle} />
           <input type="time" value={appointmentTime} onChange={(e) => setAppointmentTime(e.target.value)} required style={fieldStyle} />
-          {error && <p style={{ color: '#f87171', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
-          <button type="submit" disabled={submitting} style={{ ...primaryBtn, background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+          {error && <p style={{ color: 'var(--accent-danger)', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
+          <button type="submit" disabled={submitting} style={{ ...primaryBtn, background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}>
             {submitting ? 'Salvando...' : 'Confirmar agendamento'}
           </button>
         </form>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', flexShrink: 0, paddingBottom: '2px' }}>
             {[['conversa', 'Conversa'], ['historico', 'Histórico'], ['anotacoes', 'Anotações'], ['origem', 'Origem']].map(([key, label]) => (
               <button
                 key={key}
@@ -363,8 +366,8 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                   cursor: 'pointer',
                   fontSize: '0.78rem',
                   fontWeight: 700,
-                  backgroundColor: section === key ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                  color: section === key ? '#fff' : '#94a3b8'
+                  backgroundColor: section === key ? 'var(--accent-primary)' : 'var(--surface-subtle)',
+                  color: section === key ? 'var(--on-accent)' : 'var(--text-secondary)'
                 }}
               >
                 {label}
@@ -376,9 +379,9 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
             <>
               <div ref={messagesContainerRef} onScroll={handleMessagesScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px', paddingRight: '4px' }}>
                 {loadingMessages && messages.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Carregando...</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carregando...</p>
                 ) : messages.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Nenhuma mensagem ainda.</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhuma mensagem ainda.</p>
                 ) : (
                   messages.map((m, index) => {
                     const outbound = m.direction === 'outbound';
@@ -386,15 +389,16 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                     return (
                       <React.Fragment key={m.id}>
                         {showDay && (
-                          <div style={{ alignSelf: 'center', fontSize: '0.7rem', color: '#94a3b8', backgroundColor: 'rgba(255,255,255,0.05)', padding: '3px 10px', borderRadius: '8px', margin: '6px 0' }}>
+                          <div style={{ alignSelf: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', backgroundColor: 'var(--border-color)', padding: '3px 10px', borderRadius: '8px', margin: '6px 0' }}>
                             {dayLabel(m.sent_at)}
                           </div>
                         )}
                         <div
                           style={{
                             alignSelf: outbound ? 'flex-end' : 'flex-start',
-                            backgroundColor: outbound ? '#3730a3' : '#1e293b',
-                            color: '#fff',
+                            backgroundColor: outbound ? 'var(--accent-primary)' : 'var(--bg-card)',
+                            border: outbound ? 'none' : '1px solid var(--border-color)',
+                            color: outbound ? 'var(--on-accent)' : 'var(--text-primary)',
                             padding: m.media_id ? '6px' : '7px 10px 5px',
                             borderRadius: '10px',
                             maxWidth: '75%',
@@ -408,9 +412,9 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                           {!(m.media_id && isPlaceholderBody(m.body)) && (
                             <span style={{ padding: m.media_id ? '0 6px' : 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</span>
                           )}
-                          <span style={{ alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.66rem', color: 'rgba(255,255,255,0.65)', padding: m.media_id ? '0 4px' : 0 }}>
+                          <span style={{ alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.66rem', color: outbound ? 'color-mix(in srgb, var(--on-accent) 75%, transparent)' : 'var(--text-muted)', padding: m.media_id ? '0 4px' : 0 }}>
                             {formatTime(m.sent_at)}
-                            {outbound && <StatusTicks status={m.status} />}
+                            {outbound && <StatusTicks status={m.status} color="color-mix(in srgb, var(--on-accent) 60%, transparent)" readColor="var(--on-accent)" />}
                           </span>
                         </div>
                       </React.Fragment>
@@ -418,7 +422,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                   })
                 )}
               </div>
-              <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px' }}>
+              <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px', position: 'sticky', bottom: 0, paddingTop: '8px', paddingBottom: 'env(safe-area-inset-bottom)', background: 'var(--bg-dark)' }}>
                 <input
                   type="text"
                   value={replyText}
@@ -426,7 +430,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                   placeholder="Digite uma resposta..."
                   style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}
                 />
-                <button type="submit" disabled={sending} style={{ padding: '0 16px', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer' }}>
+                <button type="submit" disabled={sending} style={{ padding: '0 16px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)', cursor: 'pointer' }}>
                   <Send size={16} />
                 </button>
               </form>
@@ -436,43 +440,43 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           {section === 'historico' && (
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {loadingTimeline ? (
-                <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Carregando...</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carregando...</p>
               ) : timeline.length === 0 ? (
-                <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Nada registrado ainda.</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nada registrado ainda.</p>
               ) : (
                 timeline.map((ev, idx) => (
-                  <div key={idx} style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.03)', fontSize: '0.82rem' }}>
-                    <div style={{ color: '#94a3b8', fontSize: '0.72rem', marginBottom: '4px' }}>{formatEventDate(ev.occurredAt)}</div>
+                  <div key={idx} style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'var(--border-color)', fontSize: '0.82rem' }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginBottom: '4px' }}>{formatEventDate(ev.occurredAt)}</div>
                     {ev.type === 'message' && (
-                      <div style={{ color: '#fff' }}>{ev.direction === 'outbound' ? 'Você: ' : ''}{ev.body}</div>
+                      <div style={{ color: 'var(--text-primary)' }}>{ev.direction === 'outbound' ? 'Você: ' : ''}{ev.body}</div>
                     )}
                     {ev.type === 'sale' && (
                       editingSaleId === ev.id ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ color: '#34d399' }}>Venda: R$</span>
+                          <span style={{ color: 'var(--accent-success)' }}>Venda: R$</span>
                           <input
                             type="number"
                             step="0.01"
                             autoFocus
                             value={editAmountValue}
                             onChange={(e) => setEditAmountValue(e.target.value)}
-                            style={{ width: '90px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#131b2e', color: '#fff', fontSize: '0.8rem' }}
+                            style={{ width: '90px', padding: '4px 6px', borderRadius: '6px', border: '1px solid var(--border-strong)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
                           />
-                          <button type="button" onClick={() => saveEditSale(ev.id)} disabled={savingSaleEdit} style={{ padding: '4px', borderRadius: '6px', border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer' }}>
+                          <button type="button" onClick={() => saveEditSale(ev.id)} disabled={savingSaleEdit} style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'var(--accent-success)', color: 'var(--on-accent)', cursor: 'pointer' }}>
                             <Check size={13} />
                           </button>
-                          <button type="button" onClick={cancelEditSale} style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer' }}>
+                          <button type="button" onClick={cancelEditSale} style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
                             <X size={13} />
                           </button>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                          <span style={{ color: '#34d399' }}>Venda: R$ {Number(ev.amountSpent).toFixed(2)}</span>
+                          <span style={{ color: 'var(--accent-success)' }}>Venda: R$ {Number(ev.amountSpent).toFixed(2)}</span>
                           <div style={{ display: 'flex', gap: '4px' }}>
-                            <button type="button" onClick={() => startEditSale(ev)} title="Editar valor" style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer' }}>
+                            <button type="button" onClick={() => startEditSale(ev)} title="Editar valor" style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'var(--border-color)', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                               <Pencil size={12} />
                             </button>
-                            <button type="button" onClick={() => deleteSale(ev.id)} title="Apagar venda" style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'rgba(248,113,113,0.1)', color: '#f87171', cursor: 'pointer' }}>
+                            <button type="button" onClick={() => deleteSale(ev.id)} title="Apagar venda" style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'color-mix(in srgb, var(--accent-danger) 10%, transparent)', color: 'var(--accent-danger)', cursor: 'pointer' }}>
                               <Trash2 size={12} />
                             </button>
                           </div>
@@ -480,7 +484,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                       )
                     )}
                     {ev.type === 'appointment' && (
-                      <div style={{ color: '#a855f7' }}>Agendamento marcado</div>
+                      <div style={{ color: 'var(--chart-6)' }}>Agendamento marcado</div>
                     )}
                   </div>
                 ))
@@ -506,7 +510,7 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                 type="button"
                 onClick={handleSaveNotes}
                 disabled={notesSaving}
-                style={{ ...primaryBtn, maxWidth: '160px', background: '#6366f1' }}
+                style={{ ...primaryBtn, maxWidth: '160px', background: 'var(--accent-primary)' }}
               >
                 {notesSaving ? 'Salvando...' : notesSaved ? 'Salvo ✓' : 'Salvar anotação'}
               </button>

@@ -61,20 +61,20 @@ export default function CaixaFunilView({ caixaApi, inputStyle, view, lastEvent }
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {loading ? (
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Carregando...</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Carregando...</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {appointments.length === 0 ? (
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nenhum agendamento nesse dia.</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Nenhum agendamento nesse dia.</p>
             ) : (
               appointments.map((a) => (
                 <div
                   key={a.id}
                   onClick={() => setOpenContact(a)}
-                  style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem', cursor: 'pointer' }}
+                  style={{ backgroundColor: 'var(--border-color)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem', cursor: 'pointer' }}
                 >
-                  <div style={{ fontWeight: 600, color: '#fff' }}>{a.profile_name || a.wa_id}</div>
-                  <div style={{ color: '#94a3b8' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.profile_name || a.wa_id}</div>
+                  <div style={{ color: 'var(--text-secondary)' }}>
                     {new Date(a.appointment_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
