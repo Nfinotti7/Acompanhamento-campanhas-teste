@@ -104,6 +104,10 @@ export default function LoginPage() {
           </button>
         </form>
 
+        <a href="/namesa" style={{ display: 'block', textAlign: 'center', marginTop: '20px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          Acessar o Na Mesa (fila de espera) →
+        </a>
+
       </div>
     </div>
   );

@@ -46,7 +46,7 @@ export default function Navbar({
               <option value="">Todos os Clientes (Visão Geral)</option>
               {clients.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({c.company})
+                  {c.name} ({c.company}){c.dashboard_enabled === false ? ' · Na Mesa' : ''}
                 </option>
               ))}
             </select>

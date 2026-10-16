@@ -9,6 +9,8 @@ const EMPTY_FORM = {
   logo_url: '',
   campaign_prefix: '',
   page_id: '',
+  dashboard_enabled: true,
+  waitlist_enabled: false,
   clientUserEmail: '',
   clientUserPassword: ''
 };
@@ -53,6 +55,8 @@ export default function ClientsPage() {
       logo_url: client.logo_url || '',
       campaign_prefix: client.campaign_prefix || '',
       page_id: client.page_id || '',
+      dashboard_enabled: client.dashboard_enabled !== false,
+      waitlist_enabled: Boolean(client.waitlist_enabled),
       clientUserEmail: '',
       clientUserPassword: ''
     });
@@ -175,6 +179,12 @@ export default function ClientsPage() {
                   Prefixo de campanha: <strong style={{ color: 'var(--text-secondary)' }}>{c.campaign_prefix}</strong>
                 </div>
               )}
+
+              {c.waitlist_enabled && (
+                <span style={{ display: 'inline-block', marginBottom: '12px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 700 }}>
+                  Na Mesa{c.dashboard_enabled === false ? ' (só fila)' : ''}
+                </span>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -284,6 +294,19 @@ export default function ClientsPage() {
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-8px', marginBottom: '12px' }}>
                   Cliente anuncia por mais de uma Página do Facebook? Separe os IDs por vírgula (ex: 111,222).
                 </p>
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={formData.dashboard_enabled}
+                    onChange={(e) => setFormData({ ...formData, dashboard_enabled: e.target.checked })} />
+                  Dashboard e CRM
+                </label>
+                <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={formData.waitlist_enabled}
+                    onChange={(e) => setFormData({ ...formData, waitlist_enabled: e.target.checked })} />
+                  Na Mesa (fila de espera)
+                </label>
               </div>
 
               {!editingClient && (
