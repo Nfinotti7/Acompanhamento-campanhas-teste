@@ -166,6 +166,7 @@ export default function CredentialsPage({ selectedClient }) {
       <div style={{
         display: 'flex',
         gap: '12px',
+        flexWrap: 'wrap',
         marginBottom: '24px',
         borderBottom: '1px solid var(--border-color)',
         paddingBottom: '12px'

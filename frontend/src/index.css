@@ -384,7 +384,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Small phones: trim button labels and tighten spacing further */
 @media (max-width: 640px) {
-  .navbar-filters .btn-label {
+  .navbar .btn-label {
     display: none;
   }
 

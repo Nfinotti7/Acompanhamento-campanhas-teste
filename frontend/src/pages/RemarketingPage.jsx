@@ -99,7 +99,7 @@ export default function RemarketingPage({ selectedClient }) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <button onClick={() => handleExportCSV('google')} className="btn" style={{ backgroundColor: 'var(--accent-google)', color: 'var(--on-accent)' }}>
             <Download size={16} />
             <span>Exportar Google Match (CSV)</span>

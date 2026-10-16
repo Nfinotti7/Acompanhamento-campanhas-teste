@@ -62,7 +62,7 @@ export default function Navbar({
             flex: phone ? 1 : undefined, padding: '6px 12px', borderRadius: '6px', border: 'none',
             backgroundColor: selectedPlatform === key ? color : 'transparent',
             color: selectedPlatform === key ? 'var(--on-accent)' : 'var(--text-secondary)',
-            fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
+            fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap'
           }}
         >
           {label}
