@@ -504,3 +504,5 @@ Pedido do usuário (escolheu a opção C):
   - sentou → desfazer: voltou pra posição 1;
   - desfazer de novo: 409, sem duplicar.
 - Tela conferida no celular e no PC.
+
+**No ar (2026-10-16):** push `b30ebaa`; o bundle de produção já tem "Saíram há pouco" e "Voltar pra fila".
