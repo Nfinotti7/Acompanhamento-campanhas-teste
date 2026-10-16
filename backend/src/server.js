@@ -17,7 +17,7 @@ import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookCont
 import { listConversations, getMessages, replyToConversation, markConversationRead } from './controllers/whatsappConversationsController.js';
 import { searchContacts, createConversion, updateConversion, deleteConversion, getRoi } from './controllers/realConversionsController.js';
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
-import { getBaileysStatus, resetBaileys } from './controllers/whatsappBaileysController.js';
+import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
@@ -103,6 +103,7 @@ app.post('/api/whatsapp/contacts/:contactId/appointment', setAppointment);
 // WhatsApp Baileys (nao-oficial, WhatsApp Web)
 app.get('/api/whatsapp/baileys/status', getBaileysStatus);
 app.post('/api/whatsapp/baileys/reset', resetBaileys);
+app.post('/api/whatsapp/baileys/pairing-code', pairingCodeBaileys);
 
 // WhatsApp Contact (CRM: etapa manual, anotacoes, historico)
 app.get('/api/whatsapp/contacts/:contactId/crm', getContactCrm);

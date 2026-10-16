@@ -20,6 +20,7 @@ import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
+import { normalizePhone } from './waitlistText.js';
 
 const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
 
@@ -311,6 +312,39 @@ export async function resetClient(clientId, deps = {}) {
   }
   (deps.removeSession || removeSessionFiles)(clientId);
   return connectClient(clientId, deps);
+}
+
+export class PairingError extends Error {}
+
+// Conectar com código em vez de QR: pra quando o QR aparece no MESMO celular que tem o
+// WhatsApp (não dá pra escanear a própria tela). O WhatsApp aceita um código de 8
+// caracteres em Aparelhos conectados -> Conectar com número de telefone.
+export async function requestPairingCode(clientId, rawPhone, deps = {}) {
+  const phone = normalizePhone(rawPhone);
+  if (!phone) throw new PairingError('Número inválido. Use DDD + número, ex: (11) 99999-8888.');
+
+  let state = getOrInitState(clientId);
+  if (!state.sock) state = await connectClient(clientId, deps);
+  if (state.status === 'standby') {
+    throw new PairingError('O servidor está reiniciando a conexão. Tente de novo em 1 minuto.');
+  }
+  const sock = state.sock;
+  if (!sock) throw new PairingError('Não foi possível abrir a conexão. Tente de novo.');
+  if (state.status === 'connected' || sock.authState?.creds?.registered) {
+    throw new PairingError('Este WhatsApp já está conectado. Use "Desconectar / trocar número" antes.');
+  }
+
+  // O socket só aceita o pedido de código depois de pronto -- que é quando ele pede QR.
+  const now = deps.now || Date.now;
+  const sleep = deps.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const start = now();
+  while (state.status !== 'qr' && now() - start < 15000) await sleep(500);
+  if (state.status !== 'qr') {
+    throw new PairingError('A conexão ainda não está pronta. Tente de novo em alguns segundos.');
+  }
+
+  const code = await sock.requestPairingCode(phone);
+  return String(code).replace(/[^A-Za-z0-9]/g, '').toUpperCase().replace(/^(.{4})(.{4})$/, '$1-$2');
 }
 
 export async function reconnectAllBaileysClients(deps = {}) {

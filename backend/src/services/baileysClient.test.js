@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -243,4 +243,43 @@ test('decideOwnership: outro processo vivo e dono -> este cede (fecha a conexao)
 
 test('decideOwnership: dono parou de dar sinal ha mais de 1 minuto -> assume', () => {
   assert.equal(decideOwnership({ owner: { instanceId: 'B', heartbeatAt: 0 }, instanceId: 'A', now: 61000 }), 'takeover');
+});
+
+function pairingFakeBaileys(calls, { registered = false } = {}) {
+  let handler = null;
+  return {
+    emitQr: () => handler({ qr: 'qr-teste' }),
+    module: {
+      default: () => ({
+        ev: { on: (event, h) => { if (event === 'connection.update') handler = h; } },
+        authState: { creds: { registered } },
+        requestPairingCode: async (phone) => { calls.push(phone); return 'ABCD1234'; }
+      }),
+      useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+      DisconnectReason: { loggedOut: 401 }
+    }
+  };
+}
+
+test('requestPairingCode pede o código pro número (com DDI) e devolve formatado ABCD-1234', async () => {
+  const calls = [];
+  const fake = pairingFakeBaileys(calls);
+  await connectClient('test-pair-1', { baileys: fake.module });
+  await fake.emitQr();
+  const code = await requestPairingCode('test-pair-1', '(11) 99999-8888', { baileys: fake.module });
+  assert.equal(code, 'ABCD-1234');
+  assert.deepEqual(calls, ['5511999998888']);
+});
+
+test('requestPairingCode recusa número inválido e WhatsApp já conectado', async () => {
+  const calls = [];
+  const fake = pairingFakeBaileys(calls);
+  await connectClient('test-pair-2', { baileys: fake.module });
+  await fake.emitQr();
+  await assert.rejects(requestPairingCode('test-pair-2', '123', { baileys: fake.module }), /número/i);
+
+  const fake2 = pairingFakeBaileys(calls, { registered: true });
+  await connectClient('test-pair-3', { baileys: fake2.module });
+  await assert.rejects(requestPairingCode('test-pair-3', '11999998888', { baileys: fake2.module }), /já está conectado/i);
+  assert.equal(calls.length, 0);
 });

@@ -7,12 +7,16 @@ const STUCK_MS = 45000;
 
 // Conexão do WhatsApp (Baileys) feita pelo próprio restaurante, logado pelo PIN:
 // mostra o status, o QR quando precisa, e deixa desconectar / trocar de número.
-export default function WhatsAppConnect({ api }) {
+export default function WhatsAppConnect({ api, defaultPhone = '' }) {
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [stuck, setStuck] = useState(false);
   const waitingSince = useRef(null);
+  const [pairOpen, setPairOpen] = useState(false);
+  const [pairPhone, setPairPhone] = useState(defaultPhone || '');
+  const [pairCode, setPairCode] = useState('');
+  const [pairError, setPairError] = useState('');
 
   const apply = (data) => {
     setState(data);
@@ -43,6 +47,21 @@ export default function WhatsAppConnect({ api }) {
       apply(res.data);
     } catch (err) {
       alert(err.response?.data?.error || 'Não foi possível reiniciar a conexão.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const askCode = async (e) => {
+    e.preventDefault();
+    setPairError('');
+    setPairCode('');
+    setBusy(true);
+    try {
+      const res = await api.post('/api/whatsapp/baileys/pairing-code', { phone: pairPhone });
+      setPairCode(res.data.code);
+    } catch (err) {
+      setPairError(err.response?.data?.error || 'Não foi possível gerar o código.');
     } finally {
       setBusy(false);
     }
@@ -97,16 +116,54 @@ export default function WhatsAppConnect({ api }) {
             <li>Toque em <b>Conectar um aparelho</b> e aponte a câmera pra este QR.</li>
           </ol>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Esta tela atualiza sozinha quando conectar.</p>
+
+          {!pairOpen ? (
+            <button type="button" onClick={() => setPairOpen(true)} style={{ ...btn, background: 'transparent', color: 'var(--accent-link)', border: '1px solid var(--border-strong)' }}>
+              Está no mesmo celular? Conectar com código
+            </button>
+          ) : (
+            <div style={{ width: '100%', textAlign: 'left', borderTop: '1px solid var(--border-color)', paddingTop: '14px', display: 'grid', gap: '10px' }}>
+              <strong>Conectar com código (sem QR)</strong>
+              <form onSubmit={askCode} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input type="tel" value={pairPhone} onChange={(e) => setPairPhone(e.target.value)} placeholder="WhatsApp do restaurante, ex: (11) 99999-8888"
+                  aria-label="Número do WhatsApp do restaurante" required
+                  style={{ flex: '1 1 220px', minHeight: '44px', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: '1rem' }} />
+                <button type="submit" disabled={busy} style={{ ...btn, border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)' }}>
+                  {busy ? 'Gerando...' : 'Gerar código'}
+                </button>
+              </form>
+              {pairError && <p style={{ margin: 0, color: 'var(--accent-danger)' }}>{pairError}</p>}
+              {pairCode && (
+                <>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '0.15em', textAlign: 'center', padding: '12px', borderRadius: '12px', background: 'var(--surface-subtle)', border: '1px dashed var(--border-strong)', userSelect: 'all' }}>{pairCode}</div>
+                  <ol style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    <li>Abra o WhatsApp do restaurante → <b>⋮</b> → <b>Aparelhos conectados</b>.</li>
+                    <li>Toque em <b>Conectar um aparelho</b>.</li>
+                    <li>Embaixo da câmera, toque em <b>Conectar com número de telefone</b>.</li>
+                    <li>Digite o código acima.</li>
+                  </ol>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>O código vale por pouco tempo. Se expirar, toque em "Gerar código" de novo.</p>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {waiting && !stuck && (
+      {status === 'standby' && (
+        <p style={{ margin: 0, color: 'var(--text-secondary)', display: 'flex', gap: '8px' }}>
+          <Loader2 size={18} className="spin" style={{ flexShrink: 0 }} />
+          O servidor está reiniciando a conexão do WhatsApp. Se não voltar em 1 minuto, avise a agência (precisa reiniciar o sistema no servidor).
+        </p>
+      )}
+
+      {waiting && !stuck && status !== 'standby' && (
         <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-secondary)' }}>
           <Loader2 size={18} className="spin" /> Conectando ao WhatsApp...
         </p>
       )}
 
-      {waiting && stuck && (
+      {waiting && stuck && status !== 'standby' && (
         <div style={{ display: 'grid', gap: '10px' }}>
           <p style={{ margin: 0, fontWeight: 700, color: 'var(--accent-warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <AlertTriangle size={18} /> Não conectou.

@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { connectClient, getConnectionState, resetClient } from '../services/baileysClient.js';
+import { connectClient, getConnectionState, resetClient, requestPairingCode, PairingError } from '../services/baileysClient.js';
 
 export function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -54,5 +54,28 @@ export async function resetBaileys(req, res) {
   } catch (error) {
     console.error('Reset Baileys error:', error);
     return res.status(500).json({ error: 'Erro ao reiniciar a conexão do WhatsApp.' });
+  }
+}
+
+// Código de pareamento (conectar sem escanear QR, pelo número do telefone).
+export async function pairingCodeBaileys(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+    const { rows } = await db.query(
+      `SELECT connection_type FROM whatsapp_settings WHERE client_id = ?`,
+      [clientId]
+    );
+    if (rows[0]?.connection_type !== 'baileys') {
+      return res.status(400).json({ error: 'Este cliente não está configurado pro modo não-oficial (Baileys).' });
+    }
+    const code = await requestPairingCode(clientId, req.body?.phone);
+    return res.json({ code });
+  } catch (error) {
+    if (error instanceof PairingError) return res.status(400).json({ error: error.message });
+    console.error('Pairing code error:', error);
+    return res.status(500).json({ error: 'Não foi possível gerar o código. Tente de novo.' });
   }
 }

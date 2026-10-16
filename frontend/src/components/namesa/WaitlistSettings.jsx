@@ -74,7 +74,7 @@ export default function WaitlistSettings({ api }) {
 
   return (
     <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))' }}>
-      <div style={{ gridColumn: '1 / -1' }}><WhatsAppConnect api={api} /></div>
+      <div style={{ gridColumn: '1 / -1' }}><WhatsAppConnect api={api} defaultPhone={settings.whatsapp_number || ''} /></div>
       <section className="nm-card" style={{ padding: '16px' }}>
         <h3 style={{ marginTop: 0 }}>Fila</h3>
         <label style={{ display: 'block', marginBottom: '12px' }}>
