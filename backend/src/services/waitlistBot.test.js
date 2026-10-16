@@ -122,3 +122,18 @@ test('entrada manual com telefone é ligada ao contato quando a pessoa escreve',
   assert.equal(await say('qual minha posição?'), 'status');
   assert.equal(db.entries[0].contact_id, 3);
 });
+
+test('WhatsApp fora do ar: o robô grava a entrada e avisa a tela mesmo sem conseguir responder', async () => {
+  const db = memoryDb();
+  const events = [];
+  const deps = {
+    db,
+    send: async () => { throw new Error('Baileys caiu'); },
+    broadcast: (clientId, name, data) => events.push({ name, data }),
+    now: () => NOW
+  };
+  const result = await handleInboundForWaitlist({ clientId: 1, contactId: 3, waId: '551199999003', profileName: 'Maria', body: 'FILA' }, deps);
+  assert.equal(result, 'asked_size');
+  assert.equal(db.entries.length, 1);
+  assert.equal(events.at(-1)?.name, 'waitlist');
+});

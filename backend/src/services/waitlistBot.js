@@ -18,15 +18,23 @@ export async function handleInboundForWaitlist({ clientId, contactId, waId, prof
 
   const entry = await findActiveEntryForContact(dbImpl, { clientId, contactId, waId, now });
   const settings = await loadSettings(dbImpl, clientId);
-  const reply = (key, vars = {}) => send({
-    clientId,
-    contactId,
-    body: renderMessage(settings.messages[key], {
-      nome: firstName(entry?.name || profileName),
-      tolerancia: settings.hold_minutes,
-      ...vars
-    })
-  });
+  // Falha de envio (WhatsApp caído) só vai pro log: o estado da fila já foi gravado e a
+  // tela da recepcionista ainda precisa ser avisada.
+  const reply = async (key, vars = {}) => {
+    try {
+      await send({
+        clientId,
+        contactId,
+        body: renderMessage(settings.messages[key], {
+          nome: firstName(entry?.name || profileName),
+          tolerancia: settings.hold_minutes,
+          ...vars
+        })
+      });
+    } catch (error) {
+      console.error(`Na Mesa: falha ao responder "${key}" pro contato ${contactId}:`, error.message);
+    }
+  };
 
   if (!entry) {
     if (!isJoinCommand(text)) return 'ignored';
