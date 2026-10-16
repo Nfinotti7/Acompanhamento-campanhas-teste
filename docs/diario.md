@@ -432,3 +432,5 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - O restaurante **não** pode desconectar nem trocar o número, pra ninguém derrubar o atendimento sem querer.
 
 **Pendente pro usuário:** em Chaves e APIs da Mercearia Original, escolher Baileys + PIN e salvar. Depois disso a recepcionista entra no `/namesa` e escaneia o QR ela mesma.
+
+**No ar (2026-10-16):** push `c0bf49c`; confirmado que o bundle de produção já tem a tela de reconexão.
