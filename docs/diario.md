@@ -434,3 +434,23 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 **Pendente pro usuário:** em Chaves e APIs da Mercearia Original, escolher Baileys + PIN e salvar. Depois disso a recepcionista entra no `/namesa` e escaneia o QR ela mesma.
 
 **No ar (2026-10-16):** push `c0bf49c`; confirmado que o bundle de produção já tem a tela de reconexão.
+
+### 2026-10-16 — "Conectando" sem fim depois de desconectar pelo celular (branch `feat/whatsapp-reset`)
+
+**Relato do usuário:** desconectou o aparelho pelo próprio celular (Aparelhos conectados → sair). No Na Mesa, a tela ficou em "Conectando ao WhatsApp..." pra sempre, sem gerar QR novo.
+
+**Causa:** no logout (`statusCode 401`), o `baileysClient` parava de reconectar, mas deixava a sessão salva (`~/.further_baileys_sessions/<id>`) com credenciais inválidas. A próxima tentativa reusava essas credenciais, e o Baileys só gera QR quando não há sessão. Resultado: nunca saía QR.
+
+**Correção:**
+- **Logout:** agora apaga a pasta da sessão e recomeça depois de 5s, o que gera um QR novo. O teste antigo "logout não agenda reconexão" foi trocado por "logout apaga a sessão e recomeça".
+- **`resetClient(clientId)`:** faz `sock.logout()` (o aparelho some do celular; se falhar, cai no `end`), apaga a sessão e abre uma conexão nova. Exposto em `POST /api/whatsapp/baileys/reset`, liberado pra staff e admin, sempre no próprio restaurante.
+- **Socket descartado:** eventos de um socket que já foi descartado (`state.sock !== sock`) são ignorados, pra o fechamento do socket velho não brigar com o reset.
+- **Tela `WhatsAppConnect` (Caixa e Na Mesa):**
+  - depois de 45s sem conectar nem mostrar QR, aparece "Não conectou" com o botão **Gerar novo QR**;
+  - com QR ou conectado, aparece **Desconectar / trocar número**, com confirmação.
+- **Decisão do usuário:** a equipe do restaurante também pode desconectar e trocar o número (antes era só a agência).
+
+**Testado:**
+- Backend: 233 testes. Frontend: 52.
+- Local: QR gerado → reset → QR novo e diferente, sem erro.
+- **Não testado:** o logout feito pelo celular de verdade (precisa de aparelho); o caminho é coberto pelo teste com socket falso.
