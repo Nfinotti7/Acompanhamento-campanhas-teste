@@ -301,6 +301,41 @@ export async function initDb() {
     )
   `);
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS crm_seeded_at TIMESTAMPTZ`);
+
+  // Na Mesa (fila de espera) -- ver docs/superpowers/specs/2026-10-15-namesa-fila-design.md
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS dashboard_enabled BOOLEAN DEFAULT true`);
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS waitlist_enabled BOOLEAN DEFAULT false`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS waitlist_settings (
+      client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+      whatsapp_number TEXT,
+      default_minutes_per_party INTEGER DEFAULT 8,
+      hold_minutes INTEGER DEFAULT 10,
+      near_threshold INTEGER DEFAULT 2,
+      notify_no_show BOOLEAN DEFAULT true,
+      messages JSONB DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS waitlist_entries (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+      name TEXT,
+      phone TEXT,
+      party_size INTEGER,
+      status TEXT NOT NULL CHECK (status IN ('awaiting_size','waiting','called','seated','no_show','left','removed')),
+      source TEXT NOT NULL CHECK (source IN ('whatsapp','manual')),
+      size_attempts INTEGER DEFAULT 0,
+      needs_check BOOLEAN DEFAULT false,
+      notified_near BOOLEAN DEFAULT false,
+      joined_at TIMESTAMPTZ DEFAULT now(),
+      called_at TIMESTAMPTZ,
+      finished_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_waitlist_active ON waitlist_entries (client_id, status, joined_at)`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES crm_stages(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS deal_value NUMERIC(12,2)`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS responsible_id INTEGER REFERENCES crm_team_members(id) ON DELETE SET NULL`);

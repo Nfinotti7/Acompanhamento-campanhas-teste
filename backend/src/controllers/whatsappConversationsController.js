@@ -1,7 +1,5 @@
 import db from '../config/db.js';
-import { sendWhatsAppMessage } from '../services/metaWhatsAppApi.js';
-import { sendViaBaileys } from '../services/baileysClient.js';
-import { broadcast } from '../services/sseHub.js';
+import { sendToContact, SendError } from '../services/whatsappSender.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -98,63 +96,12 @@ export async function replyToConversation(req, res) {
       return res.status(400).json({ error: 'Mensagem não pode ser vazia.' });
     }
 
-    const { rows: contactRows } = await db.query(
-      'SELECT wa_id FROM whatsapp_contacts WHERE id = ? AND client_id = ?',
-      [contactId, clientId]
-    );
-    const contact = contactRows[0];
-    if (!contact) {
-      return res.status(404).json({ error: 'Contato não encontrado.' });
-    }
-
-    const { rows: settingsRows } = await db.query(
-      'SELECT phone_number_id, access_token, connection_type FROM whatsapp_settings WHERE client_id = ?',
-      [clientId]
-    );
-    const settings = settingsRows[0];
-    if (!settings) {
-      return res.status(400).json({ error: 'WhatsApp não configurado para este cliente.' });
-    }
-
-    let waMessageId = null;
-    if (settings.connection_type === 'baileys') {
-      waMessageId = await sendViaBaileys(clientId, contact.wa_id, body);
-    } else {
-      const sendResult = await sendWhatsAppMessage({
-        phoneNumberId: settings.phone_number_id,
-        accessToken: settings.access_token,
-        to: contact.wa_id,
-        body
-      });
-      waMessageId = sendResult?.messages?.[0]?.id || null;
-    }
-
-    // O Baileys às vezes registra a própria mensagem enviada (messages.upsert) antes desta
-    // linha -- com o mesmo wa_message_id. Nesse caso só completa o status.
-    await db.query(
-      `INSERT INTO whatsapp_messages (client_id, contact_id, direction, body, wa_message_id, sent_at, status)
-       VALUES (?, ?, 'outbound', ?, ?, CURRENT_TIMESTAMP, 'sent')
-       ON CONFLICT (wa_message_id) DO UPDATE SET status = COALESCE(whatsapp_messages.status, excluded.status)`,
-      [clientId, contactId, body, waMessageId]
-    );
-
-    // Responder sobe a conversa pro topo da lista e conta como "lida" pela equipe.
-    await db.query(
-      `UPDATE whatsapp_contacts
-       SET last_message_at = CURRENT_TIMESTAMP, last_read_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [contactId]
-    );
-
-    broadcast(clientId, 'message', {
-      contactId: Number(contactId),
-      direction: 'outbound',
-      body,
-      sentAt: new Date().toISOString()
-    });
-
+    await sendToContact({ clientId, contactId, body });
     return res.json({ message: 'Mensagem enviada.' });
   } catch (error) {
+    if (error instanceof SendError) {
+      return res.status(error.httpStatus).json({ error: error.message });
+    }
     console.error('Reply to conversation error:', error);
     return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
   }
