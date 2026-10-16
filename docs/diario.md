@@ -456,3 +456,21 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - **Não testado:** o logout feito pelo celular de verdade (precisa de aparelho); o caminho é coberto pelo teste com socket falso.
 
 **No ar (2026-10-16):** push `305ba37`; o bundle de produção já tem "Desconectar / trocar número". Falta o usuário repetir o teste real: tirar o aparelho pelo celular e ver o QR novo aparecer sozinho.
+
+### 2026-10-16 — "Em espera" depois do deploy + conectar com código (branch `feat/whatsapp-codigo`)
+
+**"Gerar novo QR" voltava pra "Conectando..." em produção.** Causa confirmada pelo usuário: o status era **standby**. Depois do deploy `305ba37`, o processo antigo do Node continuou vivo no Hostinger e seguiu como dono da sessão (`owner.json`). O processo novo, que atende as requisições, ficou em espera. O usuário resolveu reiniciando o app Node.js no hPanel.
+- **É a segunda vez que acontece** depois de um deploy (a primeira foi em 14/10). **Se aparecer "standby" depois de um deploy, reiniciar o app no hPanel.**
+- Vale investigar à parte se dá pra o processo novo assumir sozinho no deploy (ex.: o antigo ceder ao receber SIGTERM, ou o novo forçar a posse na subida).
+
+**Conectar com código:** pra quando o QR aparece no mesmo celular que tem o WhatsApp.
+- `requestPairingCode(clientId, telefone)` em `baileysClient.js`. Espera o socket estar pronto (status `qr`, até 15s) e chama `sock.requestPairingCode(numero com DDI)` do Baileys. Devolve o código formatado `ABCD-1234`.
+- Recusa: número inválido, WhatsApp já conectado e standby.
+- Rota: `POST /api/whatsapp/baileys/pairing-code` (staff e admin, no próprio restaurante).
+- Tela `WhatsAppConnect`: botão "Está no mesmo celular? Conectar com código" embaixo do QR, campo do número (o Na Mesa preenche com o número salvo no Configurar), código grande e passo a passo (Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone).
+- O status `standby` agora aparece com texto próprio ("o servidor está reiniciando a conexão... avise a agência") em vez de "Conectando...".
+
+**Testado:**
+- Backend: 235 testes (2 novos, com socket falso). Frontend: 52.
+- Tela no celular. Número inválido recusado.
+- **Não testado:** gerar um código de verdade, porque precisa do número do restaurante (o WhatsApp manda notificação pro número informado). Confirmar com o usuário no celular dele.
