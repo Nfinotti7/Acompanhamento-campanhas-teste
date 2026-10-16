@@ -5,11 +5,15 @@ import { JWT_SECRET } from '../middleware/authMiddleware.js';
 
 export async function listRestaurants(req, res) {
   try {
+    // /namesa pede ?product=waitlist; o /caixa (sem parâmetro) não lista cliente só do Na Mesa.
+    const productFilter = req.query.product === 'waitlist'
+      ? 'AND c.waitlist_enabled = true'
+      : 'AND c.dashboard_enabled IS NOT FALSE';
     const { rows } = await db.query(
       `SELECT c.id, c.name
        FROM clients c
        JOIN whatsapp_settings ws ON ws.client_id = c.id
-       WHERE c.active = 1
+       WHERE c.active = 1 ${productFilter}
        ORDER BY c.name`
     );
     return res.json({ restaurants: rows });

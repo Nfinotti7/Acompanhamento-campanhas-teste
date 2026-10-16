@@ -7,6 +7,10 @@ export function normalizeOptionalText(value) {
   return trimmed || null;
 }
 
+function optionalBoolean(value) {
+  return typeof value === 'boolean' ? value : null;
+}
+
 export async function listClients(req, res) {
   try {
     let clients;
@@ -33,15 +37,17 @@ export async function listClients(req, res) {
 
 export async function createClient(req, res) {
   try {
-    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword, dashboard_enabled, waitlist_enabled } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
     }
 
     const { rows } = await db.query(
-      'INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id) VALUES (?, ?, ?, ?, ?) RETURNING id',
-      [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id)]
+      `INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled)
+       VALUES (?, ?, ?, ?, ?, COALESCE(?, true), COALESCE(?, false)) RETURNING id`,
+      [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id),
+        optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled)]
     );
     const newClientId = rows[0].id;
 
@@ -68,7 +74,7 @@ export async function createClient(req, res) {
 export async function updateClient(req, res) {
   try {
     const clientId = req.params.id;
-    const { name, company, logo_url, campaign_prefix, page_id } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
@@ -80,8 +86,11 @@ export async function updateClient(req, res) {
     }
 
     await db.query(
-      'UPDATE clients SET name = ?, company = ?, logo_url = ?, campaign_prefix = ?, page_id = ? WHERE id = ?',
-      [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id), clientId]
+      `UPDATE clients SET name = ?, company = ?, logo_url = ?, campaign_prefix = ?, page_id = ?,
+         dashboard_enabled = COALESCE(?, dashboard_enabled), waitlist_enabled = COALESCE(?, waitlist_enabled)
+       WHERE id = ?`,
+      [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id),
+        optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled), clientId]
     );
 
     return res.json({ message: 'Cliente atualizado com sucesso!' });

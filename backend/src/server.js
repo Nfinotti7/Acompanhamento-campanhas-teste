@@ -26,6 +26,7 @@ import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
 import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
+import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr } from './controllers/waitlistController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -136,6 +137,18 @@ app.get('/api/tracking/capi', denyStaff, getCapiSettings);
 app.put('/api/tracking/capi', denyStaff, saveCapiSettings);
 app.post('/api/tracking/capi/test', denyStaff, sendCapiTest);
 app.get('/api/tracking/events', denyStaff, listConversionEvents);
+
+// Na Mesa (fila de espera) -- recepcionista (staff) e admin.
+app.get('/api/waitlist', getQueue);
+app.post('/api/waitlist', addEntry);
+app.get('/api/waitlist/settings', getWaitlistSettings);
+app.put('/api/waitlist/settings', saveWaitlistSettings);
+app.get('/api/waitlist/qr', getWaitlistQr);
+app.patch('/api/waitlist/:id', editEntry);
+app.post('/api/waitlist/:id/call', callEntry);
+app.post('/api/waitlist/:id/seat', seatEntry);
+app.post('/api/waitlist/:id/no-show', noShowEntry);
+app.post('/api/waitlist/:id/remove', removeEntry);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
