@@ -454,3 +454,5 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - Backend: 233 testes. Frontend: 52.
 - Local: QR gerado → reset → QR novo e diferente, sem erro.
 - **Não testado:** o logout feito pelo celular de verdade (precisa de aparelho); o caminho é coberto pelo teste com socket falso.
+
+**No ar (2026-10-16):** push `305ba37`; o bundle de produção já tem "Desconectar / trocar número". Falta o usuário repetir o teste real: tirar o aparelho pelo celular e ver o QR novo aparecer sozinho.
