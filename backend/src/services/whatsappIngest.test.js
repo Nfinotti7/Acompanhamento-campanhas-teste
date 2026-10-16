@@ -221,3 +221,56 @@ test('mensagem sem codigo nao consulta cliques', async () => {
   await ingestWhatsAppEvent(5, baseEvent(), { db, broadcast: () => {} });
   assert.ok(!calls.some((c) => /tracking_clicks/.test(c.sql)));
 });
+
+function flagsDb(flags) {
+  const calls = [];
+  let nextId = 1;
+  return {
+    calls,
+    query: async (sql, params = []) => {
+      calls.push({ sql, params });
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [flags] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: nextId++ }] };
+      return { rows: [] };
+    }
+  };
+}
+
+const tick = () => new Promise((r) => setImmediate(r));
+
+test('ingestWhatsAppEvent aciona o robô da fila só pra cliente com Na Mesa e mensagem nova', async () => {
+  const db = flagsDb({ dashboard_enabled: false, waitlist_enabled: true });
+  const seen = [];
+  await ingestWhatsAppEvent(5, baseEvent({ body: 'FILA' }), { db, broadcast: () => {}, onInbound: async (args) => seen.push(args) });
+  await tick();
+  assert.equal(seen.length, 1);
+  assert.deepEqual(seen[0], { clientId: 5, contactId: 1, waId: '5511999998888', profileName: 'Maria Teste', body: 'FILA' });
+  // sem CRM: não entra no funil
+  assert.ok(!db.calls.some((c) => /UPDATE whatsapp_contacts SET stage_id/.test(c.sql)));
+});
+
+test('ingestWhatsAppEvent não aciona o robô em mensagem repetida nem enviada por nós', async () => {
+  const seen = [];
+  const onInbound = async (args) => seen.push(args);
+  const repeated = {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ dashboard_enabled: false, waitlist_enabled: true }] };
+      if (/INSERT INTO whatsapp_messages/.test(sql)) return { rows: [] }; // ON CONFLICT DO NOTHING
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  await ingestWhatsAppEvent(5, baseEvent({ body: 'FILA' }), { db: repeated, broadcast: () => {}, onInbound });
+  await ingestWhatsAppEvent(5, baseEvent({ body: 'FILA', direction: 'outbound', waMessageId: 'w2' }), { db: flagsDb({ waitlist_enabled: true }), broadcast: () => {}, onInbound });
+  await tick();
+  assert.equal(seen.length, 0);
+});
+
+test('ingestWhatsAppEvent sem Na Mesa não aciona o robô e continua no CRM', async () => {
+  const db = flagsDb({ dashboard_enabled: true, waitlist_enabled: false });
+  const seen = [];
+  await ingestWhatsAppEvent(5, baseEvent({ body: 'FILA' }), { db, broadcast: () => {}, onInbound: async (a) => seen.push(a) });
+  await tick();
+  assert.equal(seen.length, 0);
+  assert.ok(db.calls.some((c) => /UPDATE whatsapp_contacts SET stage_id/.test(c.sql)));
+});

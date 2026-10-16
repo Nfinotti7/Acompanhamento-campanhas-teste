@@ -2,6 +2,7 @@ import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
 import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
+import { handleInboundForWaitlist } from './waitlistBot.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -93,15 +94,25 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   );
   const contactId = contactRows[0].id;
 
+  // Cliente só do Na Mesa (sem dashboard) não tem funil nem Link Rastreável.
+  const { rows: flagRows } = await dbImpl.query(
+    `SELECT dashboard_enabled, waitlist_enabled FROM clients WHERE id = ?`,
+    [clientId]
+  );
+  const flags = flagRows[0] || {};
+  const usesCrm = flags.dashboard_enabled !== false;
+
   // Antes de entrar no funil: se veio pelo Link Rastreável, a origem já fica certa pro
   // evento Lead que a entrada no funil pode disparar.
-  if (event.direction === 'inbound') {
+  if (usesCrm && event.direction === 'inbound') {
     await matchTrackingClick(dbImpl, { clientId, contactId, body: event.body });
   }
 
   // Contato novo entra no funil (etapa de "novo lead"). Quem já está numa etapa fica lá:
   // mensagem comum não move card -- só agendamento e venda (ver crmStages.js).
-  await moveToAutoStage(dbImpl, { clientId, contactId, event: 'novo_lead' });
+  if (usesCrm) {
+    await moveToAutoStage(dbImpl, { clientId, contactId, event: 'novo_lead' });
+  }
 
   const { rows: messageRows } = await dbImpl.query(
     `INSERT INTO whatsapp_messages (client_id, contact_id, direction, body, wa_message_id, sent_at, media_type, media_filename)
@@ -115,6 +126,19 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // mesma mensagem (ON CONFLICT DO NOTHING não devolve linha), já foi baixada antes.
   if (messageRows.length > 0 && event.media?.download) {
     await storeMedia(dbImpl, clientId, contactId, messageRows[0].id, event.media);
+  }
+
+  // Robô da fila (Na Mesa): só mensagem recebida e nova -- reenvio do WhatsApp
+  // (ON CONFLICT não devolve linha) não pode gerar resposta duplicada. Em segundo
+  // plano: um erro no robô não pode derrubar a gravação da mensagem.
+  if (event.direction === 'inbound' && flags.waitlist_enabled && messageRows.length > 0) {
+    const onInbound = deps.onInbound || handleInboundForWaitlist;
+    Promise.resolve()
+      .then(() => onInbound(
+        { clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body },
+        deps.db ? { db: dbImpl } : {}
+      ))
+      .catch((error) => console.error('Na Mesa: erro no robô da fila:', error.message));
   }
 
   // Alguém da equipe respondeu direto pelo celular (Baileys entrega essa mensagem
