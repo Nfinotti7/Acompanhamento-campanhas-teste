@@ -42,7 +42,7 @@ export default function TrackingPage({ selectedClient }) {
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Link2 size={28} color="var(--accent-primary)" />
           Rastreamento de Atribuição (Click-to-Conversion)
         </h1>
@@ -56,7 +56,7 @@ export default function TrackingPage({ selectedClient }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Code size={20} color="var(--accent-primary)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               Script de Tracking para a Landing Page
             </h3>
           </div>
@@ -68,10 +68,10 @@ export default function TrackingPage({ selectedClient }) {
         </div>
 
         <pre style={{
-          backgroundColor: '#070a12',
+          backgroundColor: 'var(--bg-dark)',
           padding: '16px',
           borderRadius: 'var(--radius-sm)',
-          color: '#a5b4fc',
+          color: 'var(--accent-link)',
           fontSize: '0.82rem',
           overflowX: 'auto',
           border: '1px solid var(--border-color)',
@@ -90,25 +90,25 @@ export default function TrackingPage({ selectedClient }) {
           borderTop: '1px solid var(--border-color)'
         }}>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(99,102,241,0.2)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>1</div>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'color-mix(in srgb, var(--accent-primary) 20%, transparent)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>1</div>
             <div>
-              <h4 style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>Captura de UTMs & Click IDs</h4>
+              <h4 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>Captura de UTMs & Click IDs</h4>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>O script detecta utm_source, utm_campaign, gclid e fbclid automaticamente na URL.</p>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(16,185,129,0.2)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>2</div>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'color-mix(in srgb, var(--accent-success) 20%, transparent)', color: 'var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>2</div>
             <div>
-              <h4 style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>Persistência de Sessão</h4>
+              <h4 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>Persistência de Sessão</h4>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Os dados de origem acompanham o visitante durante a navegação entre páginas.</p>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(168,85,247,0.2)', color: '#a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>3</div>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'color-mix(in srgb, var(--chart-6) 20%, transparent)', color: 'var(--chart-6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>3</div>
             <div>
-              <h4 style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>Atribuição Final</h4>
+              <h4 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>Atribuição Final</h4>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Ao virar lead ou comprar, a conversão é atribuída exatamente à campanha de origem.</p>
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function TrackingPage({ selectedClient }) {
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <GitBranch size={18} color="var(--accent-primary)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               Atribuição por Origem (UTM Source)
             </h3>
           </div>
@@ -138,7 +138,7 @@ export default function TrackingPage({ selectedClient }) {
                   justifyContent: 'space-between',
                   padding: '12px 14px',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: 'var(--surface-subtle)',
                   border: '1px solid var(--border-color)'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -146,7 +146,7 @@ export default function TrackingPage({ selectedClient }) {
                       {s.source}
                     </span>
                   </div>
-                  <span style={{ fontWeight: 700, color: '#fff', fontSize: '0.9rem' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
                     {s.event_count} Eventos Rasteados
                   </span>
                 </div>
@@ -159,7 +159,7 @@ export default function TrackingPage({ selectedClient }) {
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <Layers size={18} color="var(--accent-success)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               Funil de Eventos Rastreados
             </h3>
           </div>
@@ -175,13 +175,13 @@ export default function TrackingPage({ selectedClient }) {
                   justifyContent: 'space-between',
                   padding: '12px 14px',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'rgba(16, 185, 129, 0.06)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)'
+                  backgroundColor: 'color-mix(in srgb, var(--accent-success) 6%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent-success) 20%, transparent)'
                 }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
                     {f.event_name.replace(/_/g, ' ')}
                   </span>
-                  <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1rem' }}>
+                  <span style={{ fontWeight: 800, color: 'var(--accent-success)', fontSize: '1rem' }}>
                     {f.count} Total
                   </span>
                 </div>

@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Target, Download, Search, PlusCircle, CheckCircle2, Copy, Sparkles, Filter } from 'lucide-react';
+import ResponsiveTable from '../components/ui/ResponsiveTable';
+import { useBreakpoint } from '../responsive/useBreakpoint';
+
+// Celular: cada lead vira um cartão.
+const LEAD_COLUMNS = [
+  { key: 'name', label: 'Nome', render: (l) => l.name || 'Lead Anônimo' },
+  { key: 'phone', label: 'Telefone', render: (l) => l.phone || '-' },
+  { key: 'email', label: 'E-mail', render: (l) => <span style={{ overflowWrap: 'anywhere' }}>{l.email || '-'}</span> },
+  { key: 'source', label: 'Origem', render: (l) => (
+    <span className={l.source === 'google' ? 'badge badge-google' : l.source === 'meta' ? 'badge badge-meta' : 'badge'}>{l.source || 'direto'}</span>
+  ) },
+  { key: 'campaign', label: 'Campanha', render: (l) => l.campaign || '-' },
+  { key: 'value', label: 'Valor', render: (l) => <strong style={{ color: 'var(--accent-success)' }}>R$ {(l.conversion_value || 0).toFixed(2)}</strong> },
+  { key: 'created_at', label: 'Captura', render: (l) => new Date(l.created_at).toLocaleString('pt-BR') }
+];
 
 export default function RemarketingPage({ selectedClient }) {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const phone = useBreakpoint() === 'phone';
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [showSimModal, setShowSimModal] = useState(false);
@@ -74,7 +90,7 @@ export default function RemarketingPage({ selectedClient }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Target size={28} color="var(--accent-success)" />
             Listas de Remarketing & Capturas
           </h1>
@@ -84,11 +100,11 @@ export default function RemarketingPage({ selectedClient }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={() => handleExportCSV('google')} className="btn" style={{ backgroundColor: '#4285f4', color: '#fff' }}>
+          <button onClick={() => handleExportCSV('google')} className="btn" style={{ backgroundColor: 'var(--accent-google)', color: 'var(--on-accent)' }}>
             <Download size={16} />
             <span>Exportar Google Match (CSV)</span>
           </button>
-          <button onClick={() => handleExportCSV('meta')} className="btn" style={{ backgroundColor: '#0084ff', color: '#fff' }}>
+          <button onClick={() => handleExportCSV('meta')} className="btn" style={{ backgroundColor: 'var(--accent-meta)', color: 'var(--on-accent)' }}>
             <Download size={16} />
             <span>Exportar Meta Audience (CSV)</span>
           </button>
@@ -100,10 +116,10 @@ export default function RemarketingPage({ selectedClient }) {
       </div>
 
       {/* Webhook & Ingestion Info Card */}
-      <div className="glass-card" style={{ padding: '20px', marginBottom: '24px', backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
+      <div className="glass-card" style={{ padding: '20px', marginBottom: '24px', backgroundColor: 'color-mix(in srgb, var(--accent-success) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-success) 20%, transparent)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-success)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               ⚡ Endpoint de Captura / Webhook em Tempo Real
             </span>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -117,8 +133,8 @@ export default function RemarketingPage({ selectedClient }) {
               padding: '8px 14px',
               borderRadius: 'var(--radius-sm)',
               fontSize: '0.85rem',
-              color: '#34d399',
-              border: '1px solid rgba(16, 185, 129, 0.3)'
+              color: 'var(--accent-success)',
+              border: '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)'
             }}>
               POST {webhookUrl}
             </code>
@@ -165,6 +181,9 @@ export default function RemarketingPage({ selectedClient }) {
         </div>
 
         {/* Table */}
+<>{phone ? (
+        <ResponsiveTable columns={LEAD_COLUMNS} rows={leads} rowKey={(l) => l.id} emptyText="Nenhum lead capturado ainda." />
+      ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
             <thead>
@@ -187,7 +206,7 @@ export default function RemarketingPage({ selectedClient }) {
                 </tr>
               ) : (
                 leads.map((l) => (
-                  <tr key={l.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                  <tr key={l.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
                       {l.name || 'Lead Anônimo'}
                     </td>
@@ -205,7 +224,7 @@ export default function RemarketingPage({ selectedClient }) {
                     <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>
                       {l.campaign || '-'}
                     </td>
-                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-success)' }}>
                       R$ {(l.conversion_value || 0).toFixed(2)}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
@@ -217,6 +236,7 @@ export default function RemarketingPage({ selectedClient }) {
             </tbody>
           </table>
         </div>
+      )}</>
       </div>
 
       {/* Simulation Modal */}
@@ -227,7 +247,7 @@ export default function RemarketingPage({ selectedClient }) {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
+          backgroundColor: 'var(--overlay)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -235,7 +255,7 @@ export default function RemarketingPage({ selectedClient }) {
           zIndex: 9000
         }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>
               Simular Captura de Lead / Evento
             </h3>
 

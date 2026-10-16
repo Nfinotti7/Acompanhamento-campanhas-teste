@@ -136,7 +136,7 @@ export default function CredentialsPage({ selectedClient }) {
   return (
     <div className="animate-fade-in" style={{ maxWidth: '900px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <KeyRound size={28} color="var(--accent-primary)" />
           Chaves & Integrações de API
         </h1>
@@ -153,9 +153,9 @@ export default function CredentialsPage({ selectedClient }) {
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          backgroundColor: message.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          border: message.type === 'success' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-          color: message.type === 'success' ? '#34d399' : '#f87171'
+          backgroundColor: message.type === 'success' ? 'color-mix(in srgb, var(--accent-success) 15%, transparent)' : 'color-mix(in srgb, var(--accent-danger) 15%, transparent)',
+          border: message.type === 'success' ? '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)' : '1px solid color-mix(in srgb, var(--accent-danger) 30%, transparent)',
+          color: message.type === 'success' ? 'var(--accent-success)' : 'var(--accent-danger)'
         }}>
           {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{message.text}</span>
@@ -174,8 +174,8 @@ export default function CredentialsPage({ selectedClient }) {
           onClick={() => setActivePlatform('google')}
           className="btn"
           style={{
-            backgroundColor: activePlatform === 'google' ? '#4285f4' : 'rgba(255,255,255,0.05)',
-            color: activePlatform === 'google' ? '#fff' : 'var(--text-secondary)',
+            backgroundColor: activePlatform === 'google' ? 'var(--accent-google)' : 'var(--surface-subtle)',
+            color: activePlatform === 'google' ? 'var(--text-primary)' : 'var(--text-secondary)',
             fontWeight: 600
           }}
         >
@@ -185,8 +185,8 @@ export default function CredentialsPage({ selectedClient }) {
           onClick={() => setActivePlatform('meta')}
           className="btn"
           style={{
-            backgroundColor: activePlatform === 'meta' ? '#0084ff' : 'rgba(255,255,255,0.05)',
-            color: activePlatform === 'meta' ? '#fff' : 'var(--text-secondary)',
+            backgroundColor: activePlatform === 'meta' ? 'var(--accent-meta)' : 'var(--surface-subtle)',
+            color: activePlatform === 'meta' ? 'var(--text-primary)' : 'var(--text-secondary)',
             fontWeight: 600
           }}
         >
@@ -196,8 +196,8 @@ export default function CredentialsPage({ selectedClient }) {
           onClick={() => setActivePlatform('whatsapp')}
           className="btn"
           style={{
-            backgroundColor: activePlatform === 'whatsapp' ? '#10b981' : 'rgba(255,255,255,0.05)',
-            color: activePlatform === 'whatsapp' ? '#fff' : 'var(--text-secondary)',
+            backgroundColor: activePlatform === 'whatsapp' ? 'var(--accent-success)' : 'var(--surface-subtle)',
+            color: activePlatform === 'whatsapp' ? 'var(--text-primary)' : 'var(--text-secondary)',
             fontWeight: 600
           }}
         >
@@ -212,11 +212,11 @@ export default function CredentialsPage({ selectedClient }) {
             <div style={{
               padding: '12px 16px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(66, 133, 244, 0.1)',
-              border: '1px solid rgba(66, 133, 244, 0.2)',
+              backgroundColor: 'color-mix(in srgb, var(--accent-google) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--accent-google) 20%, transparent)',
               marginBottom: '24px',
               fontSize: '0.85rem',
-              color: '#93c5fd',
+              color: 'var(--accent-link)',
               display: 'flex',
               alignItems: 'center',
               gap: '10px'
@@ -301,11 +301,11 @@ export default function CredentialsPage({ selectedClient }) {
             <div style={{
               padding: '12px 16px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(0, 132, 255, 0.1)',
-              border: '1px solid rgba(0, 132, 255, 0.2)',
+              backgroundColor: 'color-mix(in srgb, var(--accent-meta) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--accent-meta) 20%, transparent)',
               marginBottom: '24px',
               fontSize: '0.85rem',
-              color: '#7dd3fc',
+              color: 'var(--accent-link)',
               display: 'flex',
               alignItems: 'center',
               gap: '10px'
@@ -370,11 +370,11 @@ export default function CredentialsPage({ selectedClient }) {
             <div style={{
               padding: '12px 16px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
+              backgroundColor: 'color-mix(in srgb, var(--accent-success) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--accent-success) 20%, transparent)',
               marginBottom: '24px',
               fontSize: '0.85rem',
-              color: '#6ee7b7',
+              color: 'var(--accent-success)',
               display: 'flex',
               alignItems: 'center',
               gap: '10px'
@@ -396,8 +396,8 @@ export default function CredentialsPage({ selectedClient }) {
                   onClick={() => setWhatsappForm({ ...whatsappForm, connectionType: 'cloud_api' })}
                   className="btn"
                   style={{
-                    backgroundColor: whatsappForm.connectionType === 'cloud_api' ? '#10b981' : 'rgba(255,255,255,0.05)',
-                    color: whatsappForm.connectionType === 'cloud_api' ? '#fff' : 'var(--text-secondary)'
+                    backgroundColor: whatsappForm.connectionType === 'cloud_api' ? 'var(--accent-success)' : 'var(--surface-subtle)',
+                    color: whatsappForm.connectionType === 'cloud_api' ? 'var(--text-primary)' : 'var(--text-secondary)'
                   }}
                 >
                   Oficial (Cloud API)
@@ -407,15 +407,15 @@ export default function CredentialsPage({ selectedClient }) {
                   onClick={() => setWhatsappForm({ ...whatsappForm, connectionType: 'baileys' })}
                   className="btn"
                   style={{
-                    backgroundColor: whatsappForm.connectionType === 'baileys' ? '#f59e0b' : 'rgba(255,255,255,0.05)',
-                    color: whatsappForm.connectionType === 'baileys' ? '#fff' : 'var(--text-secondary)'
+                    backgroundColor: whatsappForm.connectionType === 'baileys' ? 'var(--accent-warning)' : 'var(--surface-subtle)',
+                    color: whatsappForm.connectionType === 'baileys' ? 'var(--text-primary)' : 'var(--text-secondary)'
                   }}
                 >
                   Não-oficial (WhatsApp Web)
                 </button>
               </div>
               {whatsappForm.connectionType === 'baileys' && (
-                <p style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '8px' }}>
+                <p style={{ fontSize: '0.78rem', color: 'var(--accent-warning)', marginTop: '8px' }}>
                   Modo temporário: conecta direto pelo celular (QR code), sem exigir verificação de pagamento da Meta.
                   Não identifica "veio de anúncio" automaticamente, e o número corre risco de bloqueio pelo WhatsApp.
                 </p>
@@ -478,13 +478,13 @@ export default function CredentialsPage({ selectedClient }) {
                     <img src={baileysStatus.qrDataUrl} alt="QR code do WhatsApp" style={{ width: '220px', height: '220px' }} />
                   </>
                 ) : baileysStatus?.status === 'connected' ? (
-                  <p style={{ color: '#34d399', fontWeight: 600 }}>✓ Conectado</p>
+                  <p style={{ color: 'var(--accent-success)', fontWeight: 600 }}>✓ Conectado</p>
                 ) : baileysStatus?.status === 'connecting' ? (
                   <p style={{ color: 'var(--text-muted)' }}>Conectando...</p>
                 ) : baileysStatus?.status === 'standby' ? (
                   <p style={{ color: 'var(--text-muted)' }}>Outro processo do servidor está com a conexão (normal logo após um deploy).</p>
                 ) : baileysStatus?.status === 'error' ? (
-                  <p style={{ color: '#f87171' }}>{baileysStatus.error}</p>
+                  <p style={{ color: 'var(--accent-danger)' }}>{baileysStatus.error}</p>
                 ) : baileysStatus?.status === 'disconnected' ? (
                   <p style={{ color: 'var(--text-muted)' }}>Desconectado, tentando de novo...</p>
                 ) : (

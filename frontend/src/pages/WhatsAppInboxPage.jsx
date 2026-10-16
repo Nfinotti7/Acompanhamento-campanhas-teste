@@ -78,7 +78,7 @@ export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFo
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <MessageCircle size={28} color="var(--accent-success)" />
           WhatsApp & Conversões Reais
         </h1>
@@ -91,19 +91,19 @@ export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFo
         <div className="glass-card" style={{ padding: '20px', marginBottom: '24px', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Gasto em Anúncio (Meta)</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>R$ {roi.totalSpend.toFixed(2)}</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>R$ {roi.totalSpend.toFixed(2)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Faturamento Real Lançado</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>R$ {roi.totalRevenue.toFixed(2)}</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-success)' }}>R$ {roi.totalRevenue.toFixed(2)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>ROAS Real</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a855f7' }}>{roi.roas.toFixed(2)}x</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--chart-6)' }}>{roi.roas.toFixed(2)}x</div>
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Vendas Lançadas</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>{roi.conversionCount}</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{roi.conversionCount}</div>
           </div>
         </div>
       )}
@@ -125,16 +125,16 @@ export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFo
                   padding: '14px 16px',
                   cursor: 'pointer',
                   backgroundColor: selectedContactId === c.id ? 'var(--bg-card-hover)' : 'transparent',
-                  borderBottom: '1px solid rgba(255,255,255,0.04)'
+                  borderBottom: '1px solid var(--border-color)'
                 }}
               >
-                <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
                   {c.profile_name || c.wa_id}
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                   {c.source === 'ad' ? `📢 ${c.ad_headline || 'Veio de anúncio'}` : 'Contato direto'}
                 </div>
-                <div style={{ fontSize: '0.75rem', marginTop: '4px', color: c.responseTimeSeconds == null ? '#f59e0b' : '#10b981' }}>
+                <div style={{ fontSize: '0.75rem', marginTop: '4px', color: c.responseTimeSeconds == null ? 'var(--accent-warning)' : 'var(--accent-success)' }}>
                   {c.responseTimeSeconds == null
                     ? '⏳ Ainda sem resposta'
                     : `⏱ Respondido em ${c.responseTimeSeconds < 60
@@ -160,7 +160,7 @@ export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFo
                     style={{
                       alignSelf: m.direction === 'outbound' ? 'flex-end' : 'flex-start',
                       backgroundColor: m.direction === 'outbound' ? 'var(--accent-primary)' : 'var(--bg-card)',
-                      color: '#fff',
+                      color: 'var(--on-accent)',
                       padding: '8px 12px',
                       borderRadius: '10px',
                       maxWidth: '70%',

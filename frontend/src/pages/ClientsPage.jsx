@@ -101,7 +101,7 @@ export default function ClientsPage() {
     <div className="animate-fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Users size={28} color="var(--accent-primary)" />
             Gestão de Clientes da Agência
           </h1>
@@ -121,9 +121,9 @@ export default function ClientsPage() {
           padding: '14px',
           borderRadius: 'var(--radius-sm)',
           marginBottom: '20px',
-          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-          color: '#34d399',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
+          backgroundColor: 'color-mix(in srgb, var(--accent-success) 15%, transparent)',
+          color: 'var(--accent-success)',
+          border: '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)',
           fontWeight: 600
         }}>
           {message}
@@ -140,7 +140,7 @@ export default function ClientsPage() {
                   width: '48px',
                   height: '48px',
                   borderRadius: '12px',
-                  backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                  backgroundColor: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -152,7 +152,7 @@ export default function ClientsPage() {
                 </div>
 
                 <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {c.name}
                   </h3>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
@@ -164,11 +164,11 @@ export default function ClientsPage() {
               <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', fontSize: '0.85rem' }}>
                 <div>
                   <span style={{ color: 'var(--text-muted)', display: 'block' }}>Campanhas</span>
-                  <strong style={{ color: '#fff', fontSize: '1.1rem' }}>{c.total_campaigns || 0}</strong>
+                  <strong style={{ color: 'var(--text-primary)', fontSize: '1.1rem' }}>{c.total_campaigns || 0}</strong>
                 </div>
                 <div>
                   <span style={{ color: 'var(--text-muted)', display: 'block' }}>Investimento Total</span>
-                  <strong style={{ color: '#10b981', fontSize: '1.1rem' }}>
+                  <strong style={{ color: 'var(--accent-success)', fontSize: '1.1rem' }}>
                     R$ {(c.total_spend || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </strong>
                 </div>
@@ -181,7 +181,7 @@ export default function ClientsPage() {
               )}
 
               {c.waitlist_enabled && (
-                <span style={{ display: 'inline-block', marginBottom: '12px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 700 }}>
+                <span style={{ display: 'inline-block', marginBottom: '12px', padding: '2px 8px', borderRadius: '999px', background: 'color-mix(in srgb, var(--accent-warning) 15%, transparent)', color: 'var(--accent-warning)', fontSize: '0.75rem', fontWeight: 700 }}>
                   Na Mesa{c.dashboard_enabled === false ? ' (só fila)' : ''}
                 </span>
               )}
@@ -206,7 +206,7 @@ export default function ClientsPage() {
                 onClick={() => handleDelete(c)}
                 className="btn btn-secondary"
                 title="Remover cliente"
-                style={{ color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                style={{ color: 'var(--accent-danger)', borderColor: 'color-mix(in srgb, var(--accent-danger) 30%, transparent)' }}
               >
                 <Trash2 size={16} />
               </button>
@@ -223,7 +223,7 @@ export default function ClientsPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.75)',
+          backgroundColor: 'var(--overlay)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -231,7 +231,7 @@ export default function ClientsPage() {
           zIndex: 9000
         }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', backgroundColor: 'var(--bg-card)' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>
               {editingClient ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
             </h3>
 

@@ -39,7 +39,7 @@ export default function WhatsAppAgendaPage({ selectedClient, onViewConversation 
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <CalendarDays size={28} color="var(--accent-primary)" />
           Agenda
         </h1>
@@ -71,12 +71,12 @@ export default function WhatsAppAgendaPage({ selectedClient, onViewConversation 
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: 'var(--surface-subtle)',
                   borderRadius: '8px'
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600, color: '#fff' }}>{a.profile_name || a.wa_id}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.profile_name || a.wa_id}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                     {new Date(a.appointment_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </div>

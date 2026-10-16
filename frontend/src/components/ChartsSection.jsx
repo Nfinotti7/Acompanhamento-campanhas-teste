@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme, resolveCssColor } from '../theme/useTheme';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -19,18 +20,18 @@ import {
 import { LineChart as LineIcon, PieChart as PieIcon, BarChart2, Sparkles } from 'lucide-react';
 
 export const METRIC_CATALOG = {
-  spend: { label: 'Investimento', color: '#6366f1', format: 'currency' },
-  conversion_value: { label: 'Receita', color: '#a855f7', format: 'currency' },
-  clicks: { label: 'Cliques', color: '#3b82f6', format: 'number' },
-  impressions: { label: 'Impressões', color: '#8b5cf6', format: 'number' },
-  reach: { label: 'Alcance', color: '#06b6d4', format: 'number' },
-  conversions: { label: 'Conversões (Resultados)', color: '#10b981', format: 'number' },
-  cpa: { label: 'Custo por Resultado (CPA)', color: '#f59e0b', format: 'currency' },
-  cpc: { label: 'CPC', color: '#ec4899', format: 'currency' },
-  cpm: { label: 'CPM', color: '#eab308', format: 'currency' },
-  ctr: { label: 'CTR', color: '#14b8a6', format: 'percent' },
-  roas: { label: 'ROAS', color: '#22c55e', format: 'ratio' },
-  roi: { label: 'ROI', color: '#ef4444', format: 'percent' }
+  spend: { label: 'Investimento', color: 'var(--accent-primary)', format: 'currency' },
+  conversion_value: { label: 'Receita', color: 'var(--chart-6)', format: 'currency' },
+  clicks: { label: 'Cliques', color: 'var(--chart-2)', format: 'number' },
+  impressions: { label: 'Impressões', color: 'var(--chart-6)', format: 'number' },
+  reach: { label: 'Alcance', color: 'var(--chart-1)', format: 'number' },
+  conversions: { label: 'Conversões (Resultados)', color: 'var(--accent-success)', format: 'number' },
+  cpa: { label: 'Custo por Resultado (CPA)', color: 'var(--accent-warning)', format: 'currency' },
+  cpc: { label: 'CPC', color: 'var(--chart-5)', format: 'currency' },
+  cpm: { label: 'CPM', color: 'var(--chart-3)', format: 'currency' },
+  ctr: { label: 'CTR', color: 'var(--chart-4)', format: 'percent' },
+  roas: { label: 'ROAS', color: 'var(--accent-success)', format: 'ratio' },
+  roi: { label: 'ROI', color: 'var(--accent-danger)', format: 'percent' }
 };
 
 const DEFAULT_METRICS = ['spend', 'conversions', 'cpa', 'roas'];
@@ -57,6 +58,8 @@ function loadStoredMetrics() {
 }
 
 export default function ChartsSection({ dailyData = [], platformBreakdown = [], hidePlatformBreakdown = false }) {
+  const { chart } = useTheme();
+  const tooltipStyle = { backgroundColor: chart.tooltipBg, border: '1px solid var(--border-color)', borderRadius: 8, color: chart.tooltipText };
   const [selectedMetrics, setSelectedMetrics] = useState(loadStoredMetrics);
   const [chartType, setChartType] = useState('area'); // 'area' or 'line'
 
@@ -96,22 +99,22 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
   });
 
   const PLATFORM_COLORS = {
-    google: '#4285f4',
-    meta: '#0084ff'
+    google: 'var(--accent-google)',
+    meta: 'var(--accent-meta)'
   };
 
   const formattedPlatformData = platformBreakdown.map(p => ({
     name: p.platform === 'google' ? 'Google Ads' : 'Meta Ads',
     value: p.spend,
     conversions: p.conversions,
-    color: PLATFORM_COLORS[p.platform] || '#6366f1'
+    color: PLATFORM_COLORS[p.platform] || 'var(--accent-primary)'
   }));
 
   const MultiMetricTooltip = ({ active, payload, label }) => {
     if (!active || !payload || !payload.length) return null;
     return (
       <div style={{
-        backgroundColor: '#0f1627',
+        backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-glow)',
         padding: '12px 16px',
         borderRadius: 'var(--radius-sm)',
@@ -172,7 +175,7 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                 borderRadius: '4px',
                 border: 'none',
                 backgroundColor: chartType === 'area' ? 'var(--accent-primary)' : 'transparent',
-                color: chartType === 'area' ? '#fff' : 'var(--text-muted)',
+                color: chartType === 'area' ? 'var(--text-primary)' : 'var(--text-muted)',
                 fontSize: '0.78rem',
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -187,7 +190,7 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                 borderRadius: '4px',
                 border: 'none',
                 backgroundColor: chartType === 'line' ? 'var(--accent-primary)' : 'transparent',
-                color: chartType === 'line' ? '#fff' : 'var(--text-muted)',
+                color: chartType === 'line' ? 'var(--text-primary)' : 'var(--text-muted)',
                 fontSize: '0.78rem',
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -238,14 +241,14 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                   <defs>
                     {activeMetrics.map((key) => (
                       <linearGradient key={key} id={`color-${key}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={METRIC_CATALOG[key].color} stopOpacity={0.35} />
-                        <stop offset="95%" stopColor={METRIC_CATALOG[key].color} stopOpacity={0} />
+                        <stop offset="5%" stopColor={resolveCssColor(METRIC_CATALOG[key].color)} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={resolveCssColor(METRIC_CATALOG[key].color)} stopOpacity={0} />
                       </linearGradient>
                     ))}
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                  <XAxis dataKey="date" stroke={chart.grid} tick={{ fontSize: 11, fill: chart.axis }} />
+                  <YAxis stroke={chart.grid} tick={{ fontSize: 11, fill: chart.axis }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
                   <Tooltip content={<MultiMetricTooltip />} />
                   <Legend formatter={(key) => METRIC_CATALOG[key.replace('__norm', '')]?.label || key} />
                   {activeMetrics.map((key) => (
@@ -254,7 +257,7 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                       type="monotone"
                       dataKey={`${key}__norm`}
                       name={key}
-                      stroke={METRIC_CATALOG[key].color}
+                      stroke={resolveCssColor(METRIC_CATALOG[key].color)}
                       strokeWidth={2}
                       fillOpacity={1}
                       fill={`url(#color-${key})`}
@@ -263,9 +266,9 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                 </AreaChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                  <XAxis dataKey="date" stroke={chart.grid} tick={{ fontSize: 11, fill: chart.axis }} />
+                  <YAxis stroke={chart.grid} tick={{ fontSize: 11, fill: chart.axis }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
                   <Tooltip content={<MultiMetricTooltip />} />
                   <Legend formatter={(key) => METRIC_CATALOG[key.replace('__norm', '')]?.label || key} />
                   {activeMetrics.map((key) => (
@@ -274,7 +277,7 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                       type="monotone"
                       dataKey={`${key}__norm`}
                       name={key}
-                      stroke={METRIC_CATALOG[key].color}
+                      stroke={resolveCssColor(METRIC_CATALOG[key].color)}
                       strokeWidth={3}
                       dot={{ r: 3 }}
                     />
@@ -312,10 +315,10 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
                     dataKey="value"
                   >
                     {formattedPlatformData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={resolveCssColor(entry.color)} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(val) => `R$ ${val.toFixed(2)}`} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: chart.tooltipText }} itemStyle={{ color: chart.tooltipText }} formatter={(val) => `R$ ${val.toFixed(2)}`} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -335,11 +338,11 @@ export default function ChartsSection({ dailyData = [], platformBreakdown = [], 
           <div style={{ width: '100%', height: '240px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 10 }} />
-                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="conversions" name="Conversões" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                <XAxis dataKey="date" stroke={chart.grid} tick={{ fontSize: 10, fill: chart.axis }} />
+                <YAxis stroke={chart.grid} tick={{ fontSize: 10, fill: chart.axis }} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: chart.tooltipText }} itemStyle={{ color: chart.tooltipText }} />
+                <Bar dataKey="conversions" name="Conversões" fill={resolveCssColor('var(--accent-success)')} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -7,7 +7,7 @@ export default function WhatsAppKanbanPage({ selectedClient }) {
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
       <div style={{ marginBottom: '16px', flexShrink: 0 }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Columns3 size={28} color="var(--accent-primary)" />
           Funil WhatsApp
         </h1>

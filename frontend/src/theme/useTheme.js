@@ -57,3 +57,10 @@ export function useTheme() {
 
   return { theme, setTheme, toggle, chart: chartColors() };
 }
+
+// Recharts e atributos de SVG não resolvem var(--x) em todo navegador (Safari): converte
+// pra cor de verdade. Valor que não é var() volta igual.
+export function resolveCssColor(value, el = document.documentElement) {
+  const m = /^var\((--[\w-]+)\)$/.exec(String(value || '').trim());
+  return m ? cssVar(m[1], el) : value;
+}

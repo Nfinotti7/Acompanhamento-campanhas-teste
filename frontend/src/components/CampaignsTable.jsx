@@ -1,11 +1,34 @@
 import React, { useState } from 'react';
 import { Search, Filter, ArrowUpDown, ExternalLink } from 'lucide-react';
+import ResponsiveTable from './ui/ResponsiveTable';
+import { useBreakpoint } from '../responsive/useBreakpoint';
+
+const brl = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+// Celular: cada campanha vira um cartão com os números principais.
+const PHONE_COLUMNS = [
+  { key: 'campaign_name', label: 'Campanha', render: (c) => (
+    <div>
+      <div>{c.campaign_name}</div>
+      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>{c.client_name}</div>
+    </div>
+  ) },
+  { key: 'platform', label: 'Plataforma', render: (c) => (
+    <span className={c.platform === 'google' ? 'badge badge-google' : 'badge badge-meta'}>{c.platform === 'google' ? 'Google Ads' : 'Meta Ads'}</span>
+  ) },
+  { key: 'total_spend', label: 'Investimento', render: (c) => <strong>{brl(c.total_spend)}</strong> },
+  { key: 'total_clicks', label: 'Cliques', render: (c) => Number(c.total_clicks || 0).toLocaleString('pt-BR') },
+  { key: 'total_conversions', label: 'Conversões', render: (c) => <strong style={{ color: 'var(--accent-success)' }}>{c.total_conversions}</strong> },
+  { key: 'cpa', label: 'CPA', render: (c) => brl(c.cpa) },
+  { key: 'roas', label: 'ROAS', render: (c) => <strong style={{ color: 'var(--chart-6)' }}>{c.roas}x</strong> }
+];
 
 export default function CampaignsTable({ campaigns = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState('total_spend');
   const [sortOrder, setSortOrder] = useState('desc');
+  const phone = useBreakpoint() === 'phone';
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -34,7 +57,7 @@ export default function CampaignsTable({ campaigns = [] }) {
   });
 
   return (
-    <div className="glass-card" style={{ padding: '24px' }}>
+    <div className="glass-card" style={{ padding: phone ? '16px' : '24px' }}>
       {/* Header & Controls */}
       <div style={{
         display: 'flex',
@@ -82,6 +105,9 @@ export default function CampaignsTable({ campaigns = [] }) {
       </div>
 
       {/* Table */}
+      {phone ? (
+        <ResponsiveTable columns={PHONE_COLUMNS} rows={sortedCampaigns} rowKey={(c) => c.id} emptyText="Nenhuma campanha encontrada com os filtros selecionados." />
+      ) : (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
           <thead>
@@ -141,7 +167,7 @@ export default function CampaignsTable({ campaigns = [] }) {
                 <tr 
                   key={c.id}
                   style={{
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                    borderBottom: '1px solid var(--border-color)',
                     transition: 'background 0.2s'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'}
@@ -158,7 +184,7 @@ export default function CampaignsTable({ campaigns = [] }) {
                       {c.platform === 'google' ? 'Google Ads' : 'Meta Ads'}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: '#fff' }}>
+                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
                     R$ {c.total_spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
@@ -170,13 +196,13 @@ export default function CampaignsTable({ campaigns = [] }) {
                   <td style={{ padding: '14px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                     R$ {c.cpc.toFixed(2)}
                   </td>
-                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-success)' }}>
                     {c.total_conversions}
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                     R$ {c.cpa.toFixed(2)}
                   </td>
-                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: '#a855f7' }}>
+                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--chart-6)' }}>
                     {c.roas}x
                   </td>
                 </tr>
@@ -185,6 +211,7 @@ export default function CampaignsTable({ campaigns = [] }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
