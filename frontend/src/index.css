@@ -464,3 +464,37 @@ body { padding-bottom: env(safe-area-inset-bottom); }
   border-color: var(--accent-danger); justify-content: center;
 }
 @media (min-width: 1025px) { .install-banner { left: auto; max-width: 420px; } }
+
+/* ===== Modal / Sheet ===== */
+.modal-backdrop {
+  position: fixed; inset: 0; background: var(--overlay); z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-panel {
+  background: var(--bg-elevated); color: var(--text-primary);
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 20px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-card);
+}
+.sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 640px) {
+  .modal-backdrop { padding: 0; align-items: stretch; }
+  .modal-panel {
+    max-width: none !important; max-height: none; height: 100dvh; border-radius: 0; border: none;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .sheet-backdrop { align-items: flex-end; }
+  .sheet-panel { height: auto; max-height: 90dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
+
+/* ===== ResponsiveTable ===== */
+.rt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rt-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.rt-table th { color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.rt-table th, .rt-table td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.rt-table tr > :first-child { position: sticky; left: 0; background: var(--bg-card); z-index: 1; }
+.rt-cards { display: grid; gap: 10px; }
+.rt-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; }
+.rt-card-title { font-weight: 700; margin-bottom: 8px; }
+.rt-card-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 0.9rem; }
+.rt-card-row dt { color: var(--text-muted); }
+.rt-card-row dd { text-align: right; }
