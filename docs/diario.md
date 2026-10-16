@@ -311,3 +311,20 @@ Pra colocar a Mercearia no ar (depois do merge/deploy):
 4. Teste real: ler o QR com outro celular.
 
 Dica de teste: o botão "Imprimir QR" abre a janela de impressão do navegador. No Playwright isso trava a automação (ninguém fecha o diálogo), então teste o QR pela API (`GET /api/waitlist/qr`).
+
+**Revisão final (revisor novo, depois do teste ponta a ponta).** Não houve nada crítico. Os 4 importantes já estão corrigidos (commit `5cbdde5`):
+1. **Duas mensagens "FILA" quase juntas criavam duas entradas.** Agora há um índice único parcial `uq_waitlist_active_phone` (um registro ativo por telefone). Entrada ativa de mais de 12h é marcada `removed` antes de criar a nova. Telefone repetido na entrada manual devolve 400 "Esse telefone já está na fila."
+2. **Mensagem de grupo podia acordar o robô.** Agora o robô só roda quando o `wa_id` é telefone (8 a 15 dígitos).
+3. **9º dígito.** `phoneVariants` faz a busca da entrada achar o número com e sem o 9. **O envio** pra uma entrada manual ainda vai pro número como foi digitado: confirmar com celular real se chega pra contas sem o 9.
+4. **"Imprimir QR" no tablet.** A janela agora é aberta dentro do clique, e o tablet não bloqueia mais.
+
+Pendências pequenas (anotadas, não feitas):
+- O pedido de "quantas pessoas" que fica sem resposta segura a conversa por 12h. Vale expirar em 30 a 60 min.
+- As rotas `/api/waitlist` não conferem `waitlist_enabled`.
+- Texto personalizado com nome vazio pode sair como "Olá , tudo bem?".
+- O som toca também na entrada manual.
+- A tela Configurar fica presa em "Carregando..." se a busca falhar.
+- "Entraram hoje" conta quem desistiu antes de responder.
+- Corrida rara: o "quase lá" pode chegar antes do "entrou".
+
+**Atenção pra quem usar a Cloud API (não é o caso da Mercearia, que é Baileys):** entrada manual de quem nunca escreveu fica fora da janela de 24h. Texto livre é recusado pela Meta, e a falha só aparece no log.
