@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_MESSAGES, MESSAGE_KEYS, isJoinCommand, isLeaveCommand, parsePartySize,
-  normalizePhone, firstName, formatGroupsAhead, renderMessage
+  normalizePhone, phoneVariants, firstName, formatGroupsAhead, renderMessage
 } from './waitlistText.js';
 
 test('isJoinCommand aceita FILA sozinho e o código do QR', () => {
@@ -74,4 +74,12 @@ test('renderMessage não deixa "Oi, !" quando o nome está vazio', () => {
 
 test('todas as chaves de mensagem têm texto padrão', () => {
   for (const key of MESSAGE_KEYS) assert.equal(typeof DEFAULT_MESSAGES[key], 'string');
+});
+
+test('phoneVariants cobre o número com e sem o 9º dígito', () => {
+  assert.deepEqual(phoneVariants('5511999998888').sort(), ['551199998888', '5511999998888'].sort());
+  assert.deepEqual(phoneVariants('551199998888').sort(), ['551199998888', '5511999998888'].sort());
+  assert.deepEqual(phoneVariants('551133334444').sort(), ['551133334444', '5511933334444'].sort());
+  assert.deepEqual(phoneVariants('447700900123'), ['447700900123']);
+  assert.deepEqual(phoneVariants(null), []);
 });

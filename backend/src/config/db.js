@@ -336,6 +336,11 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_waitlist_active ON waitlist_entries (client_id, status, joined_at)`);
+  // Um registro ativo por telefone: duas mensagens "FILA" quase juntas não viram duas entradas.
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_waitlist_active_phone ON waitlist_entries (client_id, phone)
+    WHERE phone IS NOT NULL AND status IN ('awaiting_size', 'waiting', 'called')
+  `);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES crm_stages(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS deal_value NUMERIC(12,2)`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS responsible_id INTEGER REFERENCES crm_team_members(id) ON DELETE SET NULL`);

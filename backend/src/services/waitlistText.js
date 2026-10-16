@@ -73,6 +73,17 @@ export function normalizePhone(raw) {
   return null;
 }
 
+// Celular brasileiro existe no WhatsApp com e sem o 9º dígito (55 11 9xxxx-xxxx vs
+// 55 11 xxxx-xxxx), e o id que chega nas mensagens nem sempre é o que a recepcionista
+// digitou. Comparar sempre com as duas formas.
+export function phoneVariants(waId) {
+  const d = String(waId || '').replace(/\D/g, '');
+  if (!d) return [];
+  if (d.startsWith('55') && d.length === 13 && d[4] === '9') return [d, d.slice(0, 4) + d.slice(5)];
+  if (d.startsWith('55') && d.length === 12) return [d, `${d.slice(0, 4)}9${d.slice(4)}`];
+  return [d];
+}
+
 export function firstName(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }

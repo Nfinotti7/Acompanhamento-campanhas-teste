@@ -131,7 +131,9 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // Robô da fila (Na Mesa): só mensagem recebida e nova -- reenvio do WhatsApp
   // (ON CONFLICT não devolve linha) não pode gerar resposta duplicada. Em segundo
   // plano: um erro no robô não pode derrubar a gravação da mensagem.
-  if (event.direction === 'inbound' && flags.waitlist_enabled && messageRows.length > 0) {
+  // Grupo/lista de transmissão não é cliente na porta: o id deles não é um telefone.
+  const isPhone = /^\d{8,15}$/.test(String(event.waId || ''));
+  if (event.direction === 'inbound' && isPhone && flags.waitlist_enabled && messageRows.length > 0) {
     const onInbound = deps.onInbound || handleInboundForWaitlist;
     Promise.resolve()
       .then(() => onInbound(

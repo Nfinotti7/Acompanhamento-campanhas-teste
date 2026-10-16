@@ -41,9 +41,15 @@ export default function WaitlistSettings({ api }) {
   };
 
   const printQr = async () => {
+    // Abre a janela ainda dentro do clique: tablet (Safari/Chrome) bloqueia pop-up
+    // aberto depois de um await, fora do gesto do usuário.
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert('O navegador bloqueou a janela de impressão. Permita pop-ups pra este site e tente de novo.');
+      return;
+    }
     try {
       const { data } = await api.get('/api/waitlist/qr');
-      const w = window.open('', '_blank');
       w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR da fila</title>
         <style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px}h1{font-size:42px;margin:0 0 8px}p{font-size:22px;color:#444}img{width:420px;max-width:90vw}</style>
         </head><body><h1>Entre na fila pelo WhatsApp</h1><p>Aponte a câmera do celular e mande a mensagem</p>
@@ -51,6 +57,7 @@ export default function WaitlistSettings({ api }) {
         <script>window.onload=()=>window.print()</script></body></html>`);
       w.document.close();
     } catch (err) {
+      w.close();
       alert(err.response?.data?.error || 'Erro ao gerar o QR.');
     }
   };

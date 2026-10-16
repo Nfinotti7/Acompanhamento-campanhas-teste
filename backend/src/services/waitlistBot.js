@@ -4,7 +4,8 @@ import db from '../config/db.js';
 import { sendToContact } from './whatsappSender.js';
 import { isJoinCommand, isLeaveCommand, parsePartySize, renderMessage, firstName } from './waitlistText.js';
 import {
-  findActiveEntryForContact, loadSettings, loadQueueState, enterQueue, transitionEntry, afterQueueChange
+  findActiveEntryForContact, loadSettings, loadQueueState, enterQueue, transitionEntry, afterQueueChange,
+  expireStaleEntries, isUniqueViolation
 } from './waitlistQueue.js';
 
 const MAX_SIZE_RETRIES = 2;
@@ -38,11 +39,19 @@ export async function handleInboundForWaitlist({ clientId, contactId, waId, prof
 
   if (!entry) {
     if (!isJoinCommand(text)) return 'ignored';
-    await dbImpl.query(
-      `INSERT INTO waitlist_entries (client_id, contact_id, name, phone, status, source)
-       VALUES (?, ?, ?, ?, 'awaiting_size', 'whatsapp') RETURNING id`,
-      [clientId, contactId, profileName || null, waId]
-    );
+    await expireStaleEntries(dbImpl, { clientId, phone: waId, now });
+    try {
+      await dbImpl.query(
+        `INSERT INTO waitlist_entries (client_id, contact_id, name, phone, status, source)
+         VALUES (?, ?, ?, ?, 'awaiting_size', 'whatsapp') RETURNING id`,
+        [clientId, contactId, profileName || null, waId]
+      );
+    } catch (error) {
+      // Duas mensagens quase juntas (ex: tocou "enviar" duas vezes): o índice único
+      // deixa só uma entrar, e só ela responde.
+      if (isUniqueViolation(error)) return 'duplicate';
+      throw error;
+    }
     await reply('askSize');
     await afterQueueChange(dbImpl, clientId, queueDeps);
     return 'asked_size';

@@ -51,7 +51,7 @@ export const addEntry = handler(async (req, res, clientId) => {
     const entry = await addManualEntry(db, { clientId, name: String(name).trim(), phone, partySize });
     return res.status(201).json({ entry });
   } catch (error) {
-    if (/inválido/.test(error.message)) return res.status(400).json({ error: error.message });
+    if (/inválido|já está na fila/.test(error.message)) return res.status(400).json({ error: error.message });
     throw error;
   }
 }, 'Erro ao adicionar na fila');

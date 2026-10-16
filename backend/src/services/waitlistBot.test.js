@@ -16,8 +16,8 @@ function memoryDb() {
       return { rows: [{ id: e.id }] };
     }
     if (/SELECT \* FROM waitlist_entries\s+WHERE client_id = \? AND status IN/.test(sql)) {
-      const [, , contactId, waId] = params;
-      const found = entries.filter((e) => ['awaiting_size', 'waiting', 'called'].includes(e.status) && (e.contact_id === contactId || e.phone === waId));
+      const [, , contactId, waIds] = params;
+      const found = entries.filter((e) => ['awaiting_size', 'waiting', 'called'].includes(e.status) && (e.contact_id === contactId || [].concat(waIds).includes(e.phone)));
       return { rows: found.slice(-1) };
     }
     if (/SELECT \* FROM waitlist_entries/.test(sql)) return { rows: entries };
@@ -136,4 +136,32 @@ test('WhatsApp fora do ar: o robô grava a entrada e avisa a tela mesmo sem cons
   assert.equal(result, 'asked_size');
   assert.equal(db.entries.length, 1);
   assert.equal(events.at(-1)?.name, 'waitlist');
+});
+
+test('duas mensagens FILA ao mesmo tempo criam uma entrada só', async () => {
+  const db = memoryDb();
+  const insert = db.query;
+  // Simula o índice único parcial do Postgres (um registro ativo por telefone).
+  db.query = async (sql, params = []) => {
+    if (/INSERT INTO waitlist_entries/.test(sql)) {
+      await new Promise((r) => setImmediate(r));
+      if (db.entries.some((e) => e.phone === params[3] && ['awaiting_size', 'waiting', 'called'].includes(e.status))) {
+        throw Object.assign(new Error('duplicate key'), { code: '23505' });
+      }
+    }
+    return insert(sql, params);
+  };
+  const sent = [];
+  const deps = { db, send: async (m) => { sent.push(m.body); }, broadcast: () => {}, now: () => NOW };
+  const msg = { clientId: 1, contactId: 3, waId: '551199999003', profileName: 'Maria', body: 'FILA' };
+  await Promise.all([handleInboundForWaitlist(msg, deps), handleInboundForWaitlist(msg, deps)]);
+  assert.equal(db.entries.length, 1);
+  assert.equal(sent.length, 1);
+});
+
+test('número com e sem o 9º dígito acha a mesma entrada manual', async () => {
+  const { say, db } = setup();
+  db.entries.push({ id: 60, client_id: 1, contact_id: null, phone: '5511999999003', name: 'Zé', status: 'waiting', notified_near: true, joined_at: NOW.toISOString() });
+  assert.equal(await say('oi', 3), 'status'); // waId 551199999003 (sem o 9)
+  assert.equal(db.entries[0].contact_id, 3);
 });

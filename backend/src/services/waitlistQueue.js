@@ -3,7 +3,7 @@
 import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
 import { sendToContact } from './whatsappSender.js';
-import { DEFAULT_MESSAGES, renderMessage, firstName, formatGroupsAhead, normalizePhone } from './waitlistText.js';
+import { DEFAULT_MESSAGES, renderMessage, firstName, formatGroupsAhead, normalizePhone, phoneVariants } from './waitlistText.js';
 
 export const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000;
 const ACTIVE_STATUSES = ['awaiting_size', 'waiting', 'called'];
@@ -205,11 +205,18 @@ export async function addManualEntry(dbImpl, { clientId, name, phone, partySize 
     contactId = rows[0].id;
   }
 
-  const { rows } = await dbImpl.query(
-    `INSERT INTO waitlist_entries (client_id, contact_id, name, phone, status, source)
-     VALUES (?, ?, ?, ?, 'awaiting_size', 'manual') RETURNING id`,
-    [clientId, contactId, name || null, waId]
-  );
+  await expireStaleEntries(dbImpl, { clientId, phone: waId, now: resolveDeps(deps).now });
+  let rows;
+  try {
+    ({ rows } = await dbImpl.query(
+      `INSERT INTO waitlist_entries (client_id, contact_id, name, phone, status, source)
+       VALUES (?, ?, ?, ?, 'awaiting_size', 'manual') RETURNING id`,
+      [clientId, contactId, name || null, waId]
+    ));
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new Error('Esse telefone já está na fila.');
+    throw error;
+  }
   return enterQueue(dbImpl, { clientId, entryId: rows[0].id, partySize: size, needsCheck: false }, deps);
 }
 
@@ -231,9 +238,24 @@ export async function findActiveEntryForContact(dbImpl, { clientId, contactId, w
   const { rows } = await dbImpl.query(
     `SELECT * FROM waitlist_entries
      WHERE client_id = ? AND status IN ('awaiting_size', 'waiting', 'called') AND joined_at >= ?
-       AND (contact_id = ? OR phone = ?)
+       AND (contact_id = ? OR phone = ANY(?))
      ORDER BY joined_at DESC LIMIT 1`,
-    [clientId, since, contactId, waId]
+    [clientId, since, contactId, phoneVariants(waId)]
   );
   return rows[0] || null;
+}
+
+// Entrada de outro dia que ficou "ativa" (ninguém deu baixa) sai do caminho antes de
+// uma entrada nova -- senão o índice único (um ativo por telefone) bloquearia a volta.
+export async function expireStaleEntries(dbImpl, { clientId, phone, now = new Date() }) {
+  if (!phone) return;
+  await dbImpl.query(
+    `UPDATE waitlist_entries SET status = 'removed', finished_at = CURRENT_TIMESTAMP
+     WHERE client_id = ? AND phone = ANY(?) AND status IN ('awaiting_size', 'waiting', 'called') AND joined_at < ?`,
+    [clientId, phoneVariants(phone), new Date(now.getTime() - ACTIVE_WINDOW_MS)]
+  );
+}
+
+export function isUniqueViolation(error) {
+  return error?.code === '23505';
 }

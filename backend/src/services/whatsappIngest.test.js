@@ -274,3 +274,11 @@ test('ingestWhatsAppEvent sem Na Mesa não aciona o robô e continua no CRM', as
   assert.equal(seen.length, 0);
   assert.ok(db.calls.some((c) => /UPDATE whatsapp_contacts SET stage_id/.test(c.sql)));
 });
+
+test('mensagem de grupo não aciona o robô da fila', async () => {
+  const db = flagsDb({ dashboard_enabled: false, waitlist_enabled: true });
+  const seen = [];
+  await ingestWhatsAppEvent(5, baseEvent({ waId: '120363025246125486', body: 'fila?' }), { db, broadcast: () => {}, onInbound: async (a) => seen.push(a) });
+  await tick();
+  assert.equal(seen.length, 0);
+});
