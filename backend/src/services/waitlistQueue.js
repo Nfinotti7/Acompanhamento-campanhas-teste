@@ -7,6 +7,8 @@ import { DEFAULT_MESSAGES, renderMessage, firstName, formatGroupsAhead, normaliz
 
 export const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000;
 const ACTIVE_STATUSES = ['awaiting_size', 'waiting', 'called'];
+const FINISHED_STATUSES = ['seated', 'no_show', 'left', 'removed'];
+const RECENT_WINDOW_MS = 2 * 60 * 60 * 1000;
 const INTERVAL_WINDOW_MS = 2 * 60 * 60 * 1000;
 const MAX_GAP_MINUTES = 30;
 
@@ -85,7 +87,11 @@ export async function loadQueueState(dbImpl, clientId, now = new Date()) {
     awaitingSize: queue.awaitingSize,
     settings,
     interval,
-    summary: daySummary(entries, now)
+    summary: daySummary(entries, now),
+    // Quem saiu da fila há pouco (pra desfazer um toque errado), mais recente primeiro.
+    recent: entries
+      .filter((e) => FINISHED_STATUSES.includes(e.status) && e.finished_at && time(e.finished_at) >= now.getTime() - RECENT_WINDOW_MS)
+      .sort((a, b) => time(b.finished_at) - time(a.finished_at))
   };
 }
 
@@ -163,25 +169,45 @@ const TRANSITIONS = {
   seat: { from: ['waiting', 'called'], to: 'seated', set: 'finished_at = CURRENT_TIMESTAMP' },
   noShow: { from: ['waiting', 'called'], to: 'no_show', set: 'finished_at = CURRENT_TIMESTAMP', message: 'noShow' },
   remove: { from: ACTIVE_STATUSES, to: 'removed', set: 'finished_at = CURRENT_TIMESTAMP' },
-  leave: { from: ACTIVE_STATUSES, to: 'left', set: 'finished_at = CURRENT_TIMESTAMP', message: 'left' }
+  leave: { from: ACTIVE_STATUSES, to: 'left', set: 'finished_at = CURRENT_TIMESTAMP', message: 'left' },
+  // Chamado que volta pra fila: no mesmo lugar (mantém a hora de chegada) ou no fim.
+  requeue: { from: ['called'], to: 'waiting', set: 'called_at = NULL', message: 'requeued', withPosition: true },
+  requeueEnd: { from: ['called'], to: 'waiting', set: 'called_at = NULL, joined_at = CURRENT_TIMESTAMP, notified_near = false', message: 'requeuedEnd', withPosition: true },
+  // Desfazer "Sentou"/"Não veio"/"Remover" marcado por engano: volta pro mesmo lugar, sem mensagem.
+  restore: { from: FINISHED_STATUSES, to: 'waiting', set: 'finished_at = NULL, called_at = NULL' }
 };
 
 export async function transitionEntry(dbImpl, { clientId, entryId, action }, deps = {}) {
   const t = TRANSITIONS[action];
   if (!t) throw new Error(`Ação inválida: ${action}`);
-  const { send } = resolveDeps(deps);
+  const { send, now } = resolveDeps(deps);
   const placeholders = t.from.map(() => '?').join(', ');
-  const { rows } = await dbImpl.query(
-    `UPDATE waitlist_entries SET status = ?, ${t.set}
-     WHERE id = ? AND client_id = ? AND status IN (${placeholders}) RETURNING *`,
-    [t.to, entryId, clientId, ...t.from]
-  );
+  let rows;
+  try {
+    ({ rows } = await dbImpl.query(
+      `UPDATE waitlist_entries SET status = ?, ${t.set}
+       WHERE id = ? AND client_id = ? AND status IN (${placeholders}) RETURNING *`,
+      [t.to, entryId, clientId, ...t.from]
+    ));
+  } catch (error) {
+    // Voltar pra fila quem já entrou de novo pelo WhatsApp (índice único por telefone).
+    if (isUniqueViolation(error)) throw new Error('Essa pessoa já está na fila de novo.');
+    throw error;
+  }
   const entry = rows[0];
   if (!entry) return null;
 
   const settings = await loadSettings(dbImpl, clientId);
+  let vars = {};
+  if (t.withPosition) {
+    const state = await loadQueueState(dbImpl, clientId, now);
+    const me = state.waiting.find((e) => e.id === entry.id);
+    vars = { posicao: me?.position ?? '-', espera: me?.estimated_wait ?? '-' };
+    // A mensagem já diz a posição: não manda "quase lá" logo em seguida.
+    if (me && me.position <= state.settings.near_threshold + 1) await claimNear(dbImpl, me.id);
+  }
   const silent = action === 'noShow' && !settings.notify_no_show;
-  if (t.message && !silent) await notifyEntry(entry, t.message, {}, { settings, send });
+  if (t.message && !silent) await notifyEntry(entry, t.message, vars, { settings, send });
   await afterQueueChange(dbImpl, clientId, deps);
   return entry;
 }

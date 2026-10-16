@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildQueue, seatingInterval, estimateWait, daySummary,
-  transitionEntry, enterQueue, afterQueueChange, addManualEntry
+  transitionEntry, enterQueue, afterQueueChange, addManualEntry, loadQueueState
 } from './waitlistQueue.js';
 
 const NOW = new Date('2026-10-15T23:00:00Z');
@@ -178,4 +178,72 @@ test('addManualEntry recusa telefone inválido', async () => {
   const db = fakeDb([]);
   const { deps: d } = deps();
   await assert.rejects(addManualEntry(db, { clientId: 1, name: 'X', phone: '123', partySize: 2 }, d), /Telefone inválido/);
+});
+
+test('chamado volta pra fila no mesmo lugar e recebe a posição', async () => {
+  let entries = [
+    { id: 1, client_id: 1, contact_id: 11, name: 'Ana', status: 'called', joined_at: minAgo(40), called_at: minAgo(2), notified_near: true },
+    { id: 2, client_id: 1, contact_id: 12, name: 'Bia', status: 'waiting', joined_at: minAgo(20), notified_near: true }
+  ];
+  const db = fakeDb([
+    [/UPDATE waitlist_entries SET status = \?/, (params, sql) => {
+      assert.match(sql, /called_at = NULL/);
+      assert.doesNotMatch(sql, /joined_at = CURRENT_TIMESTAMP/);
+      entries = entries.map((e) => (e.id === 1 ? { ...e, status: 'waiting', called_at: null } : e));
+      return { rows: [entries[0]] };
+    }],
+    [/SELECT \* FROM waitlist_entries/, () => ({ rows: entries })]
+  ]);
+  const { sent, deps: d } = deps();
+  const r = await transitionEntry(db, { clientId: 1, entryId: 1, action: 'requeue' }, d);
+  assert.equal(r.status, 'waiting');
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].body, /continua na fila\. Posição: 1/);
+});
+
+test('chamado mandado pro fim da fila renova a chegada e o aviso de quase lá', async () => {
+  let sqlSeen = '';
+  const db = fakeDb([
+    [/UPDATE waitlist_entries SET status = \?/, (params, sql) => { sqlSeen = sql; return { rows: [{ id: 1, client_id: 1, contact_id: 11, name: 'Ana', status: 'waiting', joined_at: NOW.toISOString() }] }; }],
+    [/SELECT \* FROM waitlist_entries/, { rows: [{ id: 1, client_id: 1, contact_id: 11, name: 'Ana', status: 'waiting', joined_at: NOW.toISOString(), notified_near: true }] }]
+  ]);
+  const { sent, deps: d } = deps();
+  await transitionEntry(db, { clientId: 1, entryId: 1, action: 'requeueEnd' }, d);
+  assert.match(sqlSeen, /joined_at = CURRENT_TIMESTAMP/);
+  assert.match(sqlSeen, /notified_near = false/);
+  assert.match(sent[0].body, /voltou pra fila\. Posição: 1/);
+});
+
+test('desfazer sentou/não veio volta pra fila sem mandar mensagem', async () => {
+  const db = fakeDb([
+    [/UPDATE waitlist_entries SET status = \?/, (params) => {
+      assert.deepEqual(params.slice(3), ['seated', 'no_show', 'left', 'removed']);
+      return { rows: [{ id: 3, client_id: 1, contact_id: 13, status: 'waiting' }] };
+    }]
+  ]);
+  const { sent, deps: d } = deps();
+  const r = await transitionEntry(db, { clientId: 1, entryId: 3, action: 'restore' }, d);
+  assert.equal(r.status, 'waiting');
+  assert.equal(sent.length, 0);
+});
+
+test('desfazer quando a pessoa já entrou de novo na fila avisa em vez de duplicar', async () => {
+  const db = fakeDb([
+    [/UPDATE waitlist_entries SET status = \?/, () => { throw Object.assign(new Error('dup'), { code: '23505' }); }]
+  ]);
+  const { deps: d } = deps();
+  await assert.rejects(transitionEntry(db, { clientId: 1, entryId: 3, action: 'restore' }, d), /já está na fila/);
+});
+
+test('loadQueueState lista quem saiu nas últimas 2h, mais recente primeiro', async () => {
+  const db = fakeDb([
+    [/SELECT \* FROM waitlist_entries/, { rows: [
+      { id: 1, status: 'seated', joined_at: minAgo(90), finished_at: minAgo(60) },
+      { id: 2, status: 'no_show', joined_at: minAgo(50), finished_at: minAgo(10) },
+      { id: 3, status: 'seated', joined_at: minAgo(300), finished_at: minAgo(200) },
+      { id: 4, status: 'waiting', joined_at: minAgo(5) }
+    ] }]
+  ]);
+  const state = await loadQueueState(db, 1, NOW);
+  assert.deepEqual(state.recent.map((e) => e.id), [2, 1]);
 });

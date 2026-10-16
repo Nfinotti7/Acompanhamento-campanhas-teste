@@ -26,7 +26,7 @@ import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
 import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
-import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr } from './controllers/waitlistController.js';
+import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr } from './controllers/waitlistController.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -151,6 +151,9 @@ app.post('/api/waitlist/:id/call', callEntry);
 app.post('/api/waitlist/:id/seat', seatEntry);
 app.post('/api/waitlist/:id/no-show', noShowEntry);
 app.post('/api/waitlist/:id/remove', removeEntry);
+app.post('/api/waitlist/:id/requeue', requeueEntry);
+app.post('/api/waitlist/:id/requeue-end', requeueEndEntry);
+app.post('/api/waitlist/:id/restore', restoreEntry);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);

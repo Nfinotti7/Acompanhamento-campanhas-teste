@@ -12,7 +12,9 @@ const MESSAGE_LABELS = {
   called: 'Mesa pronta (botão Chamar)',
   calledReminder: 'Lembrança de mesa pronta',
   noShow: 'Não veio',
-  left: 'Saiu da fila'
+  left: 'Saiu da fila',
+  requeued: 'Voltou pra fila (mesmo lugar)',
+  requeuedEnd: 'Voltou pra fila (fim)'
 };
 
 const labelText = { color: 'var(--text-secondary)', fontSize: '0.9rem', display: 'block', marginBottom: '4px' };

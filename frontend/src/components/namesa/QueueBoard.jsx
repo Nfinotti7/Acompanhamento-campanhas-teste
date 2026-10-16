@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, Check, UserX, Trash2, Plus, Pencil, AlertTriangle, MessageCircle, MoreVertical } from 'lucide-react';
+import { Bell, Check, UserX, Trash2, Plus, Pencil, AlertTriangle, MessageCircle, MoreVertical, Undo2, ArrowDownToLine } from 'lucide-react';
+
+const FINISHED_LABEL = { seated: 'sentou', no_show: 'não veio', left: 'saiu da fila', removed: 'removido' };
 import { useBreakpoint } from '../../responsive/useBreakpoint';
 import Sheet from '../ui/Sheet';
 
@@ -138,6 +140,12 @@ export default function QueueBoard({ api, refreshKey, onReconnect }) {
         <div style={{ flex: '1 1 220px', minWidth: 0 }}>{title}{meta}</div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {actionButtons(entry, kind)}
+          {kind === 'called' && (
+            <>
+              <button className="nm-btn nm-btn-muted" disabled={busyId === entry.id} onClick={() => act(entry, 'requeue')} title="Volta pra fila na mesma posição"><Undo2 size={16} /> Voltar pra fila</button>
+              <button className="nm-btn nm-btn-muted" disabled={busyId === entry.id} onClick={() => act(entry, 'requeue-end')} title="Volta pra fila no último lugar"><ArrowDownToLine size={16} /> Fim da fila</button>
+            </>
+          )}
           <button className="nm-btn nm-btn-ghost" onClick={() => edit(entry)} title="Editar" aria-label="Editar"><Pencil size={16} /></button>
           <button className="nm-btn nm-btn-ghost" onClick={() => act(entry, 'remove')} title="Remover" aria-label="Remover"><Trash2 size={16} /></button>
         </div>
@@ -213,12 +221,34 @@ export default function QueueBoard({ api, refreshKey, onReconnect }) {
         </p>
       )}
 
+      {data.recent?.length > 0 && (
+        <>
+          <h3 style={{ margin: '24px 0 8px' }}>Saíram há pouco</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 8px' }}>Marcou errado? Toque em "Voltar pra fila" e a pessoa volta pro mesmo lugar.</p>
+          {data.recent.map((e) => (
+            <div key={e.id} className="nm-card" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', padding: '10px 14px', marginBottom: '8px' }}>
+              <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{e.name || 'Sem nome'} · {e.party_size ?? '?'} {e.party_size === 1 ? 'pessoa' : 'pessoas'}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{FINISHED_LABEL[e.status] || e.status} há {minutesSince(e.finished_at, now)} min</div>
+              </div>
+              <button className="nm-btn nm-btn-muted" disabled={busyId === e.id} onClick={() => act(e, 'restore')} style={{ width: phone ? '100%' : undefined }}><Undo2 size={16} /> Voltar pra fila</button>
+            </div>
+          ))}
+        </>
+      )}
+
       {phone && (
         <>
           <button className="nm-fab" aria-label="Adicionar na fila" onClick={() => setAdding(true)}><Plus size={26} /></button>
           <Sheet open={adding} onClose={() => setAdding(false)} title="Adicionar na fila">{addForm}</Sheet>
           <Sheet open={Boolean(menuEntry)} onClose={() => setMenuEntry(null)} title={menuEntry?.name || 'Opções'}>
             <div style={{ display: 'grid', gap: '8px' }}>
+              {menuEntry?.status === 'called' && (
+                <>
+                  <button className="nm-btn nm-btn-muted" onClick={() => { const e = menuEntry; setMenuEntry(null); act(e, 'requeue'); }}><Undo2 size={16} /> Voltar pra fila (mesmo lugar)</button>
+                  <button className="nm-btn nm-btn-muted" onClick={() => { const e = menuEntry; setMenuEntry(null); act(e, 'requeue-end'); }}><ArrowDownToLine size={16} /> Mandar pro fim da fila</button>
+                </>
+              )}
               <button className="nm-btn nm-btn-muted" onClick={() => { const e = menuEntry; setMenuEntry(null); edit(e); }}><Pencil size={16} /> Editar nome e pessoas</button>
               <button className="nm-btn nm-btn-muted" style={{ color: 'var(--accent-danger)' }} onClick={() => { const e = menuEntry; setMenuEntry(null); act(e, 'remove'); }}><Trash2 size={16} /> Remover da fila</button>
             </div>

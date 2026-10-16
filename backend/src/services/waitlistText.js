@@ -9,7 +9,9 @@ export const DEFAULT_MESSAGES = {
   called: '{nome}, sua mesa está pronta! Dirija-se à recepção. Seguramos por {tolerancia} minutos.',
   calledReminder: '{nome}, sua mesa já está pronta! É só ir até a recepção.',
   noShow: 'Como não te encontramos, liberamos a vaga. Se ainda quiser, mande FILA.',
-  left: 'Tudo bem, você saiu da fila. Se quiser voltar, é só mandar FILA.'
+  left: 'Tudo bem, você saiu da fila. Se quiser voltar, é só mandar FILA.',
+  requeued: 'Sua mesa ainda não ficou pronta, mas você continua na fila. Posição: {posicao}.',
+  requeuedEnd: 'Você voltou pra fila. Posição: {posicao}. Espera estimada: ~{espera} min.'
 };
 
 export const MESSAGE_KEYS = Object.keys(DEFAULT_MESSAGES);

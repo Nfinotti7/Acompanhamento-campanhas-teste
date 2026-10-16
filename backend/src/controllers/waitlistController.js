@@ -38,6 +38,7 @@ export const getQueue = handler(async (req, res, clientId) => {
     waiting: state.waiting,
     called: state.called,
     awaitingSize: state.awaitingSize,
+    recent: state.recent,
     summary: state.summary,
     settings: { hold_minutes: state.settings.hold_minutes },
     whatsappStatus: await whatsappStatus(clientId)
@@ -69,7 +70,13 @@ export const editEntry = handler(async (req, res, clientId) => {
 
 function transition(action) {
   return handler(async (req, res, clientId) => {
-    const entry = await transitionEntry(db, { clientId, entryId: Number(req.params.id), action });
+    let entry;
+    try {
+      entry = await transitionEntry(db, { clientId, entryId: Number(req.params.id), action });
+    } catch (error) {
+      if (/já está na fila/.test(error.message)) return res.status(409).json({ error: error.message });
+      throw error;
+    }
     if (!entry) return res.status(409).json({ error: 'Essa pessoa já mudou de situação. A lista foi atualizada.' });
     return res.json({ entry });
   }, 'Erro ao atualizar a fila');
@@ -79,6 +86,9 @@ export const callEntry = transition('call');
 export const seatEntry = transition('seat');
 export const noShowEntry = transition('noShow');
 export const removeEntry = transition('remove');
+export const requeueEntry = transition('requeue');
+export const requeueEndEntry = transition('requeueEnd');
+export const restoreEntry = transition('restore');
 
 export const getSettings = handler(async (req, res, clientId) => {
   return res.json({ settings: await loadSettings(db, clientId), defaults: DEFAULT_MESSAGES });
