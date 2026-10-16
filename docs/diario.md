@@ -29,6 +29,9 @@
 - `/caixa`: shell estilo WhatsApp Web (rail de ícones à esquerda: Conversas/Funil/Agenda), login persistente (localStorage, não desloga no F5), atualização em tempo real via Server-Sent Events (mensagem nova aparece sozinha, sem precisar recarregar).
 - Toda mensagem real (texto, foto, áudio, figurinha, documento, localização) cria/atualiza o contato — só reação (emoji a outra mensagem) é ignorada.
 
+**Pronto no branch `feat/namesa`, ainda NÃO deployado (2026-10-15):**
+- **Na Mesa**: fila de espera de restaurante pelo WhatsApp, produto separado da dashboard (tela `/namesa` pra recepcionista, robô no WhatsApp). Primeiro cliente: **Mercearia** (cliente novo, só fila). Ver Registro 2026-10-15. Falta: o usuário aprovar e pedir o merge/deploy, cadastrar a Mercearia de verdade e testar com celular real.
+
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
 - Vincular Google Ads de Alma, Giulí e Malibu à MCC da agência — precisa ser feito manualmente pelo usuário na interface do Google Ads.
 - WhatsApp oficial (Cloud API) do Malibu está bloqueado por verificação de negócio + cartão de pagamento recusado na Meta. Baileys é o caminho interino enquanto isso não resolve — usuário pretendia migrar pra oficial "essa semana" (dito em 2026-10-12).
@@ -256,3 +259,55 @@ O usuário relatou que o sistema funcionava, mas o status ficava alternando entr
 - **Limitação:** um processo antigo que ainda roda código anterior a essa correção não sabe ceder. Depois do deploy pode precisar de um Restart no hPanel.
 - A página "Chaves e APIs" agora mostra a **última queda**, com horário, código e mensagem (e explica o 440), e os status `standby` e `disconnected`. Assim fica possível confirmar a causa.
 - Se o código mostrado não for 440, a hipótese estava errada e é preciso olhar a mensagem.
+
+### 2026-10-15 — Na Mesa: fila de espera pelo WhatsApp (branch `feat/namesa`)
+
+O usuário recebeu uma demanda de um restaurante que **não é cliente de tráfego** (a **Mercearia**) e quer só um sistema de fila de espera. A decisão foi construir isso dentro deste mesmo app, reaproveitando o Baileys, como um produto separado chamado **Na Mesa**.
+
+Decisões do usuário:
+- V1 é **só fila de espera presencial**. Reserva com data e hora fica pra depois, se o cliente pedir. Também ficam fora a fila "de casa", a página pública da fila e a integração com PDV ou mapa de mesas.
+- Qualquer mensagem de quem está na fila recebe a posição e a espera na hora. Não tem menu numérico, e o Baileys não suporta botões.
+- O robô avisa **só nos marcos** (entrou, "quase lá" uma vez, mesa chamada, não veio) e **não a cada baixa**, pra não queimar o número no Baileys. Isso foi uma proposta minha, aceita pelo usuário.
+- Referência de produto: Yelp Waitlist (espera estimada com dado real).
+
+Spec: `docs/superpowers/specs/2026-10-15-namesa-fila-design.md`. Plano: `docs/superpowers/plans/2026-10-15-namesa-fila.md`.
+
+Como ficou:
+- **Cliente com dois "produtos":** `clients.dashboard_enabled` e `clients.waitlist_enabled`. A Mercearia vai ter `false`/`true`.
+  - Cliente sem dashboard não passa pelo CRM (`ingestWhatsAppEvent` pula `matchTrackingClick`/`moveToAutoStage`) e não aparece no `/caixa`.
+  - Ele **continua no seletor do admin** (marcado "· Na Mesa"), porque é por ali que se abre "Chaves e APIs" pra conectar o QR do Baileys e definir o PIN.
+- **Tabelas:** `waitlist_settings` (número do WhatsApp, minutos por grupo, tolerância, quando avisar "quase lá", textos editáveis em JSONB) e `waitlist_entries` (status `awaiting_size|waiting|called|seated|no_show|left|removed`).
+- **Serviços:**
+  - `waitlistText.js`: lê "FILA", "sair", "somos 4", "eu e mais 3" e "duas", e monta os textos.
+  - `waitlistQueue.js`: posição, espera estimada, transições e marcos.
+  - `waitlistBot.js`: a conversa.
+  - `whatsappSender.js`: `sendToContact`, extraído do `replyToConversation`, que agora usa ele também. As mensagens do robô entram no histórico normal.
+- **Robô:** só acorda com `FILA` sozinho ou com `(cód. FILA)` (o texto que o QR da porta põe), ou com quem já está na fila. "tem fila hoje?" é ignorado. O robô roda só em mensagem recebida **e nova**, então reenvio do WhatsApp não duplica resposta.
+- **Espera estimada:** é a média dos intervalos entre as últimas baixas "sentou" das últimas 2h (pelo menos 3 baixas, cada intervalo limitado a 30 min), vezes a posição, arredondada pra múltiplos de 5. Antes disso usa o padrão de 8 min por grupo.
+- **Fila ativa = últimas 12h.** Não precisa de rotina de limpeza.
+- **Tela `/namesa`** (`NaMesaApp.jsx` + `components/namesa/`):
+  - Login com restaurante + PIN (mesmo token de staff do `/caixa`; `GET /api/staff/restaurants?product=waitlist`).
+  - Fila com Chamar/Sentou/Não veio/Editar/Remover, "+ Adicionar" manual, resumo do dia e aviso de WhatsApp desconectado.
+  - Atualiza ao vivo pelo SSE (evento nomeado `waitlist`) e toca som quando alguém entra.
+  - Aba Configurar com textos editáveis e "Imprimir QR da porta".
+- **Rotas:** `/api/waitlist*` (admin e staff).
+- Link "Acessar o Na Mesa" na tela de login. Chaves "Dashboard e CRM" / "Na Mesa" no cadastro de cliente.
+
+**Bug achado no teste ponta a ponta (já corrigido):** quando o envio falhava (WhatsApp caído), a resposta direta do robô ("Pra quantas pessoas?") lançava exceção e pulava o aviso SSE. A entrada ficava gravada, mas a tela só via no refresh de 30s. Agora a falha de envio só vai pro log.
+
+Testado:
+- `node --test` com 225 testes passando.
+- Local contra o banco de produção, com cliente de teste "Mercearia (teste)" em `cloud_api` falso e webhook assinado (`META_APP_SECRET=namesa_local_test` só no processo local). O fluxo inteiro passou: QR → nº de pessoas → posições, "Chamar" duplo (409, uma mensagem só), sentou/não veio, "quase lá" uma vez, sair, entrada manual, telefone inválido, tela atualizando ao vivo, salvar número e gerar o QR.
+- Os envios falharam (token falso) e só foram pro log, como desenhado. Dados de teste apagados.
+
+**Não testado:** envio real pelo Baileys (não há sessão local). O texto chega igual ao do webhook, mas falta confirmar com celular de verdade.
+
+**Atenção:** o `initDb()` local já criou as colunas e tabelas novas **no banco de produção** (aditivo, inofensivo pro código atual em produção).
+
+Pra colocar a Mercearia no ar (depois do merge/deploy):
+1. Admin → Clientes → novo cliente "Mercearia", marcar só "Na Mesa".
+2. Selecionar a Mercearia no seletor → Chaves e APIs → tipo Baileys, PIN, escanear o QR com o WhatsApp do restaurante.
+3. `/namesa` → Mercearia → PIN → Configurar → número do WhatsApp → Imprimir QR da porta.
+4. Teste real: ler o QR com outro celular.
+
+Dica de teste: o botão "Imprimir QR" abre a janela de impressão do navegador. No Playwright isso trava a automação (ninguém fecha o diálogo), então teste o QR pela API (`GET /api/waitlist/qr`).
