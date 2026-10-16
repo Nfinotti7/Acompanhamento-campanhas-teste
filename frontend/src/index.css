@@ -336,7 +336,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Tablet & Mobile breakpoint: sidebar becomes an off-canvas drawer */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .mobile-menu-btn {
     display: inline-flex;
   }
@@ -347,7 +347,7 @@ h1, h2, h3, h4, h5, h6 {
     top: 0;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-card);
   }
 
   .sidebar.open {
@@ -358,7 +358,7 @@ h1, h2, h3, h4, h5, h6 {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay);
     z-index: 45;
   }
 
@@ -383,7 +383,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Small phones: trim button labels and tighten spacing further */
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .navbar-filters .btn-label {
     display: none;
   }
@@ -391,6 +391,30 @@ h1, h2, h3, h4, h5, h6 {
   .navbar-filters {
     gap: 8px;
   }
+}
+
+/* ===== Regras globais de celular/tablet ===== */
+html, body, #root { min-height: 100dvh; }
+body { padding-bottom: env(safe-area-inset-bottom); }
+
+.page-pad {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+.only-phone { display: none !important; }
+
+@media (max-width: 640px) {
+  .only-phone { display: revert !important; }
+  .hide-phone { display: none !important; }
+  .stack-phone { flex-direction: column !important; align-items: stretch !important; }
+  /* iOS dá zoom em campo com fonte < 16px */
+  input, select, textarea { font-size: 16px !important; }
+  .main-content { padding: 16px 12px; }
+}
+
+@media (max-width: 1024px) {
+  button, .btn, a.btn, select { min-height: 44px; }
 }
 
 /* Print Styles for Report Export */
