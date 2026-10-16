@@ -413,3 +413,22 @@ O 5 virou `apple-mobile-web-app-status-bar-style: black` (barra preta com texto 
 - instalar os PWAs num Android e num iPhone de verdade.
 
 **Confirmado no ar (2026-10-16):** depois do push `c40a53d`, `https://furtherads.online/namesa.webmanifest` respondeu `application/manifest+json`, e `/namesa`, `/sw.js` e `GET /api/staff/restaurants?product=waitlist` responderam (lista vazia, porque a Mercearia ainda não foi cadastrada). Próximo passo é do usuário: cadastrar a Mercearia e testar com celular real.
+
+### 2026-10-16 — Restaurante reconecta o WhatsApp sozinho (branch `feat/whatsapp-autoatendimento`)
+
+**Contexto:** o usuário testou no Android e funcionou. No Na Mesa aparecia "nenhum restaurante". A causa: a Mercearia (`clients.id = 13`, "Mercearia Original") foi cadastrada, mas sem WhatsApp/PIN em Chaves e APIs (nenhuma linha em `whatsapp_settings`). A lista do `/namesa` exige isso, porque o PIN é o login da recepcionista.
+
+**Pedido:** a equipe do restaurante, no Caixa e no Na Mesa, precisa poder escanear o QR sozinha, sem depender da agência.
+
+**Feito:**
+- Componente `components/WhatsAppConnect.jsx`: mostra o status, o QR grande com passo a passo e atualiza a cada 4s.
+- **Caixa:** ícone "WhatsApp" no rail (PC/tablet) e "Conexão do WhatsApp" no menu "Mais" (celular). Faixa "WhatsApp desconectado: toque aqui pra reconectar", que consulta o status a cada 30s.
+- **Na Mesa:** bloco no topo da aba Configurar e botão "Reconectar o WhatsApp" no aviso da fila. A mensagem da lista vazia agora explica o que falta.
+- **Backend:** nada novo. `GET /api/whatsapp/baileys/status` já aceitava o token de staff, escopado no restaurante dele. Teste novo confirma que staff não enxerga outro restaurante.
+- Conferido com um QR real gerado localmente, no celular e no PC, nos dois temas.
+
+**Decisões:**
+- Criar o cliente e definir o PIN (Baileys) continua com a agência, uma vez por restaurante.
+- O restaurante **não** pode desconectar nem trocar o número, pra ninguém derrubar o atendimento sem querer.
+
+**Pendente pro usuário:** em Chaves e APIs da Mercearia Original, escolher Baileys + PIN e salvar. Depois disso a recepcionista entra no `/namesa` e escaneia o QR ela mesma.
