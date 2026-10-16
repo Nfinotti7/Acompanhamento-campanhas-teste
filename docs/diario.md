@@ -29,8 +29,13 @@
 - `/caixa`: shell estilo WhatsApp Web (rail de ícones à esquerda: Conversas/Funil/Agenda), login persistente (localStorage, não desloga no F5), atualização em tempo real via Server-Sent Events (mensagem nova aparece sozinha, sem precisar recarregar).
 - Toda mensagem real (texto, foto, áudio, figurinha, documento, localização) cria/atualiza o contato — só reação (emoji a outra mensagem) é ignorada.
 
-**Pronto no branch `feat/namesa`, ainda NÃO deployado (2026-10-15):**
-- **Na Mesa**: fila de espera de restaurante pelo WhatsApp, produto separado da dashboard (tela `/namesa` pra recepcionista, robô no WhatsApp). Primeiro cliente: **Mercearia** (cliente novo, só fila). Ver Registro 2026-10-15. Falta: o usuário aprovar e pedir o merge/deploy, cadastrar a Mercearia de verdade e testar com celular real.
+**Pronto no branch `feat/namesa` (2026-10-16), deploy autorizado pelo usuário ao fim do trabalho:**
+- **Na Mesa**: fila de espera de restaurante pelo WhatsApp, produto separado da dashboard (tela `/namesa` pra recepcionista, robô no WhatsApp). Primeiro cliente: **Mercearia** (cliente novo, só fila). Ver Registro 2026-10-15.
+- **Os 3 apps (Further Ads `/`, Caixa `/caixa`, Na Mesa `/namesa`)**:
+  - Layout próprio pra celular, tablet e PC.
+  - Tema claro/escuro nas cores da Further (marinho `#000D30` + turquesa `#0097B2`), com as logos da Further.
+  - Cada app é instalável como PWA, com ícone próprio. Ver Registro 2026-10-16.
+- Falta: cadastrar a Mercearia de verdade, testar a fila com celular real e instalar os PWAs num Android e num iPhone de verdade.
 
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
 - Vincular Google Ads de Alma, Giulí e Malibu à MCC da agência — precisa ser feito manualmente pelo usuário na interface do Google Ads.
@@ -328,3 +333,62 @@ Pendências pequenas (anotadas, não feitas):
 - Corrida rara: o "quase lá" pode chegar antes do "entrou".
 
 **Atenção pra quem usar a Cloud API (não é o caso da Mercearia, que é Baileys):** entrada manual de quem nunca escreveu fica fora da janela de 24h. Texto livre é recusado pela Meta, e a falha só aparece no log.
+
+### 2026-10-16 — Responsivo, tema claro/escuro e PWA nos 3 apps
+
+Pedido do usuário antes do deploy: telas boas em qualquer aparelho, instalável no celular, e tema claro/escuro.
+
+Decisões:
+- **Escopo:** os 3 apps.
+- **Deploy:** único no fim.
+- **Instalação:** 3 apps instaláveis separados.
+- **Cores:** as da Further em tudo.
+- **Logos:** as claras no tema escuro e as escuras no claro.
+- O usuário delegou os detalhes técnicos.
+
+Spec: `docs/superpowers/specs/2026-10-15-responsivo-tema-pwa-design.md`. Plano: `docs/superpowers/plans/2026-10-15-responsivo-tema-pwa.md`.
+
+**Tema:**
+- Variáveis em `frontend/src/index.css`, com um bloco por `[data-theme="dark"|"light"]`. Os nomes antigos (`--bg-card`, `--text-primary`...) foram mantidos, e entraram novos (`--on-accent`, `--accent-link`, `--surface-subtle`, `--border-strong`, `--overlay`, `--bg-input`, `--bg-elevated`, `--chart-1..6`).
+- O seletor é de atributo, então dá pra forçar uma parte da tela no claro.
+- Um script inline no `index.html` aplica o tema antes do React (sem piscar).
+- Botão sol/lua: `theme/ThemeToggle`. Escolha salva em `localStorage.theme`; sem escolha, segue o aparelho.
+- **Testes do frontend:** o frontend agora tem `npm test` (`node --test`), com 51 testes.
+  - Contraste WCAG AA nos dois temas (`theme/contrast.test.js`).
+  - **Trava de cor fixa:** `theme/noHardcodedColors.test.js` falha se aparecer `#hex`/`rgba(` em qualquer `.jsx`. A exceção é marcar a linha com `cor-fixa-ok` (ex.: cor de etapa/tag que vai pro banco, que o backend exige em hex).
+- **Armadilhas encontradas** (pra não repetir):
+  - `var()` em atributo de SVG (`stroke=`, `fill=` do recharts) não é confiável no Safari. Os gráficos recebem cor resolvida (`resolveCssColor` / `resolveCssColorFor(valor, tema)` em `theme/useTheme.js`).
+  - O **html2canvas 1.4** (PDF do relatório e da apresentação) quebra com `color(srgb ...)`, que é como o navegador entrega um `color-mix()` calculado. `theme/legacyColors.js` converte pra `rgba` na cópia (`onclone`).
+  - **Relatório impresso/PDF sai sempre claro:** a área recebe `data-theme="light"` ao exportar. Conferido gerando o PDF de verdade.
+
+**Tamanhos de tela:**
+- Faixas: celular ≤640, tablet ≤1024 (`responsive/useBreakpoint`).
+- Componentes novos: `components/ui/Sheet` (folha que sobe de baixo), `ResponsiveTable` (cartões no celular) e `Modal` em tela cheia no celular.
+- **Na Mesa:** cartões com botões grandes, "+ Adicionar" flutuante e menu ⋯.
+- **Caixa:** no celular funciona como o WhatsApp (abas embaixo, lista → conversa, o voltar do aparelho volta pra lista).
+- **Dashboard:**
+  - Logo da Further na barra lateral e no login.
+  - No celular, os filtros ficam no botão "Filtros".
+  - As tabelas viram cartões **só no celular** (no tablet/PC fica a tabela com ordenação).
+
+**PWA:**
+- `public/further|caixa|namesa.webmanifest` + `public/sw.js`, um único service worker.
+- **Cache:** a navegação é rede-primeiro com fallback pro shell, os arquivos com hash vão pelo cache, e `/api` e `/r/` nunca passam por ele.
+- **Manifesto e ícones:** `pwa/apps.js` escolhe o app pelo endereço.
+- **Ícones:** em `public/icons/`, gerados por `frontend/scripts/generate_icons.py` (Pillow) a partir das logos em `public/brand/`.
+- **Avisos na tela:**
+  - Android: botão "Instalar".
+  - iPhone: dica "Compartilhar → Adicionar à Tela de Início".
+  - Sem internet: faixa "Sem conexão".
+- **Conferido no build de produção servido pelo backend:** manifesto e ícone por app, service worker ativo, `/api` fora do cache.
+
+**Conferência visual (Playwright):** os 3 apps em 375, 768 e 1280px nos dois temas. Achou e corrigiu:
+- rótulos do topo vazando pro lado no celular;
+- ícone do Na Mesa sumindo no fundo escuro;
+- balão de mensagem invisível no claro;
+- tiques de lida sumindo no balão;
+- abas e botões cortados.
+
+**Não testado:** instalação em Android/iPhone reais, nem o Safari de verdade (o Playwright usa Chromium).
+
+**Ferramentas úteis que ficaram no scratchpad da sessão** (não commitadas): `colormod.cjs` (converte cor fixa pela tabela do plano) e o roteiro de screenshots via `browser_run_code_unsafe`.
