@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, Check, UserX, Trash2, Plus, Pencil, AlertTriangle, MessageCircle } from 'lucide-react';
-
-const C = { panel: '#131b2e', border: 'rgba(255,255,255,0.1)', muted: '#94a3b8', accent: '#f59e0b', red: '#ef4444', green: '#22c55e' };
+import { Bell, Check, UserX, Trash2, Plus, Pencil, AlertTriangle, MessageCircle, MoreVertical } from 'lucide-react';
+import { useBreakpoint } from '../../responsive/useBreakpoint';
+import Sheet from '../ui/Sheet';
 
 function minutesSince(ts, now) {
   return Math.max(0, Math.floor((now - new Date(ts).getTime()) / 60000));
@@ -15,18 +15,16 @@ const WA_LABEL = {
   not_configured: 'WhatsApp não configurado pra este restaurante.'
 };
 
-const actionBtn = (bg, color = '#fff') => ({
-  padding: '12px 14px', borderRadius: '10px', border: 'none', background: bg, color,
-  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-});
-
 export default function QueueBoard({ api, refreshKey }) {
+  const bp = useBreakpoint();
+  const phone = bp === 'phone';
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', partySize: '2' });
   const [busyId, setBusyId] = useState(null);
+  const [menuEntry, setMenuEntry] = useState(null);
 
   const load = useCallback(() => {
     api.get('/api/waitlist')
@@ -78,60 +76,111 @@ export default function QueueBoard({ api, refreshKey }) {
     }
   };
 
-  if (!data) return <p style={{ color: C.muted }}>{error || 'Carregando...'}</p>;
+  if (!data) return <p style={{ color: 'var(--text-muted)' }}>{error || 'Carregando...'}</p>;
 
   const hold = data.settings?.hold_minutes ?? 10;
   const waWarning = WA_LABEL[data.whatsappStatus];
   const s = data.summary;
 
+  const actionButtons = (entry, kind) => (
+    <>
+      {kind === 'waiting' && (
+        <button disabled={busyId === entry.id} className="nm-btn nm-btn-call" onClick={() => act(entry, 'call')}><Bell size={16} /> Chamar</button>
+      )}
+      <button disabled={busyId === entry.id} className="nm-btn nm-btn-seat" onClick={() => act(entry, 'seat')}><Check size={16} /> Sentou</button>
+      <button disabled={busyId === entry.id} className="nm-btn nm-btn-muted" onClick={() => act(entry, 'no-show')}><UserX size={16} /> Não veio</button>
+    </>
+  );
+
   const row = (entry, kind) => {
     const waited = minutesSince(entry.joined_at, now);
     const calledFor = entry.called_at ? minutesSince(entry.called_at, now) : null;
     const late = kind === 'called' && calledFor > hold;
-    return (
-      <div key={entry.id} style={{
-        display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '14px',
-        background: C.panel, borderRadius: '12px', marginBottom: '10px',
-        border: `1px solid ${late ? C.red : kind === 'called' ? C.accent : C.border}`
-      }}>
-        {kind === 'waiting' && <div style={{ fontSize: '1.6rem', fontWeight: 800, width: '44px', textAlign: 'center' }}>{entry.position}</div>}
-        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>
-            {entry.name || 'Sem nome'} · {entry.party_size ?? '?'} {entry.party_size === 1 ? 'pessoa' : 'pessoas'}
-            {entry.needs_check && <span style={{ color: C.accent, fontSize: '0.85rem', marginLeft: '8px' }}><AlertTriangle size={14} style={{ verticalAlign: 'middle' }} /> conferir pessoas</span>}
+    const borderColor = late ? 'var(--accent-danger)' : kind === 'called' ? 'var(--accent-warning)' : 'var(--border-color)';
+    const title = (
+      <div style={{ fontWeight: 700, fontSize: '1.1rem', overflowWrap: 'anywhere' }}>
+        {entry.name || 'Sem nome'} · {entry.party_size ?? '?'} {entry.party_size === 1 ? 'pessoa' : 'pessoas'}
+        {entry.needs_check && (
+          <span style={{ color: 'var(--accent-warning)', fontSize: '0.85rem', marginLeft: '8px', whiteSpace: 'nowrap' }}>
+            <AlertTriangle size={14} style={{ verticalAlign: 'middle' }} /> conferir pessoas
+          </span>
+        )}
+      </div>
+    );
+    const meta = (
+      <div style={{ color: late ? 'var(--accent-danger)' : 'var(--text-secondary)', fontSize: '0.9rem' }}>
+        {kind === 'called' ? `Chamado há ${calledFor} min` : `Esperando há ${waited} min · ~${entry.estimated_wait} min`}
+        {' · '}{entry.source === 'whatsapp' ? <><MessageCircle size={12} style={{ verticalAlign: 'middle' }} /> WhatsApp</> : 'manual'}
+      </div>
+    );
+    const position = kind === 'waiting' && (
+      <div style={{ fontSize: phone ? '1.8rem' : '1.6rem', fontWeight: 800, minWidth: '40px', textAlign: 'center', color: 'var(--accent-link)' }}>{entry.position}</div>
+    );
+
+    if (phone) {
+      return (
+        <div key={entry.id} className="nm-card" style={{ padding: '14px', marginBottom: '10px', borderColor }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            {position}
+            <div style={{ flex: 1, minWidth: 0 }}>{title}{meta}</div>
+            <button className="nm-btn nm-btn-ghost" aria-label="Mais opções" onClick={() => setMenuEntry(entry)}><MoreVertical size={18} /></button>
           </div>
-          <div style={{ color: late ? C.red : C.muted, fontSize: '0.9rem' }}>
-            {kind === 'called' ? `Chamado há ${calledFor} min` : `Esperando há ${waited} min · ~${entry.estimated_wait} min`}
-            {' · '}{entry.source === 'whatsapp' ? <><MessageCircle size={12} style={{ verticalAlign: 'middle' }} /> WhatsApp</> : 'manual'}
+          <div className="nm-phone-actions" style={{ display: 'grid', gridTemplateColumns: kind === 'waiting' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '8px', marginTop: '12px' }}>
+            {actionButtons(entry, kind)}
           </div>
         </div>
+      );
+    }
+
+    return (
+      <div key={entry.id} className="nm-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '14px', marginBottom: '10px', borderColor }}>
+        {position}
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>{title}{meta}</div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {kind === 'waiting' && <button disabled={busyId === entry.id} style={actionBtn(C.accent, '#111')} onClick={() => act(entry, 'call')}><Bell size={16} /> Chamar</button>}
-          <button disabled={busyId === entry.id} style={actionBtn(C.green, '#111')} onClick={() => act(entry, 'seat')}><Check size={16} /> Sentou</button>
-          <button disabled={busyId === entry.id} style={actionBtn('#334155')} onClick={() => act(entry, 'no-show')}><UserX size={16} /> Não veio</button>
-          <button style={actionBtn('transparent', C.muted)} onClick={() => edit(entry)} title="Editar"><Pencil size={16} /></button>
-          <button style={actionBtn('transparent', C.muted)} onClick={() => act(entry, 'remove')} title="Remover"><Trash2 size={16} /></button>
+          {actionButtons(entry, kind)}
+          <button className="nm-btn nm-btn-ghost" onClick={() => edit(entry)} title="Editar" aria-label="Editar"><Pencil size={16} /></button>
+          <button className="nm-btn nm-btn-ghost" onClick={() => act(entry, 'remove')} title="Remover" aria-label="Remover"><Trash2 size={16} /></button>
         </div>
       </div>
     );
   };
 
   const stat = (label, value) => (
-    <div style={{ background: C.panel, borderRadius: '12px', padding: '12px 16px', flex: '1 1 120px' }}>
-      <div style={{ color: C.muted, fontSize: '0.8rem' }}>{label}</div>
+    <div className="nm-card" style={{ padding: '12px 16px', flex: phone ? '0 0 auto' : '1 1 120px', minWidth: phone ? '120px' : undefined, scrollSnapAlign: 'start' }}>
+      <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{label}</div>
       <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{value}</div>
     </div>
   );
 
+  const addForm = (
+    <form onSubmit={submitAdd} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexDirection: phone ? 'column' : 'row' }}>
+      {[['name', 'Nome', 'text'], ['phone', 'WhatsApp (opcional)', 'tel'], ['partySize', 'Pessoas', 'number']].map(([key, ph, type]) => (
+        <input key={key} className="nm-input" required={key !== 'phone'} type={type}
+          inputMode={key === 'partySize' ? 'numeric' : undefined}
+          min={key === 'partySize' ? 1 : undefined} max={key === 'partySize' ? 30 : undefined}
+          placeholder={ph} aria-label={ph} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+          style={{ flex: phone ? 'none' : key === 'partySize' ? '0 0 110px' : '1 1 180px', width: phone ? '100%' : undefined }} />
+      ))}
+      <button type="submit" className="nm-btn nm-btn-seat" style={{ width: phone ? '100%' : undefined }}>Colocar na fila</button>
+    </form>
+  );
+
   return (
-    <div>
+    <div style={{ paddingBottom: phone ? '96px' : 0 }}>
       {waWarning && (
-        <div style={{ background: 'rgba(239,68,68,0.15)', border: `1px solid ${C.red}`, color: '#fca5a5', padding: '12px', borderRadius: '10px', marginBottom: '12px' }}>
-          <AlertTriangle size={16} style={{ verticalAlign: 'middle' }} /> {waWarning}
+        <div style={{
+          background: 'color-mix(in srgb, var(--accent-danger) 12%, transparent)', border: '1px solid var(--accent-danger)',
+          color: 'var(--text-primary)', padding: '12px', borderRadius: '10px', marginBottom: '12px'
+        }}>
+          <AlertTriangle size={16} style={{ verticalAlign: 'middle', color: 'var(--accent-danger)' }} /> {waWarning}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+      <div style={{
+        display: 'flex', gap: '10px', marginBottom: '16px',
+        flexWrap: phone ? 'nowrap' : 'wrap', overflowX: phone ? 'auto' : 'visible',
+        scrollSnapType: phone ? 'x mandatory' : undefined, paddingBottom: phone ? '4px' : 0
+      }}>
         {stat('Na fila agora', data.waiting.length)}
         {stat('Entraram hoje', s.total)}
         {stat('Sentaram', s.seated)}
@@ -139,32 +188,39 @@ export default function QueueBoard({ api, refreshKey }) {
         {stat('Espera média', s.avgWaitMinutes === null ? '-' : `${s.avgWaitMinutes} min`)}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-        <button style={actionBtn(C.accent, '#111')} onClick={() => setAdding((v) => !v)}><Plus size={16} /> Adicionar</button>
-      </div>
-
-      {adding && (
-        <form onSubmit={submitAdd} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', background: C.panel, padding: '12px', borderRadius: '12px', marginBottom: '16px' }}>
-          {[['name', 'Nome', 'text'], ['phone', 'WhatsApp (opcional)', 'tel'], ['partySize', 'Pessoas', 'number']].map(([key, ph, type]) => (
-            <input key={key} required={key !== 'phone'} type={type} min={key === 'partySize' ? 1 : undefined} max={key === 'partySize' ? 30 : undefined}
-              placeholder={ph} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              style={{ flex: key === 'partySize' ? '0 0 100px' : '1 1 180px', padding: '12px', borderRadius: '10px', border: `1px solid ${C.border}`, background: '#0b1120', color: '#fff', fontSize: '1rem' }} />
-          ))}
-          <button type="submit" style={actionBtn(C.green, '#111')}>Colocar na fila</button>
-        </form>
+      {!phone && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+            <button className="nm-btn nm-btn-primary" onClick={() => setAdding((v) => !v)}><Plus size={16} /> Adicionar</button>
+          </div>
+          {adding && <div className="nm-card" style={{ padding: '12px', marginBottom: '16px' }}>{addForm}</div>}
+        </>
       )}
 
       {data.called.length > 0 && <h3 style={{ margin: '8px 0' }}>Chamados</h3>}
       {data.called.map((e) => row(e, 'called'))}
 
       <h3 style={{ margin: '8px 0' }}>Esperando</h3>
-      {data.waiting.length === 0 && <p style={{ color: C.muted }}>Ninguém na fila.</p>}
+      {data.waiting.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Ninguém na fila.</p>}
       {data.waiting.map((e) => row(e, 'waiting'))}
 
       {data.awaitingSize.length > 0 && (
-        <p style={{ color: C.muted, marginTop: '12px' }}>
+        <p style={{ color: 'var(--text-muted)', marginTop: '12px' }}>
           Respondendo quantas pessoas: {data.awaitingSize.map((e) => e.name || 'sem nome').join(', ')}
         </p>
+      )}
+
+      {phone && (
+        <>
+          <button className="nm-fab" aria-label="Adicionar na fila" onClick={() => setAdding(true)}><Plus size={26} /></button>
+          <Sheet open={adding} onClose={() => setAdding(false)} title="Adicionar na fila">{addForm}</Sheet>
+          <Sheet open={Boolean(menuEntry)} onClose={() => setMenuEntry(null)} title={menuEntry?.name || 'Opções'}>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <button className="nm-btn nm-btn-muted" onClick={() => { const e = menuEntry; setMenuEntry(null); edit(e); }}><Pencil size={16} /> Editar nome e pessoas</button>
+              <button className="nm-btn nm-btn-muted" style={{ color: 'var(--accent-danger)' }} onClick={() => { const e = menuEntry; setMenuEntry(null); act(e, 'remove'); }}><Trash2 size={16} /> Remover da fila</button>
+            </div>
+          </Sheet>
+        </>
       )}
     </div>
   );

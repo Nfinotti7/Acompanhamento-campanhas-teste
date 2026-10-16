@@ -498,3 +498,31 @@ body { padding-bottom: env(safe-area-inset-bottom); }
 .rt-card-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 0.9rem; }
 .rt-card-row dt { color: var(--text-muted); }
 .rt-card-row dd { text-align: right; }
+
+/* ===== Na Mesa ===== */
+.nm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 48px; padding: 10px 14px; border-radius: 10px; border: 1px solid transparent;
+  font-weight: 700; font-size: 0.95rem; cursor: pointer; font-family: inherit;
+}
+.nm-btn:disabled { opacity: 0.6; cursor: wait; }
+.nm-btn-primary { background: var(--accent-primary); color: var(--on-accent); }
+.nm-btn-primary:hover { background: var(--accent-primary-hover); }
+.nm-btn-call { background: color-mix(in srgb, var(--accent-warning) 18%, transparent); color: var(--text-primary); border-color: var(--accent-warning); }
+.nm-btn-seat { background: var(--accent-success); color: var(--on-accent); }
+.nm-btn-muted { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border-color); }
+.nm-btn-ghost { background: transparent; color: var(--text-muted); min-width: 44px; padding: 10px; }
+.nm-btn-ghost:hover { color: var(--text-primary); background: var(--surface-subtle); }
+.nm-input {
+  width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color);
+  background: var(--bg-input); color: var(--text-primary); font-size: 1rem; font-family: inherit;
+}
+.nm-input:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+.nm-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+.nm-fab {
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 50;
+  width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--accent-primary); color: var(--on-accent); box-shadow: var(--shadow-card);
+  display: flex; align-items: center; justify-content: center;
+}
+.nm-phone-actions .nm-btn { padding: 8px 4px; font-size: 0.88rem; gap: 4px; }

@@ -3,7 +3,6 @@
 export const PENDING_COLOR_FILES = [
   'App.jsx',
   'CaixaApp.jsx',
-  'NaMesaApp.jsx',
   'components/AttributionView.jsx',
   'components/CaixaChatView.jsx',
   'components/CaixaFunilView.jsx',
@@ -20,8 +19,6 @@ export const PENDING_COLOR_FILES = [
   'components/crm/CrmSettings.jsx',
   'components/crm/DealBar.jsx',
   'components/crm/crmUi.jsx',
-  'components/namesa/QueueBoard.jsx',
-  'components/namesa/WaitlistSettings.jsx',
   'components/whatsappMedia.jsx',
   'pages/ClientsPage.jsx',
   'pages/CredentialsPage.jsx',

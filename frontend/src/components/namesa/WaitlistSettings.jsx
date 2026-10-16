@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, Save } from 'lucide-react';
-
-const C = { panel: '#131b2e', border: 'rgba(255,255,255,0.1)', muted: '#94a3b8', accent: '#f59e0b' };
+import { useBreakpoint } from '../../responsive/useBreakpoint';
 
 const MESSAGE_LABELS = {
   askSize: 'Pergunta de quantas pessoas',
@@ -15,9 +14,10 @@ const MESSAGE_LABELS = {
   left: 'Saiu da fila'
 };
 
-const field = { width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid ${C.border}`, background: '#0b1120', color: '#fff', fontSize: '1rem' };
+const labelText = { color: 'var(--text-secondary)', fontSize: '0.9rem', display: 'block', marginBottom: '4px' };
 
 export default function WaitlistSettings({ api }) {
+  const phone = useBreakpoint() === 'phone';
   const [settings, setSettings] = useState(null);
   const [msg, setMsg] = useState('');
 
@@ -25,9 +25,10 @@ export default function WaitlistSettings({ api }) {
     api.get('/api/waitlist/settings').then((res) => setSettings(res.data.settings));
   }, [api]);
 
-  if (!settings) return <p style={{ color: C.muted }}>Carregando...</p>;
+  if (!settings) return <p style={{ color: 'var(--text-muted)' }}>Carregando...</p>;
 
   const set = (key, value) => setSettings({ ...settings, [key]: value });
+  const fullOnPhone = { width: phone ? '100%' : undefined };
 
   const save = async () => {
     setMsg('');
@@ -50,8 +51,9 @@ export default function WaitlistSettings({ api }) {
     }
     try {
       const { data } = await api.get('/api/waitlist/qr');
+      // Papel: sempre claro, independente do tema da tela.
       w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR da fila</title>
-        <style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px}h1{font-size:42px;margin:0 0 8px}p{font-size:22px;color:#444}img{width:420px;max-width:90vw}</style>
+        <style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px;color:#000D30;background:#fff}h1{font-size:42px;margin:0 0 8px}p{font-size:22px;color:#3A4A6B}img{width:420px;max-width:90vw}</style><!-- cor-fixa-ok: papel, sempre claro -->
         </head><body><h1>Entre na fila pelo WhatsApp</h1><p>Aponte a câmera do celular e mande a mensagem</p>
         <img src="${data.dataUrl}" alt="QR da fila"/><p>Você recebe sua posição e avisamos quando a mesa estiver pronta.</p>
         <script>window.onload=()=>window.print()</script></body></html>`);
@@ -64,44 +66,44 @@ export default function WaitlistSettings({ api }) {
 
   const num = (key, label, min, max) => (
     <label style={{ display: 'block', marginBottom: '12px' }}>
-      <span style={{ color: C.muted, fontSize: '0.9rem' }}>{label}</span>
-      <input type="number" min={min} max={max} style={field} value={settings[key]} onChange={(e) => set(key, Number(e.target.value))} />
+      <span style={labelText}>{label}</span>
+      <input type="number" inputMode="numeric" min={min} max={max} className="nm-input" value={settings[key]} onChange={(e) => set(key, Number(e.target.value))} />
     </label>
   );
 
   return (
-    <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-      <section style={{ background: C.panel, padding: '16px', borderRadius: '12px' }}>
+    <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))' }}>
+      <section className="nm-card" style={{ padding: '16px' }}>
         <h3 style={{ marginTop: 0 }}>Fila</h3>
         <label style={{ display: 'block', marginBottom: '12px' }}>
-          <span style={{ color: C.muted, fontSize: '0.9rem' }}>WhatsApp do restaurante (com DDD)</span>
-          <input style={field} value={settings.whatsapp_number || ''} placeholder="(11) 99999-8888" onChange={(e) => set('whatsapp_number', e.target.value)} />
+          <span style={labelText}>WhatsApp do restaurante (com DDD)</span>
+          <input className="nm-input" type="tel" value={settings.whatsapp_number || ''} placeholder="(11) 99999-8888" onChange={(e) => set('whatsapp_number', e.target.value)} />
         </label>
         {num('default_minutes_per_party', 'Minutos por grupo (até ter histórico da noite)', 1, 60)}
         {num('hold_minutes', 'Tolerância depois de chamar (min)', 1, 60)}
         {num('near_threshold', 'Avisar "quase lá" quando faltarem N grupos', 0, 10)}
-        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px' }}>
-          <input type="checkbox" checked={settings.notify_no_show} onChange={(e) => set('notify_no_show', e.target.checked)} />
+        <label style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px', minHeight: '44px' }}>
+          <input type="checkbox" style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)' }} checked={settings.notify_no_show} onChange={(e) => set('notify_no_show', e.target.checked)} />
           Mandar mensagem quando marcar "Não veio"
         </label>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button onClick={save} style={{ padding: '12px 16px', borderRadius: '10px', border: 'none', background: C.accent, fontWeight: 700, cursor: 'pointer' }}><Save size={16} style={{ verticalAlign: 'middle' }} /> Salvar</button>
-          <button onClick={printQr} style={{ padding: '12px 16px', borderRadius: '10px', border: `1px solid ${C.border}`, background: 'transparent', color: '#fff', fontWeight: 700, cursor: 'pointer' }}><Printer size={16} style={{ verticalAlign: 'middle' }} /> Imprimir QR da porta</button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexDirection: phone ? 'column' : 'row' }}>
+          <button onClick={save} className="nm-btn nm-btn-primary" style={fullOnPhone}><Save size={16} /> Salvar</button>
+          <button onClick={printQr} className="nm-btn nm-btn-muted" style={fullOnPhone}><Printer size={16} /> Imprimir QR da porta</button>
         </div>
-        {msg && <p style={{ color: C.muted }}>{msg}</p>}
+        {msg && <p style={{ color: 'var(--text-secondary)' }}>{msg}</p>}
       </section>
 
-      <section style={{ background: C.panel, padding: '16px', borderRadius: '12px' }}>
+      <section className="nm-card" style={{ padding: '16px' }}>
         <h3 style={{ marginTop: 0 }}>Mensagens do robô</h3>
-        <p style={{ color: C.muted, fontSize: '0.85rem' }}>Variáveis: {'{nome} {posicao} {espera} {faltam} {tolerancia}'}. Apague o texto pra voltar ao padrão.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Variáveis: {'{nome} {posicao} {espera} {faltam} {tolerancia}'}. Apague o texto pra voltar ao padrão.</p>
         {Object.entries(MESSAGE_LABELS).map(([key, label]) => (
           <label key={key} style={{ display: 'block', marginBottom: '12px' }}>
-            <span style={{ color: C.muted, fontSize: '0.9rem' }}>{label}</span>
-            <textarea rows={3} style={{ ...field, resize: 'vertical' }} value={settings.messages[key] || ''}
+            <span style={labelText}>{label}</span>
+            <textarea rows={3} className="nm-input" style={{ resize: 'vertical' }} value={settings.messages[key] || ''}
               onChange={(e) => set('messages', { ...settings.messages, [key]: e.target.value })} />
           </label>
         ))}
-        <button onClick={save} style={{ padding: '12px 16px', borderRadius: '10px', border: 'none', background: C.accent, fontWeight: 700, cursor: 'pointer' }}>Salvar mensagens</button>
+        <button onClick={save} className="nm-btn nm-btn-primary" style={fullOnPhone}>Salvar mensagens</button>
       </section>
     </div>
   );

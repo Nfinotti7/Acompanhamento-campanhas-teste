@@ -3,11 +3,11 @@ import React from 'react';
 // Ícone de cada app em SVG (mesmo desenho dos PNG gerados por scripts/generate_icons.py).
 export default function AppIcon({ app, size = 40 }) {
   if (app === 'further') {
-    return <img src="/icons/further-192.png" alt="" width={size} height={size} style={{ borderRadius: size * 0.22 }} />;
+    return <img src="/icons/further-192.png" alt="" width={size} height={size} style={{ borderRadius: size * 0.22, boxShadow: '0 0 0 1px var(--border-strong)' }} />;
   }
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">
-      <rect width="100" height="100" rx="22" fill="var(--brand-navy)" />
+      <rect x="0.75" y="0.75" width="98.5" height="98.5" rx="22" fill="var(--brand-navy)" stroke="var(--border-strong)" strokeWidth="1.5" />
       {app === 'caixa' ? (
         <>
           <rect x="19" y="20" width="62" height="45" rx="12" fill="var(--brand-teal)" />

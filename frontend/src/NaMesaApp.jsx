@@ -4,6 +4,10 @@ import { Store, Lock, ArrowLeft, Users, Settings, LogOut } from 'lucide-react';
 import QueueBoard from './components/namesa/QueueBoard';
 import WaitlistSettings from './components/namesa/WaitlistSettings';
 import { playNotificationSound, unlockNotificationSound } from './components/notificationSound';
+import AppIcon from './brand/AppIcon';
+import BrandLogo from './brand/BrandLogo';
+import ThemeToggle from './theme/ThemeToggle';
+import { useBreakpoint } from './responsive/useBreakpoint';
 
 const TOKEN_KEY = 'namesa_token';
 const RESTAURANT_KEY = 'namesa_restaurant';
@@ -34,26 +38,12 @@ function loadStoredSession() {
   }
 }
 
-const C = {
-  bg: '#0b1120', panel: '#131b2e', border: 'rgba(255,255,255,0.1)', text: '#fff',
-  muted: '#94a3b8', accent: '#f59e0b'
-};
-
-const inputStyle = {
-  width: '100%', padding: '14px', borderRadius: '10px', border: `1px solid ${C.border}`,
-  backgroundColor: C.panel, color: C.text, marginBottom: '12px', fontSize: '1rem'
-};
-const buttonStyle = {
-  width: '100%', padding: '14px', borderRadius: '10px', border: 'none',
-  background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#111', fontWeight: 700,
-  fontSize: '1rem', cursor: 'pointer'
-};
-
 export default function NaMesaApp() {
   const stored = loadStoredSession();
+  const bp = useBreakpoint();
   const [step, setStep] = useState(stored ? 'app' : 'select');
   const [tab, setTab] = useState('fila');
-  const [restaurants, setRestaurants] = useState([]);
+  const [restaurants, setRestaurants] = useState(null);
   const [restaurant, setRestaurant] = useState(stored?.restaurant || null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -64,7 +54,10 @@ export default function NaMesaApp() {
   useEffect(() => {
     api.get('/api/staff/restaurants', { params: { product: 'waitlist' } })
       .then((res) => setRestaurants(res.data.restaurants || []))
-      .catch(() => setError('Não foi possível carregar a lista de restaurantes.'));
+      .catch(() => {
+        setRestaurants([]);
+        setError('Não foi possível carregar a lista de restaurantes.');
+      });
   }, []);
 
   const handleLogout = () => {
@@ -113,53 +106,77 @@ export default function NaMesaApp() {
 
   if (step !== 'app') {
     return (
-      <div style={{ minHeight: '100vh', background: C.bg, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-        <div style={{ width: '100%', maxWidth: '380px' }}>
-          <h1 style={{ textAlign: 'center', marginBottom: '4px' }}>Na Mesa</h1>
-          <p style={{ textAlign: 'center', color: C.muted, marginBottom: '24px' }}>Fila de espera</p>
-          {error && <p style={{ color: '#f87171', marginBottom: '12px' }}>{error}</p>}
+      <div className="page-pad" style={{
+        minHeight: '100dvh', background: 'var(--bg-dark)', color: 'var(--text-primary)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        paddingTop: 'calc(16px + env(safe-area-inset-top))', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))'
+      }}>
+        <div style={{ alignSelf: 'flex-end' }}><ThemeToggle /></div>
+        <div style={{ width: '100%', maxWidth: '380px', margin: 'auto 0', paddingTop: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
+            <AppIcon app="namesa" size={72} />
+            <h1 style={{ fontSize: '1.8rem', margin: 0 }}>Na Mesa</h1>
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Fila de espera</p>
+          </div>
+          {error && <p style={{ color: 'var(--accent-danger)', marginBottom: '12px', textAlign: 'center' }}>{error}</p>}
           {step === 'select' && (
-            <>
-              {restaurants.length === 0 && <p style={{ color: C.muted, textAlign: 'center' }}>Nenhum restaurante com fila ativa.</p>}
-              {restaurants.map((r) => (
-                <button key={r.id} style={{ ...buttonStyle, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {restaurants === null && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Carregando...</p>}
+              {restaurants?.length === 0 && !error && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Nenhum restaurante com fila ativa.</p>}
+              {(restaurants || []).map((r) => (
+                <button key={r.id} className="nm-btn nm-btn-primary" style={{ width: '100%', minHeight: '54px', fontSize: '1.05rem' }}
                   onClick={() => { setRestaurant(r); setError(''); setStep('pin'); }}>
                   <Store size={18} /> {r.name}
                 </button>
               ))}
-            </>
+            </div>
           )}
           {step === 'pin' && (
-            <form onSubmit={handlePin}>
-              <button type="button" onClick={() => setStep('select')} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <form onSubmit={handlePin} style={{ display: 'grid', gap: '12px' }}>
+              <button type="button" className="nm-btn nm-btn-ghost" style={{ justifySelf: 'start' }} onClick={() => setStep('select')}>
                 <ArrowLeft size={16} /> {restaurant?.name}
               </button>
-              <input style={inputStyle} type="password" inputMode="numeric" placeholder="PIN" value={pin} onChange={(e) => setPin(e.target.value)} autoFocus />
-              <button style={buttonStyle} type="submit"><Lock size={16} style={{ verticalAlign: 'middle' }} /> Entrar</button>
+              <input className="nm-input" style={{ fontSize: '1.4rem', textAlign: 'center', letterSpacing: '0.3em' }}
+                type="password" inputMode="numeric" placeholder="PIN" aria-label="PIN" value={pin}
+                onChange={(e) => setPin(e.target.value)} autoFocus />
+              <button className="nm-btn nm-btn-primary" type="submit" style={{ width: '100%' }}><Lock size={16} /> Entrar</button>
             </form>
           )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', opacity: 0.85, marginTop: '24px' }}>
+          <span>por</span> <BrandLogo variant="horizontal" height={22} />
         </div>
       </div>
     );
   }
 
+  const phone = bp === 'phone';
   const tabButton = (key, label, Icon) => (
-    <button onClick={() => setTab(key)} style={{
-      padding: '10px 16px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 700,
-      display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem',
-      background: tab === key ? C.accent : 'transparent', color: tab === key ? '#111' : C.text
-    }}><Icon size={18} /> {label}</button>
+    <button key={key} onClick={() => setTab(key)} aria-label={label} title={label} className="nm-btn" style={{
+      minHeight: '44px', padding: phone ? '10px 12px' : '10px 16px',
+      background: tab === key ? 'var(--accent-primary)' : 'transparent',
+      color: tab === key ? 'var(--on-accent)' : 'var(--text-secondary)'
+    }}><Icon size={18} />{!phone && <span>{label}</span>}</button>
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: '1.2rem', marginRight: 'auto' }}>Na Mesa · {restaurant?.name}</strong>
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>
+      <header className="page-pad" style={{
+        position: 'sticky', top: 0, zIndex: 40, display: 'flex', alignItems: 'center', gap: '8px',
+        paddingTop: 'calc(10px + env(safe-area-inset-top))', paddingBottom: '10px',
+        background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)'
+      }}>
+        <AppIcon app="namesa" size={phone ? 32 : 36} />
+        <div style={{ marginRight: 'auto', minWidth: 0, lineHeight: 1.2 }}>
+          <strong style={{ fontSize: phone ? '1rem' : '1.15rem' }}>Na Mesa{!phone && ` · ${restaurant?.name || ''}`}</strong>
+          {phone && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{restaurant?.name}</div>}
+        </div>
         {tabButton('fila', 'Fila', Users)}
         {tabButton('config', 'Configurar', Settings)}
-        <button onClick={handleLogout} title="Sair" style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer' }}><LogOut size={20} /></button>
+        <ThemeToggle />
+        <button onClick={handleLogout} title="Sair" aria-label="Sair" className="icon-button"><LogOut size={18} /></button>
       </header>
-      <main style={{ padding: '16px', maxWidth: '1100px', margin: '0 auto' }}>
+      <main className="page-pad" style={{ paddingTop: '16px', paddingBottom: '16px', maxWidth: '1100px', margin: '0 auto' }}>
         {tab === 'fila' ? <QueueBoard api={api} refreshKey={refreshKey} /> : <WaitlistSettings api={api} />}
       </main>
     </div>
