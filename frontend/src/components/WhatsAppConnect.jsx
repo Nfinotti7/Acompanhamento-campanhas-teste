@@ -1,26 +1,58 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle2, Loader2, Smartphone, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Loader2, Smartphone, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 
 const POLL_MS = 4000;
+// Tempo em "conectando" sem virar QR nem conectado: aí oferece gerar um QR novo.
+const STUCK_MS = 45000;
 
 // Conexão do WhatsApp (Baileys) feita pelo próprio restaurante, logado pelo PIN:
-// mostra o status e, quando precisa, o QR pra escanear. Não desconecta nem troca número
-// (isso continua com a agência, em Chaves e APIs).
+// mostra o status, o QR quando precisa, e deixa desconectar / trocar de número.
 export default function WhatsAppConnect({ api }) {
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const waitingSince = useRef(null);
+
+  const apply = (data) => {
+    setState(data);
+    setError('');
+    const waiting = !['connected', 'qr'].includes(data.status) || (data.status === 'qr' && !data.qrDataUrl);
+    if (!waiting) { waitingSince.current = null; setStuck(false); return; }
+    if (!waitingSince.current) waitingSince.current = Date.now();
+    setStuck(Date.now() - waitingSince.current > STUCK_MS);
+  };
 
   useEffect(() => {
     let alive = true;
     const load = () => api.get('/api/whatsapp/baileys/status')
-      .then((res) => { if (alive) { setState(res.data); setError(''); } })
+      .then((res) => { if (alive) apply(res.data); })
       .catch((err) => { if (alive) setError(err.response?.data?.error || 'Não foi possível consultar o WhatsApp.'); });
     load();
     const t = setInterval(load, POLL_MS);
     return () => { alive = false; clearInterval(t); };
   }, [api]);
 
+  const reset = async (confirmText) => {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBusy(true);
+    waitingSince.current = null;
+    setStuck(false);
+    try {
+      const res = await api.post('/api/whatsapp/baileys/reset');
+      apply(res.data);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Não foi possível reiniciar a conexão.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const box = { background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', color: 'var(--text-primary)' };
+  const btn = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minHeight: '44px',
+    padding: '10px 14px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
+  };
 
   if (error) {
     return (
@@ -40,6 +72,8 @@ export default function WhatsAppConnect({ api }) {
   }
 
   const status = state.status;
+  const waiting = !['connected', 'qr'].includes(status) || (status === 'qr' && !state.qrDataUrl);
+
   return (
     <section style={box}>
       <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><Smartphone size={18} /> Conexão do WhatsApp</h3>
@@ -66,10 +100,34 @@ export default function WhatsAppConnect({ api }) {
         </div>
       )}
 
-      {(status === 'connecting' || status === 'standby' || status === 'disconnected' || (status === 'qr' && !state.qrDataUrl)) && (
+      {waiting && !stuck && (
         <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-secondary)' }}>
           <Loader2 size={18} className="spin" /> Conectando ao WhatsApp...
         </p>
+      )}
+
+      {waiting && stuck && (
+        <div style={{ display: 'grid', gap: '10px' }}>
+          <p style={{ margin: 0, fontWeight: 700, color: 'var(--accent-warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <AlertTriangle size={18} /> Não conectou.
+          </p>
+          <button type="button" disabled={busy} onClick={() => reset()} style={{ ...btn, border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)' }}>
+            <RefreshCw size={16} /> {busy ? 'Gerando...' : 'Gerar novo QR'}
+          </button>
+        </div>
+      )}
+
+      {!waiting && (
+        <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => reset('Desconectar este WhatsApp? O atendimento pelo sistema para até escanearem o QR de novo (com este ou com outro número).')}
+            style={{ ...btn, background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--accent-danger)' }}
+          >
+            <LogOut size={16} /> {busy ? 'Desconectando...' : 'Desconectar / trocar número'}
+          </button>
+        </div>
       )}
     </section>
   );

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -176,21 +176,60 @@ test('reconexao depois de uma queda nao e imediata -- espera um atraso (evita o 
   assert.equal(makeWASocketCalls, 2);
 });
 
-test('logout nao agenda reconexao nenhuma', async () => {
+test('desconectado pelo celular (logout): apaga a sessao velha e recomeca do zero, pra gerar QR novo', async () => {
   let connectionUpdateHandler = null;
+  let makeWASocketCalls = 0;
   const fakeBaileys = {
-    default: () => ({ ev: { on: (event, handler) => { if (event === 'connection.update') connectionUpdateHandler = handler; } } }),
+    default: () => { makeWASocketCalls++; return { ev: { on: (event, handler) => { if (event === 'connection.update') connectionUpdateHandler = handler; } } }; },
     useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
     DisconnectReason: { loggedOut: 401 }
   };
-
+  const removed = [];
   const scheduled = [];
-  const fakeSetTimeout = (fn, ms) => { scheduled.push({ fn, ms }); };
+  const deps = { baileys: fakeBaileys, setTimeout: (fn, ms) => scheduled.push({ fn, ms }), removeSession: (id) => removed.push(String(id)) };
 
-  await connectClient('test-reconnect-delay-2', { baileys: fakeBaileys, setTimeout: fakeSetTimeout });
+  await connectClient('test-logout-1', deps);
   await connectionUpdateHandler({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 401 } } } });
 
-  assert.equal(scheduled.length, 0);
+  // Sem apagar, a proxima tentativa reusaria as credenciais invalidas e nunca pediria QR.
+  assert.deepEqual(removed, ['test-logout-1']);
+  assert.equal(scheduled.length, 1);
+  await scheduled[0].fn();
+  assert.equal(makeWASocketCalls, 2);
+});
+
+test('resetClient (desconectar / trocar numero) desliga o aparelho, apaga a sessao e abre conexao nova', async () => {
+  let makeWASocketCalls = 0;
+  const calls = [];
+  const fakeBaileys = {
+    default: () => {
+      makeWASocketCalls++;
+      return { ev: { on: () => {} }, logout: async () => calls.push('logout'), end: async () => calls.push('end') };
+    },
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  const deps = { baileys: fakeBaileys, removeSession: (id) => calls.push('remove:' + id) };
+
+  await connectClient('test-reset-1', deps);
+  await resetClient('test-reset-1', deps);
+
+  assert.deepEqual(calls.slice(0, 2), ['logout', 'remove:test-reset-1']);
+  assert.equal(makeWASocketCalls, 2);
+  assert.equal(getConnectionState('test-reset-1').status, 'connecting');
+});
+
+test('resetClient funciona mesmo sem conexao aberta (aparelho ja desconectado)', async () => {
+  const removed = [];
+  let makeWASocketCalls = 0;
+  const fakeBaileys = {
+    default: () => { makeWASocketCalls++; return { ev: { on: () => {} } }; },
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  await resetClient('test-reset-2', { baileys: fakeBaileys, removeSession: (id) => removed.push(String(id)) });
+  assert.deepEqual(removed, ['test-reset-2']);
+  assert.equal(makeWASocketCalls, 1);
 });
 
 test('decideOwnership: sem dono ou eu mesmo -> owner', () => {

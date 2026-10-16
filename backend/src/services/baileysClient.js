@@ -35,6 +35,10 @@ const STALE_CONNECTING_MS = 30000;
 // reconecta rapido demais -> conflito -> cai de novo -> ...).
 const RECONNECT_DELAY_MS = 5000;
 
+function removeSessionFiles(clientId) {
+  fs.rmSync(path.join(SESSIONS_DIR, String(clientId)), { recursive: true, force: true });
+}
+
 // clientId -> { sock, status: 'connecting'|'qr'|'connected'|'disconnected', qrDataUrl, connectingSince }
 const connections = new Map();
 
@@ -201,6 +205,8 @@ async function doConnect(clientId, state, deps) {
     }
 
     if (connection === 'close') {
+      // Socket que já foi descartado (reset, conexão travada): o evento dele não manda mais.
+      if (state.sock !== sock) return;
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
       console.error(`Baileys close [client ${clientId}] statusCode=${statusCode} loggedOut=${loggedOut} message=${lastDisconnect?.error?.message}`);
@@ -210,10 +216,16 @@ async function doConnect(clientId, state, deps) {
       state.connectingSince = null;
       if (!deps.baileys && !isOwner()) {
         console.error(`Baileys [client ${clientId}]: este processo não é mais o dono da sessão; não reconecta.`);
-      } else if (!loggedOut) {
-        // Reconecta sozinho em quedas que nao sejam logout, mas so depois de um atraso
-        // (ver RECONNECT_DELAY_MS) pra nao disparar o conflito 440 reconectando rapido
-        // demais.
+      } else {
+        if (loggedOut) {
+          // Desconectado pelo celular (Aparelhos conectados -> sair): a sessão salva ficou
+          // inválida. Sem apagar, a próxima tentativa reusa as credenciais velhas e nunca
+          // pede QR -- fica "conectando" pra sempre. Apaga e recomeça: sai um QR novo.
+          (deps.removeSession || removeSessionFiles)(clientId);
+          state.qrDataUrl = null;
+        }
+        // Reconecta só depois de um atraso (ver RECONNECT_DELAY_MS) pra não disparar o
+        // conflito 440 reconectando rápido demais.
         const wait = deps.setTimeout || setTimeout;
         wait(() => connectClient(clientId, deps), RECONNECT_DELAY_MS);
       }
@@ -275,6 +287,32 @@ async function doConnect(clientId, state, deps) {
 // sem isso, depois que o processo reinicia (deploy, crash, etc.) a conexao fica
 // parada ate alguem abrir a pagina de Credenciais e disparar getBaileysStatus
 // manualmente. Chamado uma vez na subida do servidor (server.js).
+// Desconectar / trocar número: desliga o aparelho atual (some de "Aparelhos conectados"
+// no celular), apaga a sessão e abre uma conexão nova, que pede QR. Também destrava uma
+// conexão que ficou presa em "conectando".
+export async function resetClient(clientId, deps = {}) {
+  const state = getOrInitState(clientId);
+  if (state.connectPromise) {
+    try { await state.connectPromise; } catch { /* segue pro reset mesmo assim */ }
+  }
+  const oldSock = state.sock;
+  state.sock = null; // a partir daqui eventos do socket velho são ignorados
+  state.status = 'disconnected';
+  state.qrDataUrl = null;
+  state.connectingSince = null;
+  if (oldSock) {
+    let loggedOut = false;
+    if (typeof oldSock.logout === 'function') {
+      try { await oldSock.logout(); loggedOut = true; } catch { /* aparelho já desconectado */ }
+    }
+    if (!loggedOut && typeof oldSock.end === 'function') {
+      try { await oldSock.end(new Error('reset pedido pelo usuário')); } catch { /* já fechado */ }
+    }
+  }
+  (deps.removeSession || removeSessionFiles)(clientId);
+  return connectClient(clientId, deps);
+}
+
 export async function reconnectAllBaileysClients(deps = {}) {
   const dbImpl = deps.db || db;
   const connect = deps.connect || connectClient;
