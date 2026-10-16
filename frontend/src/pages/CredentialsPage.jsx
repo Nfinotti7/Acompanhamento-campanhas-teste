@@ -176,7 +176,7 @@ export default function CredentialsPage({ selectedClient }) {
           className="btn"
           style={{
             backgroundColor: activePlatform === 'google' ? 'var(--accent-google)' : 'var(--surface-subtle)',
-            color: activePlatform === 'google' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            color: activePlatform === 'google' ? 'var(--on-accent)' : 'var(--text-secondary)',
             fontWeight: 600
           }}
         >
@@ -187,7 +187,7 @@ export default function CredentialsPage({ selectedClient }) {
           className="btn"
           style={{
             backgroundColor: activePlatform === 'meta' ? 'var(--accent-meta)' : 'var(--surface-subtle)',
-            color: activePlatform === 'meta' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            color: activePlatform === 'meta' ? 'var(--on-accent)' : 'var(--text-secondary)',
             fontWeight: 600
           }}
         >
@@ -198,7 +198,7 @@ export default function CredentialsPage({ selectedClient }) {
           className="btn"
           style={{
             backgroundColor: activePlatform === 'whatsapp' ? 'var(--accent-success)' : 'var(--surface-subtle)',
-            color: activePlatform === 'whatsapp' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            color: activePlatform === 'whatsapp' ? 'var(--on-accent)' : 'var(--text-secondary)',
             fontWeight: 600
           }}
         >
@@ -398,7 +398,7 @@ export default function CredentialsPage({ selectedClient }) {
                   className="btn"
                   style={{
                     backgroundColor: whatsappForm.connectionType === 'cloud_api' ? 'var(--accent-success)' : 'var(--surface-subtle)',
-                    color: whatsappForm.connectionType === 'cloud_api' ? 'var(--text-primary)' : 'var(--text-secondary)'
+                    color: whatsappForm.connectionType === 'cloud_api' ? 'var(--on-accent)' : 'var(--text-secondary)'
                   }}
                 >
                   Oficial (Cloud API)
@@ -409,7 +409,7 @@ export default function CredentialsPage({ selectedClient }) {
                   className="btn"
                   style={{
                     backgroundColor: whatsappForm.connectionType === 'baileys' ? 'var(--accent-warning)' : 'var(--surface-subtle)',
-                    color: whatsappForm.connectionType === 'baileys' ? 'var(--text-primary)' : 'var(--text-secondary)'
+                    color: whatsappForm.connectionType === 'baileys' ? 'var(--on-accent)' : 'var(--text-secondary)'
                   }}
                 >
                   Não-oficial (WhatsApp Web)

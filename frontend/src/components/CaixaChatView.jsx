@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useBreakpoint } from '../responsive/useBreakpoint';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ArrowLeft } from 'lucide-react';
 import ContactDetailPanel from './ContactDetailPanel';
 import { Avatar } from './whatsappMedia';
 import { formatListTime, StatusTicks } from './chatFormat';
@@ -26,7 +26,7 @@ const primaryBtn = {
   width: '100%'
 };
 
-function ManualSaleForm({ apiClient, initialName, onDone }) {
+function ManualSaleForm({ apiClient, initialName, onDone, onBack }) {
   const [customerName, setCustomerName] = useState(initialName);
   const [amountSpent, setAmountSpent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +65,10 @@ function ManualSaleForm({ apiClient, initialName, onDone }) {
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: '360px' }}>
-      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '14px' }}>Lançar venda (sem conversa)</h3>
+      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {onBack && <button type="button" className="icon-button" onClick={onBack} aria-label="Voltar pra lista"><ArrowLeft size={18} /></button>}
+        Lançar venda (sem conversa)
+      </h3>
       <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nome do cliente" required style={fieldStyle} />
       <input type="number" step="0.01" value={amountSpent} onChange={(e) => setAmountSpent(e.target.value)} placeholder="Valor gasto (R$)" required autoFocus style={fieldStyle} />
       {error && <p style={{ color: 'var(--accent-danger)', marginBottom: '10px', fontSize: '0.85rem' }}>{error}</p>}
@@ -160,12 +163,19 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
 
   // Celular: lista e conversa são duas telas. Abrir a conversa empilha um item no
   // histórico, então o "voltar" do Android/iOS (e o botão de voltar do painel) volta pra lista.
+  const pushedRef = useRef(false);
   useEffect(() => {
     if (!phone || !detailOpen) return undefined;
     window.history.pushState({ caixaChat: true }, '');
-    const onPop = () => { setSelectedContact(null); setManualEntryName(null); };
+    pushedRef.current = true;
+    const onPop = () => { pushedRef.current = false; setSelectedContact(null); setManualEntryName(null); };
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // Fechou por outro caminho (venda manual, apagou o contato, trocou de aba, girou a tela):
+      // tira a entrada que empilhamos, senão o "voltar" do aparelho fica preso nela.
+      if (pushedRef.current) { pushedRef.current = false; window.history.back(); }
+    };
   }, [phone, detailOpen]);
   const backToList = () => window.history.back();
 
@@ -268,7 +278,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
             onBack={phone ? backToList : undefined}
           />
         ) : manualEntryName !== null ? (
-          <ManualSaleForm apiClient={caixaApi} initialName={manualEntryName} onDone={finishManualEntry} />
+          <ManualSaleForm apiClient={caixaApi} initialName={manualEntryName} onDone={finishManualEntry} onBack={phone ? backToList : undefined} />
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             Selecione uma conversa

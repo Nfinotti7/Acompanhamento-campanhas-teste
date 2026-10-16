@@ -51,8 +51,10 @@ export function isPlaceholderBody(body) {
 // onLoad: a imagem só ganha altura quando carrega -- avisa quem rola a conversa pro fim.
 export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad }) {
   if (!message.media_type) return null;
+  // Dentro do balão enviado (fundo turquesa) o texto precisa ser o --on-accent.
+  const onBubble = message.direction === 'outbound';
   if (!message.media_id) {
-    return <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Mídia indisponível</div>;
+    return <div style={{ fontSize: '0.78rem', color: onBubble ? 'var(--on-accent)' : 'var(--text-secondary)', fontStyle: 'italic' }}>Mídia indisponível</div>;
   }
 
   const src = mediaUrl(apiClient, message.media_id, clientId);
@@ -75,7 +77,7 @@ export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad
     return <video controls preload="metadata" src={src} onLoadedMetadata={onLoad} style={{ display: 'block', maxWidth: 280, maxHeight: 280, borderRadius: 8 }} />;
   }
   return (
-    <a href={src} download={message.media_filename || 'arquivo'} style={{ color: 'var(--accent-link)', textDecoration: 'underline' }}>
+    <a href={src} download={message.media_filename || 'arquivo'} style={{ color: onBubble ? 'var(--on-accent)' : 'var(--accent-link)', textDecoration: 'underline' }}>
       📎 {message.media_filename || 'Baixar documento'}
     </a>
   );

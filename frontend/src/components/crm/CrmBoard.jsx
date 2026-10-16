@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useBreakpoint } from '../../responsive/useBreakpoint';
-import { Settings2, User } from 'lucide-react';
+import { Settings2, User, X } from 'lucide-react';
 import Modal from '../Modal';
 import ContactDetailPanel from '../ContactDetailPanel';
 import { Avatar } from '../whatsappMedia';
@@ -193,6 +193,9 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
 
       {showSettings && (
         <Modal onClose={() => setShowSettings(false)} maxWidth="640px">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', position: 'sticky', top: 0, zIndex: 2 }}>
+            <button type="button" className="icon-button" onClick={() => setShowSettings(false)} aria-label="Fechar" style={{ background: 'var(--bg-elevated)' }}><X size={18} /></button>
+          </div>
           <CrmSettings apiClient={apiClient} clientId={clientId} config={config} onChanged={() => fetchAll({ quiet: true })} />
         </Modal>
       )}

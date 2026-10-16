@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useBreakpoint } from '../responsive/useBreakpoint';
 import axios from 'axios';
 import { MessageCircle, Send } from 'lucide-react';
 
 export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFocusHandled }) {
+  const phone = useBreakpoint() === 'phone';
   const [conversations, setConversations] = useState([]);
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -108,8 +110,8 @@ export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFo
         </div>
       )}
 
-      <div className="glass-card" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', minHeight: '480px' }}>
-        <div style={{ borderRight: '1px solid var(--border-color)', overflowY: 'auto', maxHeight: '600px' }}>
+      <div className="glass-card" style={{ display: 'grid', gridTemplateColumns: phone ? 'minmax(0, 1fr)' : '300px minmax(0, 1fr)', minHeight: '480px' }}>
+        <div style={{ borderRight: phone ? 'none' : '1px solid var(--border-color)', borderBottom: phone ? '1px solid var(--border-color)' : 'none', overflowY: 'auto', maxHeight: phone ? '260px' : '600px' }}>
           {loading ? (
             <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Carregando...</div>
           ) : conversations.length === 0 ? (
@@ -160,7 +162,8 @@ export default function WhatsAppInboxPage({ selectedClient, focusContactId, onFo
                     style={{
                       alignSelf: m.direction === 'outbound' ? 'flex-end' : 'flex-start',
                       backgroundColor: m.direction === 'outbound' ? 'var(--accent-primary)' : 'var(--bg-card)',
-                      color: 'var(--on-accent)',
+                      border: m.direction === 'outbound' ? 'none' : '1px solid var(--border-color)',
+                      color: m.direction === 'outbound' ? 'var(--on-accent)' : 'var(--text-primary)',
                       padding: '8px 12px',
                       borderRadius: '10px',
                       maxWidth: '70%',
