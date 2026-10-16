@@ -64,3 +64,17 @@ export function resolveCssColor(value, el = document.documentElement) {
   const m = /^var\((--[\w-]+)\)$/.exec(String(value || '').trim());
   return m ? cssVar(m[1], el) : value;
 }
+
+// Mesma coisa, mas lendo as cores de um tema específico (o relatório exporta sempre no
+// claro, mesmo com a tela no escuro). Usa um elemento invisível com data-theme.
+const probes = {};
+export function resolveCssColorFor(value, theme) {
+  if (!probes[theme]) {
+    const el = document.createElement('div');
+    el.setAttribute('data-theme', theme);
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    probes[theme] = el;
+  }
+  return resolveCssColor(value, probes[theme]);
+}

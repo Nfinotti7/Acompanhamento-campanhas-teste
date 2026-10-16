@@ -417,33 +417,13 @@ body { padding-bottom: env(safe-area-inset-bottom); }
   button, .btn, a.btn, select { min-height: 44px; }
 }
 
-/* Print Styles for Report Export */
+/* Impressão do relatório: sempre clara (a área recebe data-theme="light" ao imprimir) */
 @media print {
-  body {
-    background-color: #0b0f19 !important;
-    color: #f8fafc !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Hide app navigation UI elements during print */
-  aside, header, .no-print, nav, button {
-    display: none !important;
-  }
-
-  #printable-report-area {
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 20px !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: #0b0f19 !important;
-  }
-
-  @page {
-    size: A4 portrait;
-    margin: 10mm;
-  }
+  #printable-report-area, #printable-report-area * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { background: #ffffff !important; color: #000D30 !important; }
+  aside, header, .no-print, nav, button, .install-banner, .offline-banner { display: none !important; }
+  #printable-report-area { width: 100% !important; margin: 0 !important; padding: 20px !important; border: none !important; box-shadow: none !important; }
+  @page { size: A4 portrait; margin: 10mm; }
 }
 
 

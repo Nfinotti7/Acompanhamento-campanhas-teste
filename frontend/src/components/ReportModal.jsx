@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import html2canvas from 'html2canvas';
+import { useTheme, resolveCssColorFor } from '../theme/useTheme';
+import { legacyColorsInClone } from '../theme/legacyColors';
 import { jsPDF } from 'jspdf';
 import PresentationView from './PresentationView';
 
@@ -27,6 +29,12 @@ export default function ReportModal({
   );
 
   const reportRef = useRef(null);
+  const { theme } = useTheme();
+  // Impressão e PDF saem sempre no tema claro (papel/cliente), qualquer que seja o da tela.
+  const [exporting, setExporting] = useState(false);
+  const reportTheme = exporting ? 'light' : theme;
+  const rc = (v) => resolveCssColorFor(v, reportTheme);
+  const waitRepaint = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))));
 
   if (!isOpen) return null;
 
@@ -41,7 +49,11 @@ export default function ReportModal({
   const todayDate = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   // Native Print
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    setExporting(true);
+    await waitRepaint();
+    const done = () => { setExporting(false); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
     window.print();
   };
 
@@ -49,14 +61,17 @@ export default function ReportModal({
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsGenerating(true);
+    setExporting(true);
     try {
+      await waitRepaint();
       const element = reportRef.current;
       
       // Temporarily expand scroll container for complete capture
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#0b0f19',
+        backgroundColor: resolveCssColorFor('var(--bg-dark)', 'light'),
+        onclone: (doc, el) => legacyColorsInClone(el || doc.getElementById('printable-report-area')),
         logging: false,
         windowWidth: 1200
       });
@@ -91,6 +106,7 @@ export default function ReportModal({
       alert('Houve um problema ao gerar o arquivo PDF. Tente usar a opção "Imprimir (Salvar em PDF)".');
     } finally {
       setIsGenerating(false);
+      setExporting(false);
     }
   };
 
@@ -116,7 +132,7 @@ export default function ReportModal({
       left: 0,
       width: '100vw',
       height: '100vh',
-      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      backgroundColor: 'var(--overlay)',
       backdropFilter: 'blur(8px)',
       zIndex: 9000,
       display: 'flex',
@@ -134,7 +150,7 @@ export default function ReportModal({
         backgroundColor: 'var(--bg-dark)',
         border: '1px solid var(--border-glow)',
         borderRadius: 'var(--radius-lg)',
-        boxShadow: '0 25px 60px rgba(0,0,0,0.8)',
+        boxShadow: '0 25px 60px var(--overlay)',
         overflow: 'hidden'
       }}>
         {/* Header Actions */}
@@ -144,7 +160,7 @@ export default function ReportModal({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: 'rgba(15, 22, 39, 0.95)',
+          backgroundColor: 'var(--glass-bg)',
           flexWrap: 'wrap',
           gap: '12px'
         }}>
@@ -153,15 +169,15 @@ export default function ReportModal({
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+              background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-primary-hover) 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <FileText size={20} color="#fff" />
+              <FileText size={20} color="var(--on-accent)" />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 Gerador de Relatório Executivo
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -174,9 +190,9 @@ export default function ReportModal({
             <button
               onClick={() => setShowPresentation(true)}
               className="btn btn-secondary"
-              style={{ fontSize: '0.85rem', borderColor: 'rgba(99, 102, 241, 0.4)', color: '#818cf8' }}
+              style={{ fontSize: '0.85rem', borderColor: 'color-mix(in srgb, var(--accent-primary) 40%, transparent)', color: 'var(--accent-primary)' }}
             >
-              <Play size={15} color="#818cf8" /> Modo Apresentação
+              <Play size={15} color="var(--accent-primary)" /> Modo Apresentação
             </button>
 
             <button
@@ -218,20 +234,20 @@ export default function ReportModal({
           flex: 1,
           overflowY: 'auto',
           padding: '28px',
-          backgroundColor: '#0b0f19'
+          backgroundColor: 'var(--bg-dark)'
         }}>
 
           {/* Customizable Executive Note Editor (Hidden on print) */}
           <div className="no-print" style={{
             marginBottom: '24px',
-            backgroundColor: 'rgba(99, 102, 241, 0.08)',
-            border: '1px solid rgba(99, 102, 241, 0.2)',
+            backgroundColor: 'color-mix(in srgb, var(--accent-primary) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent)',
             borderRadius: 'var(--radius-md)',
             padding: '16px 20px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Sparkles size={16} color="var(--accent-primary)" />
-              <strong style={{ fontSize: '0.88rem', color: '#fff' }}>Resumo & Observações do Consultor (Opcional):</strong>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>Resumo & Observações do Consultor (Opcional):</strong>
             </div>
             <textarea
               value={executiveNotes}
@@ -244,12 +260,12 @@ export default function ReportModal({
           </div>
 
           {/* PRINT & PDF TARGET AREA */}
-          <div ref={reportRef} id="printable-report-area" style={{
-            backgroundColor: '#0b0f19',
-            color: '#f8fafc',
+          <div ref={reportRef} id="printable-report-area" data-theme={exporting ? 'light' : undefined} style={{
+            backgroundColor: 'var(--bg-dark)',
+            color: 'var(--text-primary)',
             padding: '24px',
             borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            border: '1px solid var(--border-color)'
           }}>
 
             {/* Document Header */}
@@ -259,7 +275,7 @@ export default function ReportModal({
               justifyContent: 'space-between',
               paddingBottom: '20px',
               marginBottom: '24px',
-              borderBottom: '2px solid rgba(99, 102, 241, 0.4)'
+              borderBottom: '2px solid color-mix(in srgb, var(--accent-primary) 40%, transparent)'
             }}>
               <div>
                 <div style={{
@@ -272,7 +288,7 @@ export default function ReportModal({
                 }}>
                   Agência Further • Relatório de Desempenho
                 </div>
-                <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff' }}>
+                <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--text-primary)' }}>
                   {clientName ? clientName : 'Visão Geral das Campanhas'}
                 </h1>
                 <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -282,8 +298,8 @@ export default function ReportModal({
 
               <div style={{ textAlign: 'right' }}>
                 <div style={{
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                  color: '#fff',
+                  background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-primary-hover) 100%)',
+                  color: 'var(--on-accent)',
                   fontWeight: 800,
                   fontSize: '0.9rem',
                   padding: '8px 16px',
@@ -302,7 +318,7 @@ export default function ReportModal({
             {/* Executive Notes Block */}
             {executiveNotes && (
               <div style={{
-                backgroundColor: 'rgba(19, 27, 46, 0.9)',
+                backgroundColor: 'var(--glass-bg)',
                 borderLeft: '4px solid var(--accent-primary)',
                 padding: '16px 20px',
                 borderRadius: '8px',
@@ -311,7 +327,7 @@ export default function ReportModal({
                 <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: '4px' }}>
                   Parecer Executivo & Análise
                 </div>
-                <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: 1.5 }}>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
                   {executiveNotes}
                 </p>
               </div>
@@ -319,7 +335,7 @@ export default function ReportModal({
 
             {/* Main KPI Grid */}
             <div style={{ marginBottom: '32px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
                 1. Indicadores Chave de Desempenho (KPIs)
               </h3>
 
@@ -328,9 +344,9 @@ export default function ReportModal({
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: '16px'
               }}>
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Investimento Total</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                     R$ {summary?.spend?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -338,9 +354,9 @@ export default function ReportModal({
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Conversões</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-success)' }}>
                     {summary?.conversions?.toLocaleString('pt-BR')}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -348,9 +364,9 @@ export default function ReportModal({
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Custo / Conversão (CPA)</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-warning)' }}>
                     R$ {summary?.cpa?.toFixed(2)}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -358,9 +374,9 @@ export default function ReportModal({
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ROAS (Retorno)</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a855f7' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-6)' }}>
                     {summary?.roas?.toFixed(2)}x
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -368,9 +384,9 @@ export default function ReportModal({
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Cliques em Anúncios</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3b82f6' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-2)' }}>
                     {summary?.clicks?.toLocaleString('pt-BR')}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -378,9 +394,9 @@ export default function ReportModal({
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Taxa de Cliques (CTR)</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ec4899' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-5)' }}>
                     {summary?.ctr?.toFixed(2)}%
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -393,32 +409,32 @@ export default function ReportModal({
             {/* Daily Evolution Chart */}
             {dailyData.length > 0 && (
               <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
                   2. Evolução Diária de Investimento e Conversões
                 </h3>
 
-                <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', padding: '20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '20px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ width: '100%', height: '280px' }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={dailyData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                         <defs>
                           <linearGradient id="reportSpend" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                            <stop offset="5%" stopColor={rc('var(--accent-primary)')} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={rc('var(--accent-primary)')} stopOpacity={0} />
                           </linearGradient>
                           <linearGradient id="reportConv" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                            <stop offset="5%" stopColor={rc('var(--accent-success)')} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={rc('var(--accent-success)')} stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                        <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
-                        <YAxis yAxisId="left" stroke="#6366f1" tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
-                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
-                        <Tooltip contentStyle={{ backgroundColor: '#0f1627', borderColor: '#6366f1', borderRadius: '8px' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={rc('var(--border-color)')} />
+                        <XAxis dataKey="date" stroke={rc('var(--text-muted)')} tick={{ fontSize: 11, fill: rc('var(--text-muted)') }} />
+                        <YAxis yAxisId="left" stroke={rc('var(--accent-primary)')} tick={{ fontSize: 11, fill: rc('var(--text-muted)') }} tickFormatter={(v) => `R$${v}`} />
+                        <YAxis yAxisId="right" orientation="right" stroke={rc('var(--accent-success)')} tick={{ fontSize: 11, fill: rc('var(--text-muted)') }} />
+                        <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--accent-primary)', borderRadius: '8px' }} />
                         <Legend />
-                        <Area yAxisId="left" type="monotone" dataKey="spend" name="Investimento (R$)" stroke="#6366f1" strokeWidth={2} fill="url(#reportSpend)" isAnimationActive={false} />
-                        <Area yAxisId="right" type="monotone" dataKey="conversions" name="Conversões" stroke="#10b981" strokeWidth={2} fill="url(#reportConv)" isAnimationActive={false} />
+                        <Area yAxisId="left" type="monotone" dataKey="spend" name="Investimento (R$)" stroke={rc('var(--accent-primary)')} strokeWidth={2} fill="url(#reportSpend)" isAnimationActive={false} />
+                        <Area yAxisId="right" type="monotone" dataKey="conversions" name="Conversões" stroke={rc('var(--accent-success)')} strokeWidth={2} fill="url(#reportConv)" isAnimationActive={false} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -429,12 +445,12 @@ export default function ReportModal({
             {/* Platform Comparison */}
             {platformBreakdown.length > 0 && (
               <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
                   3. Distribuição por Plataforma de Anúncio
                 </h3>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                  <div style={{ backgroundColor: 'rgba(19, 27, 46, 0.8)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', padding: '12px' }}>
+                  <div style={{ backgroundColor: 'var(--glass-bg)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '12px' }}>
                     <div style={{ width: '100%', height: '180px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -442,7 +458,7 @@ export default function ReportModal({
                             data={platformBreakdown.map((p) => ({
                               name: p.platform === 'google' ? 'Google Ads' : 'Meta Ads',
                               value: p.spend,
-                              color: p.platform === 'google' ? '#4285f4' : '#0084ff'
+                              color: p.platform === 'google' ? 'var(--accent-google)' : 'var(--accent-meta)'
                             }))}
                             cx="50%"
                             cy="50%"
@@ -453,10 +469,10 @@ export default function ReportModal({
                             isAnimationActive={false}
                           >
                             {platformBreakdown.map((p, index) => (
-                              <Cell key={`cell-${index}`} fill={p.platform === 'google' ? '#4285f4' : '#0084ff'} />
+                              <Cell key={`cell-${index}`} fill={rc(p.platform === 'google' ? 'var(--accent-google)' : 'var(--accent-meta)')} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(val) => `R$ ${val.toFixed(2)}`} />
+                          <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }} formatter={(val) => `R$ ${val.toFixed(2)}`} />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
@@ -468,13 +484,13 @@ export default function ReportModal({
                     const isGoogle = p.platform === 'google';
                     return (
                       <div key={p.platform} style={{
-                        backgroundColor: 'rgba(19, 27, 46, 0.8)',
+                        backgroundColor: 'var(--glass-bg)',
                         padding: '16px 20px',
                         borderRadius: '10px',
-                        borderLeft: isGoogle ? '4px solid #4285f4' : '4px solid #0084ff'
+                        borderLeft: isGoogle ? '4px solid var(--accent-google)' : '4px solid var(--accent-meta)'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <strong style={{ fontSize: '1.1rem', color: isGoogle ? '#60a5fa' : '#38bdf8' }}>
+                          <strong style={{ fontSize: '1.1rem', color: isGoogle ? 'var(--chart-2)' : 'var(--chart-1)' }}>
                             {isGoogle ? 'Google Ads' : 'Meta Ads'}
                           </strong>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -484,19 +500,19 @@ export default function ReportModal({
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                           <div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Investido</div>
-                            <div style={{ fontWeight: 700, color: '#fff', fontSize: '1.05rem' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>
                               R$ {p.spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </div>
                           </div>
                           <div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Conversões</div>
-                            <div style={{ fontWeight: 700, color: '#10b981', fontSize: '1.05rem' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '1.05rem' }}>
                               {p.conversions.toLocaleString('pt-BR')}
                             </div>
                           </div>
                           <div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>CPA Médio</div>
-                            <div style={{ fontWeight: 700, color: '#f59e0b', fontSize: '1.05rem' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--accent-warning)', fontSize: '1.05rem' }}>
                               R$ {(p.conversions > 0 ? p.spend / p.conversions : 0).toFixed(2)}
                             </div>
                           </div>
@@ -511,13 +527,13 @@ export default function ReportModal({
 
             {/* Campaigns Table */}
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
                 4. Detalhamento por Campanha
               </h3>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>
+                  <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                     <th style={{ padding: '8px' }}>Campanha</th>
                     <th style={{ padding: '8px' }}>Canal</th>
                     <th style={{ padding: '8px', textAlign: 'right' }}>Investimento</th>
@@ -537,8 +553,8 @@ export default function ReportModal({
                     </tr>
                   ) : (
                     campaigns.map(c => (
-                      <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        <td style={{ padding: '10px 8px', fontWeight: 600, color: '#fff' }}>
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '10px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>
                           {c.campaign_name}
                         </td>
                         <td style={{ padding: '10px 8px' }}>
@@ -546,7 +562,7 @@ export default function ReportModal({
                             {c.platform === 'google' ? 'Google' : 'Meta'}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#fff' }}>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
                           R$ {c.total_spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
@@ -555,13 +571,13 @@ export default function ReportModal({
                         <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                           {c.ctr}%
                         </td>
-                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-success)' }}>
                           {c.total_conversions}
                         </td>
-                        <td style={{ padding: '10px 8px', textAlign: 'right', color: '#f59e0b' }}>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--accent-warning)' }}>
                           R$ {c.cpa.toFixed(2)}
                         </td>
-                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#a855f7' }}>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--chart-6)' }}>
                           {c.roas}x
                         </td>
                       </tr>
@@ -575,7 +591,7 @@ export default function ReportModal({
             <div style={{
               marginTop: '40px',
               paddingTop: '20px',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
+              borderTop: '1px solid var(--border-color)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
