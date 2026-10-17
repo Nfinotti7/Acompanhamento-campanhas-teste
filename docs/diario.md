@@ -34,7 +34,7 @@
 - **Os 3 apps (Further Ads `/`, Caixa `/caixa`, Na Mesa `/namesa`)**:
   - Layout próprio pra celular, tablet e PC.
   - Tema claro/escuro nas cores da Further (marinho `#000D30` + turquesa `#0097B2`), com as logos da Further.
-  - Cada app é instalável como PWA, com ícone próprio. Ver Registro 2026-10-16.
+  - Cada app é instalável como PWA, com ícone próprio. Ver Registro 2026-10-16. O Further mora em `/painel` (a raiz redireciona) desde 2026-10-17, pra o escopo dele não engolir o Caixa e o Na Mesa.
 - Falta: cadastrar a Mercearia de verdade, testar a fila com celular real e instalar os PWAs num Android e num iPhone de verdade.
 
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
@@ -506,3 +506,17 @@ Pedido do usuário (escolheu a opção C):
 - Tela conferida no celular e no PC.
 
 **No ar (2026-10-16):** push `b30ebaa`; o bundle de produção já tem "Saíram há pouco" e "Voltar pra fila".
+
+### 2026-10-17 — Caixa abria dentro do app do Further (escopo do PWA)
+
+**Relato do usuário (Android):** instalou o Further e depois tentou instalar o Caixa. O Chrome disse que o app "já está instalado", e a partir daí abrir o app do Further levava direto pro Caixa.
+
+**Causa:** o manifesto do Further tinha `scope: "/"`, que **engloba** `/caixa` e `/namesa`. No Android, o app instalado registra todo endereço dentro do escopo como dele. Então `/caixa` virou "parte do Further": o Chrome não oferece instalar de novo, abre o Caixa dentro da janela do Further, e o app do Further reabre na última página aberta (o Caixa). Os `id` dos manifestos já eram diferentes; o problema era só o escopo sobreposto.
+
+**Correção (commit `040296e`):**
+- `further.webmanifest`: `start_url` e `scope` passam a ser `/painel`. O `id` continua `/`, pra o Chrome tratar como o mesmo app e poder atualizar o já instalado.
+- `main.jsx`: a raiz `/` troca o endereço pra `/painel` (`history.replaceState`, mantém query e hash) antes de escolher o app. Regra em `canonicalPath` (`pwa/apps.js`). O dashboard não usa rotas por caminho, então nada mais muda.
+- Teste novo em `manifests.test.js`: falha se o escopo de um app englobar o `start_url` de outro, ou se dois `id` se repetirem.
+- Testes do frontend: 54 passando. Build ok. Conferido no `vite preview`: `/` vai pra `/painel` com o manifesto do Further, e `/caixa` fica com o dele.
+
+**Pro usuário, depois do deploy:** no Android, desinstalar o app do Further (e o do Caixa, se tiver), abrir `furtherads.online` no Chrome e instalar de novo; depois abrir `/caixa` e instalar o Caixa. O Chrome até atualiza o app antigo sozinho, mas pode demorar dias.
