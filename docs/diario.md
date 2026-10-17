@@ -520,3 +520,5 @@ Pedido do usuário (escolheu a opção C):
 - Testes do frontend: 54 passando. Build ok. Conferido no `vite preview`: `/` vai pra `/painel` com o manifesto do Further, e `/caixa` fica com o dele.
 
 **Pro usuário, depois do deploy:** no Android, desinstalar o app do Further (e o do Caixa, se tiver), abrir `furtherads.online` no Chrome e instalar de novo; depois abrir `/caixa` e instalar o Caixa. O Chrome até atualiza o app antigo sozinho, mas pode demorar dias.
+
+**No ar (2026-10-17):** push `3b49faf`; em produção o `further.webmanifest` já tem escopo `/painel`, `/painel` responde 200 e o bundle tem o redirecionamento. Falta o usuário reinstalar os apps no Android.
