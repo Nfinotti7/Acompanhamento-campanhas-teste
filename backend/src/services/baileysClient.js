@@ -36,6 +36,65 @@ const STALE_CONNECTING_MS = 30000;
 // reconecta rapido demais -> conflito -> cai de novo -> ...).
 const RECONNECT_DELAY_MS = 5000;
 
+// ---- Vigia da conexão zumbi ----
+// Em 17/10 a conexão da Mercearia parou de receber mensagens e de confirmar entregas, mas
+// nunca disparou 'close': o ping interno do Baileys seguia respondendo, então ele achava
+// que estava tudo bem. O robô da fila ficou mudo até alguém reiniciar o servidor.
+// O vigia olha o que importa de verdade e, se a conexão parece morta, descarta o socket e
+// reconecta com a sessão salva (sem QR):
+// - mensagem que enviamos sem confirmação em 90s E sem nenhum outro evento desde o envio.
+//   Só a falta de confirmação não basta: ~10% das mensagens da fila nunca são confirmadas
+//   mesmo com a conexão boa (número errado, sem WhatsApp);
+// - nenhum evento de mensagem por 20 min (renova por garantia; é rápido e não pede QR).
+const ACK_TIMEOUT_MS = 90 * 1000;
+const SILENT_RECYCLE_MS = 20 * 60 * 1000;
+const WATCHDOG_INTERVAL_MS = 60 * 1000;
+let connectionWatchdog = null;
+
+export function connectionHealth({ status, lastActivityAt, pendingAcks, now, ackTimeoutMs = ACK_TIMEOUT_MS, silentMs = SILENT_RECYCLE_MS }) {
+  if (status !== 'connected') return null;
+  for (const sentAt of pendingAcks?.values() || []) {
+    if (now - sentAt > ackTimeoutMs && !(lastActivityAt > sentAt)) return 'mensagem enviada sem confirmação do WhatsApp (conexão zumbi)';
+  }
+  if (lastActivityAt && now - lastActivityAt > silentMs) return 'nenhum evento do WhatsApp há 20 min (renovando a conexão)';
+  return null;
+}
+
+function recycleConnection(clientId, state, reason) {
+  const deps = state.deps || {};
+  const sock = state.sock;
+  console.error(`Baileys [client ${clientId}]: vigia -- ${reason}. Reconectando.`);
+  state.lastDisconnectReason = { statusCode: 'vigia', message: reason, at: new Date().toISOString() };
+  state.sock = null; // a partir daqui eventos do socket velho são ignorados
+  state.status = 'disconnected';
+  state.connectingSince = null;
+  state.pendingAcks = new Map();
+  try {
+    sock?.end?.(new Error(reason));
+  } catch {
+    // já fechado
+  }
+  const wait = deps.setTimeout || setTimeout;
+  wait(() => connectClient(clientId, deps), RECONNECT_DELAY_MS);
+}
+
+export async function checkConnections(deps = {}) {
+  if (!deps.baileys && !isOwner()) return;
+  const now = (deps.now || Date.now)();
+  for (const [clientId, state] of connections) {
+    const reason = connectionHealth({ status: state.status, lastActivityAt: state.lastActivityAt, pendingAcks: state.pendingAcks, now });
+    if (reason) recycleConnection(clientId, state, reason);
+  }
+}
+
+function startConnectionWatchdog() {
+  if (connectionWatchdog) return;
+  connectionWatchdog = setInterval(() => {
+    checkConnections().catch((error) => console.error('Erro no vigia do Baileys:', error));
+  }, WATCHDOG_INTERVAL_MS);
+  connectionWatchdog.unref?.();
+}
+
 function removeSessionFiles(clientId) {
   fs.rmSync(path.join(SESSIONS_DIR, String(clientId)), { recursive: true, force: true });
 }
@@ -130,7 +189,7 @@ function normalizeClientId(clientId) {
 function getOrInitState(clientId) {
   const key = normalizeClientId(clientId);
   if (!connections.has(key)) {
-    connections.set(key, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null, connectingSince: null });
+    connections.set(key, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null, connectingSince: null, lastActivityAt: null, pendingAcks: new Map(), deps: {} });
   }
   return connections.get(key);
 }
@@ -184,9 +243,13 @@ async function doConnect(clientId, state, deps) {
 
   const { state: authState, saveCreds } = await useMultiFileAuthState(path.join(SESSIONS_DIR, String(clientId)));
   const sock = makeWASocket({ auth: authState, printQRInTerminal: false });
+  const now = deps.now || Date.now;
   state.sock = sock;
   state.status = 'connecting';
-  state.connectingSince = (deps.now || Date.now)();
+  state.connectingSince = now();
+  state.deps = deps;
+  state.pendingAcks = new Map();
+  const markActivity = () => { if (state.sock === sock) state.lastActivityAt = now(); };
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -201,6 +264,7 @@ async function doConnect(clientId, state, deps) {
 
     if (connection === 'open') {
       state.status = 'connected';
+      markActivity();
       state.qrDataUrl = null;
       state.connectingSince = null;
     }
@@ -235,11 +299,13 @@ async function doConnect(clientId, state, deps) {
 
   // Tiques do WhatsApp (enviada/entregue/lida) das mensagens que mandamos.
   sock.ev.on('messages.update', async (updates) => {
+    markActivity();
     for (const { key, update } of updates) {
+      if (key?.id) state.pendingAcks.delete(key.id); // o WhatsApp respondeu: a conexão está viva
       const status = baileysStatusToName(update?.status);
       if (!key?.fromMe || !status) continue;
       try {
-        await applyMessageStatus({ clientId, waMessageId: key.id, status });
+        await (deps.applyMessageStatus || applyMessageStatus)({ clientId, waMessageId: key.id, status });
       } catch (error) {
         console.error('Erro ao atualizar status de mensagem:', error.message);
       }
@@ -247,6 +313,7 @@ async function doConnect(clientId, state, deps) {
   });
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    markActivity();
     if (type !== 'notify') return;
     for (const msg of messages) {
       if (!isUsableMessage(msg)) continue;
@@ -355,6 +422,7 @@ export async function reconnectAllBaileysClients(deps = {}) {
   if (!deps.db) {
     writeOwner();
     startOwnerWatchdog(() => reconnectAllBaileysClients(deps));
+    startConnectionWatchdog();
   }
 
   const { rows } = await dbImpl.query(
@@ -386,5 +454,7 @@ export async function sendViaBaileys(clientId, waId, body) {
   const jid = waId.includes('@') ? waId : `${waId}@s.whatsapp.net`;
   const sent = await state.sock.sendMessage(jid, { text: body });
   // O id é o que liga os avisos de entregue/lida (messages.update) a esta mensagem.
-  return sent?.key?.id || null;
+  const id = sent?.key?.id || null;
+  if (id) state.pendingAcks.set(id, (state.deps?.now || Date.now)());
+  return id;
 }

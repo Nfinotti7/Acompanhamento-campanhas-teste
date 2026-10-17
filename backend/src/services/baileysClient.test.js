@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -282,4 +282,108 @@ test('requestPairingCode recusa número inválido e WhatsApp já conectado', asy
   await connectClient('test-pair-3', { baileys: fake2.module });
   await assert.rejects(requestPairingCode('test-pair-3', '11999998888', { baileys: fake2.module }), /já está conectado/i);
   assert.equal(calls.length, 0);
+});
+
+// ---- Vigia da conexão zumbi ----
+// Em 17/10 a conexão da Mercearia parou de receber mensagens e de confirmar entregas sem
+// nunca disparar 'close' (o ping interno do Baileys seguia respondendo). Ficou parada até
+// alguém reiniciar o servidor.
+
+test('connectionHealth: conexão ativa e com mensagens confirmadas -> ok', () => {
+  const now = 1_000_000;
+  assert.equal(connectionHealth({ status: 'connected', lastActivityAt: now - 60_000, pendingAcks: new Map([['a', now - 30_000]]), now }), null);
+});
+
+test('connectionHealth: mensagem enviada sem confirmação do WhatsApp em 90s -> zumbi', () => {
+  const now = 1_000_000;
+  const reason = connectionHealth({ status: 'connected', lastActivityAt: now - 100_000, pendingAcks: new Map([['a', now - 91_000]]), now });
+  assert.match(reason, /confirma/);
+});
+
+test('connectionHealth: a mesma mensagem com algum evento depois do envio -> ok', () => {
+  const now = 1_000_000;
+  assert.equal(connectionHealth({ status: 'connected', lastActivityAt: now - 1000, pendingAcks: new Map([['a', now - 91_000]]), now }), null);
+});
+
+test('connectionHealth: mensagem sem confirmação mas com outros eventos chegando -> ok (número errado, sem WhatsApp)', () => {
+  const now = 1_000_000;
+  assert.equal(connectionHealth({ status: 'connected', lastActivityAt: now - 10_000, pendingAcks: new Map([['a', now - 300_000]]), now }), null);
+});
+
+test('connectionHealth: 20 min sem nenhum evento -> renova a conexão', () => {
+  const now = 10_000_000;
+  assert.match(connectionHealth({ status: 'connected', lastActivityAt: now - 20 * 60_000 - 1, pendingAcks: new Map(), now }), /evento/);
+  assert.equal(connectionHealth({ status: 'connected', lastActivityAt: now - 19 * 60_000, pendingAcks: new Map(), now }), null);
+});
+
+test('connectionHealth: só olha conexão aberta (QR, conectando e standby têm outras regras)', () => {
+  const now = 10_000_000;
+  for (const status of ['qr', 'connecting', 'standby', 'disconnected']) {
+    assert.equal(connectionHealth({ status, lastActivityAt: 0, pendingAcks: new Map([['a', 0]]), now }), null);
+  }
+});
+
+test('vigia: mensagem sem confirmação descarta o socket zumbi e reconecta com a sessão salva', async () => {
+  const handlers = {};
+  const sockets = [];
+  const fakeBaileys = {
+    default: () => {
+      const sock = {
+        ev: { on: (event, handler) => { handlers[event] = handler; } },
+        sendMessage: async () => ({ key: { id: `MSG${sockets.length}` } }),
+        end: async () => { sock.ended = true; }
+      };
+      sockets.push(sock);
+      return sock;
+    },
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  let clock = 5_000_000;
+  const scheduled = [];
+  const deps = { baileys: fakeBaileys, now: () => clock, setTimeout: (fn, ms) => scheduled.push({ fn, ms }), removeSession: () => { throw new Error('não pode apagar a sessão'); } };
+
+  await connectClient('test-watchdog-1', deps);
+  await handlers['connection.update']({ connection: 'open' });
+  await sendViaBaileys('test-watchdog-1', '5511999998888', 'oi');
+
+  clock += 60_000;
+  await checkConnections(deps);
+  assert.equal(sockets[0].ended, undefined, 'ainda dentro do prazo');
+
+  clock += 31_000;
+  await checkConnections(deps);
+  assert.equal(sockets[0].ended, true);
+  assert.equal(getConnectionState('test-watchdog-1').status, 'disconnected');
+  assert.match(getConnectionState('test-watchdog-1').lastDisconnectReason.message, /confirma/);
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].ms, 5000);
+
+  await scheduled[0].fn();
+  assert.equal(sockets.length, 2, 'abriu um socket novo');
+});
+
+test('vigia: confirmação do WhatsApp (messages.update) tira a mensagem da espera', async () => {
+  const handlers = {};
+  let ended = false;
+  const fakeBaileys = {
+    default: () => ({
+      ev: { on: (event, handler) => { handlers[event] = handler; } },
+      sendMessage: async () => ({ key: { id: 'ACKED1' } }),
+      end: async () => { ended = true; }
+    }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  let clock = 5_000_000;
+  const deps = { baileys: fakeBaileys, now: () => clock, setTimeout: () => {}, applyMessageStatus: async () => {} };
+
+  await connectClient('test-watchdog-2', deps);
+  await handlers['connection.update']({ connection: 'open' });
+  await sendViaBaileys('test-watchdog-2', '5511999998888', 'oi');
+  await handlers['messages.update']([{ key: { id: 'ACKED1', fromMe: true }, update: { status: 2 } }]);
+
+  clock += 120_000;
+  await checkConnections(deps);
+  assert.equal(ended, false);
 });
