@@ -20,7 +20,7 @@ import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
-import { normalizePhone } from './waitlistText.js';
+import { normalizePhone, phoneVariants } from './waitlistText.js';
 
 const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
 
@@ -446,12 +446,41 @@ export function getConnectionState(clientId) {
   return { status: state.status, qrDataUrl: state.qrDataUrl, lastDisconnectReason: state.lastDisconnectReason };
 }
 
+// Celular brasileiro existe no WhatsApp com OU sem o 9º dígito, conforme a idade da conta
+// (muita conta de Goiás é 55 62 xxxx-xxxx). A recepcionista digita com o 9, e a mensagem ia
+// pra um número que não existe: ficava "enviada" e nunca chegava (17/10, todas as entradas
+// manuais da Mercearia). Pergunta ao WhatsApp qual das duas formas existe e guarda a resposta.
+const jidCache = new Map();
+const LOOKUP_TIMEOUT_MS = 8000;
+
+async function resolveJid(clientId, sock, waId) {
+  if (waId.includes('@')) return waId;
+  const fallback = `${waId}@s.whatsapp.net`;
+  const variants = phoneVariants(waId);
+  if (variants.length < 2 || typeof sock.onWhatsApp !== 'function') return fallback;
+  const key = `${normalizeClientId(clientId)}:${waId}`;
+  if (jidCache.has(key)) return jidCache.get(key);
+  try {
+    const lookup = sock.onWhatsApp(...variants.map((v) => `${v}@s.whatsapp.net`));
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), LOOKUP_TIMEOUT_MS).unref?.());
+    const results = await Promise.race([lookup, timeout]);
+    const hit = (results || []).find((r) => r?.exists && r.jid);
+    if (hit) {
+      jidCache.set(key, hit.jid);
+      return hit.jid;
+    }
+  } catch (error) {
+    console.error(`Baileys [client ${clientId}]: não deu pra conferir o número ${waId} (${error.message}); enviando como está.`);
+  }
+  return fallback;
+}
+
 export async function sendViaBaileys(clientId, waId, body) {
   const state = connections.get(normalizeClientId(clientId));
   if (!state?.sock || state.status !== 'connected') {
     throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
   }
-  const jid = waId.includes('@') ? waId : `${waId}@s.whatsapp.net`;
+  const jid = await resolveJid(clientId, state.sock, waId);
   const sent = await state.sock.sendMessage(jid, { text: body });
   // O id é o que liga os avisos de entregue/lida (messages.update) a esta mensagem.
   const id = sent?.key?.id || null;

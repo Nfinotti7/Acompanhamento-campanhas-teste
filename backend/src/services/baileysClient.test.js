@@ -387,3 +387,44 @@ test('vigia: confirmação do WhatsApp (messages.update) tira a mensagem da espe
   await checkConnections(deps);
   assert.equal(ended, false);
 });
+
+test('envio pra celular digitado com o 9: usa a forma que existe no WhatsApp (conta antiga sem o 9)', async () => {
+  let handler = null;
+  const sent = [];
+  const asked = [];
+  const fakeBaileys = {
+    default: () => ({
+      ev: { on: (event, h) => { if (event === 'connection.update') handler = h; } },
+      onWhatsApp: async (...jids) => { asked.push(jids); return [{ jid: '556296952514@s.whatsapp.net', exists: true }]; },
+      sendMessage: async (jid) => { sent.push(jid); return { key: { id: 'X' + sent.length } }; }
+    }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  await connectClient('test-nono-digito', { baileys: fakeBaileys });
+  await handler({ connection: 'open' });
+
+  await sendViaBaileys('test-nono-digito', '5562996952514', 'oi');
+  await sendViaBaileys('test-nono-digito', '5562996952514', 'oi de novo');
+
+  assert.deepEqual(asked, [['5562996952514@s.whatsapp.net', '556296952514@s.whatsapp.net']], 'consulta uma vez só');
+  assert.deepEqual(sent, ['556296952514@s.whatsapp.net', '556296952514@s.whatsapp.net']);
+});
+
+test('envio: se a consulta do número falha, manda como está (não trava o envio)', async () => {
+  let handler = null;
+  const sent = [];
+  const fakeBaileys = {
+    default: () => ({
+      ev: { on: (event, h) => { if (event === 'connection.update') handler = h; } },
+      onWhatsApp: async () => { throw new Error('falhou'); },
+      sendMessage: async (jid) => { sent.push(jid); return { key: { id: 'Y' } }; }
+    }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  await connectClient('test-nono-digito-2', { baileys: fakeBaileys });
+  await handler({ connection: 'open' });
+  await sendViaBaileys('test-nono-digito-2', '5562996952514', 'oi');
+  assert.deepEqual(sent, ['5562996952514@s.whatsapp.net']);
+});
