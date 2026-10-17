@@ -551,3 +551,14 @@ Detalhes:
 - **Malibu sem nenhuma mensagem recebida desde 12:35 de 17/10**, nem depois do restart. Pedi pro usuário conferir em Chaves e APIs se está conectado.
 
 **Deploy:** não subir durante o serviço do restaurante. O deploy reinicia o servidor e já deixou a conexão em `standby` duas vezes (ver 2026-10-14 e 2026-10-16).
+
+**Continuação (17/10, ~19h):** o usuário relatou que "desconectou de novo e não está respondendo", e pediu deploy urgente sem perder a fila. A fila fica no Postgres, então deploy não apaga.
+- O vigia (`7356aa8`) foi enviado, junto com o diário (push `877c515`).
+- **Achado o problema que ele estava vendo:** toda entrada **manual** com celular de Goiás (55 62/64 + 9 + 8 dígitos) **nunca recebeu nada**, nem em 16/10 nem em 17/10 (status `sent` pra sempre).
+  - Essas contas estão no WhatsApp **sem o 9**: os `wa_id` que chegam pelo QR têm 12 dígitos, ex. `556296952514`.
+  - Números de SP (11) com o 9 chegavam normalmente.
+  - Era o risco 3 da revisão de 15/10 ("o envio pra entrada manual vai pro número como foi digitado").
+- **Correção `c68b043`:** `sendViaBaileys` → `resolveJid`. Pra número com variante (`phoneVariants`), chama `sock.onWhatsApp(com e sem o 9)` com timeout de 8s, usa o `jid` que existe e guarda em cache (`clientId:waId`, em memória). Se falhar, manda como está. Backend: 250 testes passando.
+- Deploy `c68b043`: o servidor ficou fora das 19:21:46 às 19:27:01 e voltou recebendo **sem standby e sem QR**. Fila conferida, 8 ativos.
+- **Falta confirmar:** a primeira mensagem pra uma entrada manual de Goiás chegando `delivered` depois do deploy.
+- Pra recepcionista nada muda: ela continua digitando com o 9.
