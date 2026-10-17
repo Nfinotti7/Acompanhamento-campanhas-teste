@@ -522,3 +522,32 @@ Pedido do usuário (escolheu a opção C):
 **Pro usuário, depois do deploy:** no Android, desinstalar o app do Further (e o do Caixa, se tiver), abrir `furtherads.online` no Chrome e instalar de novo; depois abrir `/caixa` e instalar o Caixa. O Chrome até atualiza o app antigo sozinho, mas pode demorar dias.
 
 **No ar (2026-10-17):** push `3b49faf`; em produção o `further.webmanifest` já tem escopo `/painel`, `/painel` responde 200 e o bundle tem o redirecionamento. Falta o usuário reinstalar os apps no Android.
+
+### 2026-10-17 — Na Mesa mudo: conexão Baileys zumbi (sábado, em pleno serviço)
+
+**Relato do usuário (~18h):** o Na Mesa parou. Quem lia o QR e mandava mensagem não recebia resposta, e a tela mostrava "tentando conexão". O usuário achou que era o deploy do escopo do PWA, mas não era: os deploys foram às 12:47 e 13:50, e a fila funcionou a tarde toda depois disso.
+
+**Diagnóstico (pelo banco de produção):**
+- A última mensagem recebida da Mercearia foi às **17:48:38**. Esse número recebe algo quase todo minuto (status, grupos, clientes), então o silêncio era anormal.
+- As mensagens pro Fabiano às 17:59 (entrada manual) saíram com id, mas **nunca** foram confirmadas (ficaram `sent`). Antes disso, tudo virava `read`/`delivered`.
+- Ou seja, uma **conexão zumbi**: `connected` no servidor, sem chegar nada nos dois sentidos, e sem nunca disparar `close`.
+- O keepalive do Baileys 7.0.0-rc14 derruba o socket se não chegar **nenhum frame** em ~35s. Então o servidor do WhatsApp seguia respondendo o ping, mas parou de entregar mensagens e recibos (ou o buffer de eventos do Baileys travou; não dá pra saber sem log). Um ping a mais não pegaria isso.
+
+**Resolvido na hora:** o usuário reiniciou o app Node.js no hPanel. Às 18:05:12 a mensagem voltou a entrar, e às 18:05:14 o robô respondeu "FILA" (mensagem lida).
+
+**Correção (commit `7356aa8`, ainda não enviada):** vigia em `baileysClient.js`, que roda a cada 60s só no processo dono. A conexão aberta é descartada e reaberta com a sessão salva (sem QR, mesmo padrão do reset: `state.sock = null`, `end`, `connectClient` depois de 5s) quando:
+- uma mensagem enviada por `sendViaBaileys` passa **90s sem `messages.update`** e **nenhum outro evento chegou desde o envio**;
+- **nenhum evento** (`messages.upsert`, `messages.update`) chega por **20 min**.
+
+Detalhes:
+- **Por que não só "sem confirmação":** no histórico, 23 de ~250 mensagens da fila nunca foram confirmadas, mesmo com a conexão boa (número digitado errado, sem WhatsApp). Isso daria reconexão falsa toda noite.
+- **O Baileys não emite `messages.update` no ack do servidor**, só nos recibos (`sender`/entrega/leitura).
+- A regra pura `connectionHealth` está exportada e testada, assim como `checkConnections(deps)`. `applyMessageStatus` é injetável no teste.
+- O motivo aparece como última queda em Chaves e APIs, com código `vigia`.
+- Backend: 248 testes passando.
+
+**Observar depois do deploy:**
+- Se o Malibu (número mais quieto) ficar reconectando a cada 20 min, aparece nos logs como `vigia -- nenhum evento...`. Se isso incomodar, aumentar `SILENT_RECYCLE_MS`.
+- **Malibu sem nenhuma mensagem recebida desde 12:35 de 17/10**, nem depois do restart. Pedi pro usuário conferir em Chaves e APIs se está conectado.
+
+**Deploy:** não subir durante o serviço do restaurante. O deploy reinicia o servidor e já deixou a conexão em `standby` duas vezes (ver 2026-10-14 e 2026-10-16).
