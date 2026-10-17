@@ -3,11 +3,15 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import CaixaApp from './CaixaApp.jsx';
 import NaMesaApp from './NaMesaApp.jsx';
-import { appForPath } from './pwa/apps.js';
+import { appForPath, canonicalPath } from './pwa/apps.js';
 import { registerSW } from './pwa/registerSW.js';
 import InstallPrompt from './pwa/InstallPrompt.jsx';
 import OfflineBanner from './pwa/OfflineBanner.jsx';
 import './index.css';
+
+// A raiz vai pra /painel, que é o escopo do app instalado do Further.
+const canonical = canonicalPath(window.location.pathname);
+if (canonical) window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
 
 const app = appForPath(window.location.pathname);
 

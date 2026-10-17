@@ -14,6 +14,15 @@ function withFiles(app) {
   };
 }
 
+// O dashboard mora em /painel, e não em /. Um app instalado com escopo "/" engloba /caixa e
+// /namesa: o Android abre o Caixa dentro do app do Further e diz que o Caixa "já está instalado".
+export const FURTHER_PATH = '/painel';
+
+// Endereço pra onde a raiz deve ir (null = fica onde está).
+export function canonicalPath(pathname) {
+  return !pathname || pathname === '/' ? FURTHER_PATH : null;
+}
+
 export function appForPath(pathname) {
   const p = pathname || '/';
   if (p === '/caixa' || p.startsWith('/caixa/')) return withFiles(APPS.caixa);

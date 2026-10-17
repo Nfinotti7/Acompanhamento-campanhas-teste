@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appForPath } from './apps.js';
+import { appForPath, canonicalPath } from './apps.js';
 
 test('cada endereço leva ao app certo', () => {
   assert.equal(appForPath('/caixa').key, 'caixa');
@@ -9,6 +9,14 @@ test('cada endereço leva ao app certo', () => {
   assert.equal(appForPath('/').key, 'further');
   assert.equal(appForPath('/admin').key, 'further');
   assert.equal(appForPath('/caixas').key, 'further');
+});
+
+test('a raiz vai pro /painel e os outros endereços ficam', () => {
+  assert.equal(canonicalPath('/'), '/painel');
+  assert.equal(canonicalPath(''), '/painel');
+  assert.equal(canonicalPath('/painel'), null);
+  assert.equal(canonicalPath('/caixa'), null);
+  assert.equal(appForPath('/painel').key, 'further');
 });
 
 test('config do Na Mesa aponta pro manifesto e ícones dele', () => {
