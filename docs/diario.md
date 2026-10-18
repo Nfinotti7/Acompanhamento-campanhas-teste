@@ -594,3 +594,10 @@ Detalhes:
 
 **Deploy:** subido no domingo 18/10 por volta de 12h, com a fila vazia (0 ativos).
 
+
+**Depois do deploy (18/10, ~12h):**
+- Bundle novo confirmado no ar (`Relatório da fila` presente).
+- **Observar:** a Mercearia não recebia nenhuma mensagem desde 02:45 BRT (e o Malibu desde 15:35 de 17/10). Nos 15 min depois do deploy também não chegou nada.
+- Pode ser só domingo de manhã parado, mas também pode ser desconexão ou standby. Não consegui ver o status, porque a rota precisa de login e eu não tinha token.
+- Pedi pro usuário abrir Na Mesa → Configurar e, se não estiver "Conectado", reiniciar o app no hPanel ou gerar QR novo.
+- Este registro **não foi enviado** ao GitHub, pra não disparar outro deploy à toa.
