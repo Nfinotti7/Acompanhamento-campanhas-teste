@@ -601,3 +601,13 @@ Detalhes:
 - Pode ser só domingo de manhã parado, mas também pode ser desconexão ou standby. Não consegui ver o status, porque a rota precisa de login e eu não tinha token.
 - Pedi pro usuário abrir Na Mesa → Configurar e, se não estiver "Conectado", reiniciar o app no hPanel ou gerar QR novo.
 - Este registro **não foi enviado** ao GitHub, pra não disparar outro deploy à toa.
+
+**Continuação (18/10, ~13:40) — Mercearia trocando de número:**
+- O usuário relatou que o Na Mesa ficava "tentando reconectar" e pediu pra desconectar a Mercearia, porque ela vai usar outro número.
+- O status era **`standby`**: o processo antigo continuou dono da sessão depois do deploy. **É a terceira vez** (14/10, 16/10 e 18/10). Isso explica também o silêncio desde cedo.
+- O usuário reiniciou o app no hPanel. Às 13:43 saiu do standby, e eu chamei `POST /api/whatsapp/baileys/reset` com o token de staff da Mercearia (PIN passado pelo usuário). O status virou `qr`, esperando o número novo ser escaneado.
+- **Pendente pro usuário:**
+  - escanear com o número novo;
+  - trocar o "WhatsApp do restaurante" no Configurar;
+  - reimprimir o QR da porta (o atual aponta pro número antigo).
+- **Prioridade:** resolver o standby depois de deploy. O processo novo precisa assumir sozinho a sessão (ex.: o antigo ceder no SIGTERM, ou o novo forçar a posse na subida). Hoje todo deploy pode exigir restart manual.
