@@ -3,6 +3,7 @@ import db from '../config/db.js';
 import { getConnectionState } from '../services/baileysClient.js';
 import { DEFAULT_MESSAGES, MESSAGE_KEYS, normalizePhone } from '../services/waitlistText.js';
 import { loadQueueState, loadSettings, transitionEntry, addManualEntry, updateEntry } from '../services/waitlistQueue.js';
+import { loadReport } from '../services/waitlistReport.js';
 
 export const JOIN_TEXT = 'Quero entrar na fila (cód. FILA)';
 
@@ -44,6 +45,10 @@ export const getQueue = handler(async (req, res, clientId) => {
     whatsappStatus: await whatsappStatus(clientId)
   });
 }, 'Erro ao carregar a fila');
+
+export const getReport = handler(async (req, res, clientId) => {
+  return res.json(await loadReport(db, { clientId, day: req.query.day }));
+}, 'Erro ao carregar o relatório da fila');
 
 export const addEntry = handler(async (req, res, clientId) => {
   const { name, phone, partySize } = req.body;

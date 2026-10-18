@@ -26,7 +26,9 @@ import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
 import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
-import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr } from './controllers/waitlistController.js';
+import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
+import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
+import db from './config/db.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
 dotenv.config();
@@ -146,6 +148,7 @@ app.post('/api/waitlist', addEntry);
 app.get('/api/waitlist/settings', getWaitlistSettings);
 app.put('/api/waitlist/settings', saveWaitlistSettings);
 app.get('/api/waitlist/qr', getWaitlistQr);
+app.get('/api/waitlist/report', getWaitlistReport);
 app.patch('/api/waitlist/:id', editEntry);
 app.post('/api/waitlist/:id/call', callEntry);
 app.post('/api/waitlist/:id/seat', seatEntry);
@@ -186,6 +189,13 @@ initDb()
     resolveMissingAds()
       .then((count) => { if (count > 0) console.log(`Anúncios resolvidos na subida: ${count}`); })
       .catch((err) => console.error('Erro ao resolver anúncios pendentes:', err));
+
+    // Na Mesa: o relatório guarda 7 dias de serviço; o que for mais antigo é apagado.
+    const purgeWaitlist = () => purgeOldWaitlistEntries(db)
+      .then((count) => { if (count > 0) console.log(`Na Mesa: ${count} entradas antigas apagadas`); })
+      .catch((err) => console.error('Erro ao apagar entradas antigas da fila:', err));
+    purgeWaitlist();
+    setInterval(purgeWaitlist, 6 * 60 * 60 * 1000).unref();
 
     if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
       reconnectAllBaileysClients().catch((err) => {

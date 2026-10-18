@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Store, Lock, ArrowLeft, Users, Settings, LogOut } from 'lucide-react';
+import { Store, Lock, ArrowLeft, Users, Settings, LogOut, FileText } from 'lucide-react';
 import QueueBoard from './components/namesa/QueueBoard';
 import WaitlistSettings from './components/namesa/WaitlistSettings';
+import WaitlistReport from './components/namesa/WaitlistReport';
 import { playNotificationSound, unlockNotificationSound } from './components/notificationSound';
 import AppIcon from './brand/AppIcon';
 import BrandLogo from './brand/BrandLogo';
@@ -172,12 +173,15 @@ export default function NaMesaApp() {
           {phone && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{restaurant?.name}</div>}
         </div>
         {tabButton('fila', 'Fila', Users)}
+        {tabButton('relatorio', 'Relatório', FileText)}
         {tabButton('config', 'Configurar', Settings)}
         <ThemeToggle />
         <button onClick={handleLogout} title="Sair" aria-label="Sair" className="icon-button"><LogOut size={18} /></button>
       </header>
       <main className="page-pad" style={{ paddingTop: '16px', paddingBottom: '16px', maxWidth: '1100px', margin: '0 auto' }}>
-        {tab === 'fila' ? <QueueBoard api={api} refreshKey={refreshKey} onReconnect={() => setTab('config')} /> : <WaitlistSettings api={api} />}
+        {tab === 'fila' && <QueueBoard api={api} refreshKey={refreshKey} onReconnect={() => setTab('config')} />}
+        {tab === 'relatorio' && <WaitlistReport api={api} restaurant={restaurant} />}
+        {tab === 'config' && <WaitlistSettings api={api} />}
       </main>
     </div>
   );
