@@ -36,6 +36,7 @@
   - Tema claro/escuro nas cores da Further (marinho `#000D30` + turquesa `#0097B2`), com as logos da Further.
   - Cada app é instalável como PWA, com ícone próprio. Ver Registro 2026-10-16. O Further mora em `/painel` (a raiz redireciona) desde 2026-10-17, pra o escopo dele não engolir o Caixa e o Na Mesa.
 - Falta: cadastrar a Mercearia de verdade, testar a fila com celular real e instalar os PWAs num Android e num iPhone de verdade.
+- **Relatório do dia do Na Mesa** (desde 2026-10-18, commit `f9d3507`): aba Relatório no `/namesa`, últimos 7 dias, planilha e impressão. Entradas com mais de 7 dias são apagadas sozinhas. Ver Registro 2026-10-18.
 
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
 - Vincular Google Ads de Alma, Giulí e Malibu à MCC da agência — precisa ser feito manualmente pelo usuário na interface do Google Ads.
@@ -562,3 +563,34 @@ Detalhes:
 - Deploy `c68b043`: o servidor ficou fora das 19:21:46 às 19:27:01 e voltou recebendo **sem standby e sem QR**. Fila conferida, 8 ativos.
 - **Falta confirmar:** a primeira mensagem pra uma entrada manual de Goiás chegando `delivered` depois do deploy.
 - Pra recepcionista nada muda: ela continua digitando com o 9.
+
+### 2026-10-18 — Na Mesa: relatório do dia (commit `f9d3507`)
+
+**Pedido do usuário:** a tela só mostrava as contagens do topo e não quem passou pela fila. Ele quer gerar um relatório do fim do dia com as pessoas e quantas foram, de pelo menos os 5 dias anteriores. Depois disso o sistema pode apagar ("precisa ter essa rotatividade"). Pediu pra fazer e subir; estava saindo e não podia responder perguntas, então as decisões abaixo foram minhas.
+
+**Decisões (minhas, dá pra mudar):**
+- **Retenção de 7 dias de serviço** (hoje + 6 anteriores), acima dos 5 pedidos. `RETENTION_DAYS` em `services/waitlistReport.js`.
+- **O dia de serviço vai das 05:00 às 05:00 de Brasília**, pra o jantar que passa da meia-noite não ser cortado em dois relatórios. Brasília tratado como UTC-3 fixo.
+- **A limpeza apaga só `waitlist_entries`.** O contato e as mensagens do WhatsApp (`whatsapp_contacts`/`whatsapp_messages`) continuam.
+- Quem nunca respondeu quantas pessoas eram aparece como "Não respondeu" e não conta nos grupos.
+
+**Como ficou:**
+- `services/waitlistReport.js` (testado, 6 testes): `serviceDayOf`, `serviceDayRange`, `recentServiceDays`, `buildReport` (grupos, pessoas, sentaram, pessoas sentadas, não vieram, saíram, removidos, não responderam, espera média e máxima) e `loadReport`. A espera é `finished_at - joined_at` de quem sentou; o `joined_at` é renovado no `requeueEnd`. `purgeOldEntries` apaga o que é anterior ao dia mais antigo da retenção, pra todos os restaurantes.
+- Rota `GET /api/waitlist/report?day=YYYY-MM-DD` (staff e admin). Dia fora da janela cai pra hoje.
+- `server.js`: a limpeza roda na subida e a cada 6h.
+- **Frontend:** aba **Relatório** no `/namesa` (`components/namesa/WaitlistReport.jsx`):
+  - botões com os 7 dias e o número de grupos de cada um;
+  - cartões com o resumo e a lista (tabela no PC, cartões no celular);
+  - **Baixar planilha** gera um CSV com `;` e BOM, que abre direto no Excel em português;
+  - **Imprimir / PDF** abre uma janela de papel sempre clara.
+  - A formatação e a exportação ficam em `reportExport.js`, que é testado.
+
+**Conferido:**
+- Backend 256 testes, frontend 57, build ok.
+- `loadReport` rodado contra o banco de produção (só leitura) pra Mercearia: 17/10 deu 41 grupos, 164 pessoas, 26 sentaram (113 pessoas), 13 não vieram e espera média de 29 min.
+- A entrada mais antiga no banco era de 16/10, então a primeira limpeza não apaga nada.
+
+**Não conferido:** a tela no navegador (não tenho o PIN da Mercearia) e o download do CSV no app instalado do iPhone. Se o iPhone não baixar, o "Imprimir / PDF" serve de alternativa.
+
+**Deploy:** subido no domingo 18/10 por volta de 12h, com a fila vazia (0 ativos).
+
