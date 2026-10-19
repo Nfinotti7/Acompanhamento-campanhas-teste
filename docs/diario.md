@@ -652,3 +652,11 @@ Detalhes:
 - **Usuário criado no banco de produção:** id 10, "Grupo JF", ligado aos clientes 5, 7, 8 e 9.
 - **Testado local contra produção:** o login devolve os 4 restaurantes, `clientId=7` traz o Alma, e `clientId=13` (Mercearia, fora do grupo) cai no Recreio.
 - Não dá pra dar acesso de grupo pela tela ainda. Hoje é só pelo banco (`INSERT INTO user_clients`).
+
+### 2026-10-19 (continuação) — Google do Alma na dash (sem MCC)
+
+- O login Google da agência (o mesmo OAuth do Recreio) **já tem acesso direto** à conta do Alma: **Alma Boutique Bar, 117-570-8507**. `customers:listAccessibleCustomers` também mostra Dr. Diego Rosado, Egen, Garage Kustom, Dr Alexandre Peleja e a 9574463331 (sem permissão).
+- Cadastrada a credencial `google` do Alma (client 7): é a cópia da do Recreio com `customer_id` 117-570-8507 e **sem** `login_customer_id`, porque o acesso é direto e não pela MCC. O sync deu ok: 1 campanha ("ALMA - PMax GMN - Restaurante - Goiania"), 7 dias.
+- **Atenção:** o refresh token agora está copiado em 2 linhas de `credentials` (clientes 5 e 7). Ao renovar o token, atualizar as duas.
+- **Convite da MCC pela API** (`customerClientLinks:mutate` + aceite em `customerManagerLinks`): bloqueado pelo modo auto ("Permission Grant"). Script pronto no scratchpad da sessão (`link-mcc.mjs <customerId>`). O usuário manda o convite pela interface da MCC.
+- **Data de início 05/10:** o apagamento pelo script foi bloqueado pelo modo auto. O usuário vai salvar a data pela tela de Clientes em Alma, Giulí e Malibu.
