@@ -305,6 +305,8 @@ export async function initDb() {
   // Na Mesa (fila de espera) -- ver docs/superpowers/specs/2026-10-15-namesa-fila-design.md
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS dashboard_enabled BOOLEAN DEFAULT true`);
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS waitlist_enabled BOOLEAN DEFAULT false`);
+  // Data a partir da qual as métricas de anúncio do cliente contam (antes disso era outro gestor).
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS data_start_date DATE`);
   await query(`
     CREATE TABLE IF NOT EXISTS waitlist_settings (
       client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,

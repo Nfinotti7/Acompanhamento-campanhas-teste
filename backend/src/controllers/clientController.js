@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import db from '../config/db.js';
+import { purgeMetricsBeforeStart } from '../services/syncService.js';
 
 export function normalizeOptionalText(value) {
   if (typeof value !== 'string') return null;
@@ -11,6 +12,12 @@ function optionalBoolean(value) {
   return typeof value === 'boolean' ? value : null;
 }
 
+export function normalizeStartDate(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
+
 export async function listClients(req, res) {
   try {
     let clients;
@@ -18,13 +25,17 @@ export async function listClients(req, res) {
       const { rows } = await db.query(`
         SELECT c.*,
           (SELECT COUNT(*) FROM campaigns WHERE client_id = c.id) as total_campaigns,
-          (SELECT SUM(spend) FROM daily_metrics WHERE client_id = c.id) as total_spend
+          (SELECT SUM(spend) FROM daily_metrics WHERE client_id = c.id) as total_spend,
+          to_char(c.data_start_date, 'YYYY-MM-DD') as data_start_date
         FROM clients c
         ORDER BY c.name ASC
       `);
       clients = rows;
     } else {
-      const { rows } = await db.query('SELECT * FROM clients WHERE id = ?', [req.user.clientId]);
+      const { rows } = await db.query(
+        "SELECT *, to_char(data_start_date, 'YYYY-MM-DD') as data_start_date FROM clients WHERE id = ?",
+        [req.user.clientId]
+      );
       clients = rows;
     }
 
@@ -37,17 +48,17 @@ export async function listClients(req, res) {
 
 export async function createClient(req, res) {
   try {
-    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword, dashboard_enabled, waitlist_enabled } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword, dashboard_enabled, waitlist_enabled, data_start_date } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
     }
 
     const { rows } = await db.query(
-      `INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled)
-       VALUES (?, ?, ?, ?, ?, COALESCE(?, true), COALESCE(?, false)) RETURNING id`,
+      `INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled, data_start_date)
+       VALUES (?, ?, ?, ?, ?, COALESCE(?, true), COALESCE(?, false), ?) RETURNING id`,
       [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id),
-        optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled)]
+        optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled), normalizeStartDate(data_start_date)]
     );
     const newClientId = rows[0].id;
 
@@ -74,24 +85,35 @@ export async function createClient(req, res) {
 export async function updateClient(req, res) {
   try {
     const clientId = req.params.id;
-    const { name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled, data_start_date } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
     }
 
-    const { rows } = await db.query('SELECT id FROM clients WHERE id = ?', [clientId]);
+    const { rows } = await db.query(
+      "SELECT id, to_char(data_start_date, 'YYYY-MM-DD') as data_start_date FROM clients WHERE id = ?",
+      [clientId]
+    );
     if (!rows[0]) {
       return res.status(404).json({ error: 'Cliente não encontrado.' });
     }
 
+    // Campo ausente no corpo mantém a data atual; string vazia limpa.
+    const startDate = data_start_date === undefined ? rows[0].data_start_date : normalizeStartDate(data_start_date);
+
     await db.query(
       `UPDATE clients SET name = ?, company = ?, logo_url = ?, campaign_prefix = ?, page_id = ?,
-         dashboard_enabled = COALESCE(?, dashboard_enabled), waitlist_enabled = COALESCE(?, waitlist_enabled)
+         dashboard_enabled = COALESCE(?, dashboard_enabled), waitlist_enabled = COALESCE(?, waitlist_enabled),
+         data_start_date = ?
        WHERE id = ?`,
       [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id),
-        optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled), clientId]
+        optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled), startDate, clientId]
     );
+
+    if (startDate && startDate !== rows[0].data_start_date) {
+      await purgeMetricsBeforeStart();
+    }
 
     return res.json({ message: 'Cliente atualizado com sucesso!' });
   } catch (error) {

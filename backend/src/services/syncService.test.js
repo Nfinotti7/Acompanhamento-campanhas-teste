@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMetaCredentialsConfig, getMetaAccountMembers, storeClassifiedRows, syncClients } from './syncService.js';
+import { parseMetaCredentialsConfig, getMetaAccountMembers, storeClassifiedRows, syncClients, dropRowsBeforeStart } from './syncService.js';
 
 function makeFakeTx() {
   const calls = [];
@@ -170,4 +170,29 @@ test('syncClients isola erro de um grupo meta sem afetar outros clientes', async
   assert.equal(r1.meta.status, 'error');
   assert.equal(r2.meta.status, 'ok');
   assert.equal(r2.meta.campaigns, 1);
+});
+
+// Alma/Giulí/Malibu: antes de 05/10 a conta era de outro gestor e esses dias não entram.
+test('dropRowsBeforeStart descarta dias anteriores a data de inicio do cliente', () => {
+  const rows = [
+    baseClassifiedRow({ date: '2026-10-04', resolvedClientId: 7 }),
+    baseClassifiedRow({ date: '2026-10-05', resolvedClientId: 7 }),
+    baseClassifiedRow({ date: '2026-09-20', resolvedClientId: 5 })
+  ];
+  const starts = new Map([[7, '2026-10-05']]);
+  const kept = dropRowsBeforeStart(rows, (r) => starts.get(r.resolvedClientId));
+  assert.deepEqual(kept.map((r) => `${r.resolvedClientId}:${r.date}`), ['7:2026-10-05', '5:2026-09-20']);
+});
+
+test('getMetaAccountMembers devolve a data de inicio do cliente', async () => {
+  const fakeDb = {
+    query: async () => ({
+      rows: [
+        { client_id: 7, campaign_prefix: null, page_id: null, data_start_date: '2026-10-05', config_json: JSON.stringify({ ad_account_id: 'act_1', access_token: 'tok' }) },
+        { client_id: 5, campaign_prefix: null, page_id: null, data_start_date: null, config_json: JSON.stringify({ ad_account_id: 'act_1', access_token: 'tok' }) }
+      ]
+    })
+  };
+  const members = await getMetaAccountMembers('act_1', { db: fakeDb });
+  assert.deepEqual(members.map((m) => m.dataStartDate), ['2026-10-05', null]);
 });

@@ -13,6 +13,42 @@ function getDateRange(days) {
   return { startDate: fmt(start), endDate: fmt(end) };
 }
 
+// Cliente com data de início (clients.data_start_date) só tem métricas a partir dela:
+// o que vem antes era de outro gestor e não entra no painel.
+export function dropRowsBeforeStart(rows, startDateOf) {
+  return rows.filter((r) => {
+    const start = startDateOf(r);
+    return !start || r.date >= start;
+  });
+}
+
+async function getDataStartDate(clientId) {
+  const { rows } = await db.query(
+    "SELECT to_char(data_start_date, 'YYYY-MM-DD') AS start FROM clients WHERE id = ?",
+    [clientId]
+  );
+  return rows[0]?.start || null;
+}
+
+// Tira do banco as métricas já gravadas antes da data de início de cada cliente, e as
+// campanhas que ficaram sem nenhuma métrica (só rodaram com o gestor anterior).
+export async function purgeMetricsBeforeStart(deps = {}) {
+  const withTransaction = deps.withTransaction || db.withTransaction;
+  return withTransaction(async (tx) => {
+    const { rowCount: metrics } = await tx.query(`
+      DELETE FROM daily_metrics dm USING clients c
+      WHERE dm.client_id = c.id AND c.data_start_date IS NOT NULL
+        AND dm.date < to_char(c.data_start_date, 'YYYY-MM-DD')
+    `);
+    const { rowCount: campaigns } = await tx.query(`
+      DELETE FROM campaigns cp USING clients c
+      WHERE cp.client_id = c.id AND c.data_start_date IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM daily_metrics dm WHERE dm.campaign_id = cp.id)
+    `);
+    return { metrics: metrics || 0, campaigns: campaigns || 0 };
+  });
+}
+
 async function getCredentials(clientId, platform) {
   const { rows } = await db.query(
     'SELECT config_json FROM credentials WHERE client_id = ? AND platform = ?',
@@ -47,7 +83,8 @@ function parseAccountIds(rawAccountId) {
 export async function getMetaAccountMembers(accountId, deps = {}) {
   const dbImpl = deps.db || db;
   const { rows } = await dbImpl.query(`
-    SELECT c.id as client_id, c.campaign_prefix, c.page_id, cr.config_json
+    SELECT c.id as client_id, c.campaign_prefix, c.page_id, cr.config_json,
+      to_char(c.data_start_date, 'YYYY-MM-DD') as data_start_date
     FROM clients c
     JOIN credentials cr ON cr.client_id = c.id AND cr.platform = 'meta'
   `);
@@ -79,6 +116,7 @@ export async function getMetaAccountMembers(accountId, deps = {}) {
       clientId: row.client_id,
       campaignPrefix: row.campaign_prefix,
       pageId: row.page_id,
+      dataStartDate: row.data_start_date || null,
       accessToken
     });
   }
@@ -272,13 +310,15 @@ export async function storeClassifiedRows(platform, classifiedRows, deps = {}) {
 
 async function syncPlatformForClient(clientId, platform, startDate, endDate, deps = {}) {
   const getCredentialsImpl = deps.getCredentials || getCredentials;
+  const getDataStartDateImpl = deps.getDataStartDate || getDataStartDate;
   const config = await getCredentialsImpl(clientId, platform);
   if (!config) {
     return { status: 'skipped', error: 'Nenhuma credencial cadastrada para esta plataforma.' };
   }
 
   try {
-    const rows = await fetchGoogleAdsData(config, { startDate, endDate });
+    const clientStart = await getDataStartDateImpl(clientId);
+    const rows = dropRowsBeforeStart(await fetchGoogleAdsData(config, { startDate, endDate }), () => clientStart);
     const { campaigns, rows: rowCount } = await storeRows(clientId, platform, rows);
     return { status: 'ok', campaigns, rows: rowCount };
   } catch (err) {
@@ -312,7 +352,11 @@ export async function syncMetaAccountGroup(accountId, startDate, endDate, deps =
     return results;
   }
 
-  const classifiedRows = await classifyAndPrepareRows(rawRows, members, groupAccessToken, { fetchCampaignPageId });
+  const startByClient = new Map(members.map((m) => [m.clientId, m.dataStartDate]));
+  const classifiedRows = dropRowsBeforeStart(
+    await classifyAndPrepareRows(rawRows, members, groupAccessToken, { fetchCampaignPageId }),
+    (r) => (r.classification === 'ok' ? startByClient.get(r.resolvedClientId) : null)
+  );
   const perClientCounts = await storeClassifiedRows('meta', classifiedRows);
 
   const results = {};
