@@ -639,3 +639,16 @@ Detalhes:
 **Pendente:** o usuário confirmar o deploy e o apagamento. Depois do deploy, editar Alma, Giulí e Malibu, colocar 05/10/2026 e salvar (isso apaga o que vem antes).
 
 **Continuação (19/10):** o refresh token Google do Recreio foi renovado com o perfil Trabalho do Chrome e gravado no banco, e foi validado: lista as campanhas. A MCC da Further (6729846360) hoje só enxerga o Recreio (9270706247). **O Alma ainda não está vinculado à MCC**, então ainda não dá pra cadastrar o Google dele. O push dos commits `761919f`/`490eff4` foi bloqueado pela permissão do Claude Code; o usuário vai fazer o push ou liberar.
+
+### 2026-10-19 (continuação) — Login de grupo "grupojf" (commit `d91a5d9`)
+
+**Pedido do usuário:** Recreio, Alma, Giulí e Malibu são do mesmo dono, que precisa de um único login com a visão de cliente e um seletor pra trocar de restaurante. O usuário (`grupojf`) e a senha foram passados por ele. A senha não fica registrada aqui.
+
+**Como ficou:**
+- Tabela `user_clients(user_id, client_id)`. O usuário continua `role = 'client'`, com `client_id` = Recreio (5) como padrão.
+- O token traz `clientIds`. `scopeGroupClient` (`authMiddleware.js`, testado) troca `req.user.clientId` pelo `clientId` da query, do corpo ou do cabeçalho `X-Client-Id`, mas **só se estiver na lista**. O resto do backend não mudou, porque continua lendo `req.user.clientId`.
+- `/api/auth/login` e `/me` devolvem `user.clients`. `GET /api/clients` devolve os restaurantes do grupo.
+- Frontend: o `AuthContext` manda o `X-Client-Id` em toda requisição. A Navbar mostra o seletor sem "Todos". O campo do login virou "E-mail ou usuário" (`type="text"`).
+- **Usuário criado no banco de produção:** id 10, "Grupo JF", ligado aos clientes 5, 7, 8 e 9.
+- **Testado local contra produção:** o login devolve os 4 restaurantes, `clientId=7` traz o Alma, e `clientId=13` (Mercearia, fora do grupo) cai no Recreio.
+- Não dá pra dar acesso de grupo pela tela ainda. Hoje é só pelo banco (`INSERT INTO user_clients`).
