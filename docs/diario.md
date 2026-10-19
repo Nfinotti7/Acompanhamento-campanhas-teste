@@ -38,6 +38,12 @@
 - Falta: cadastrar a Mercearia de verdade, testar a fila com celular real e instalar os PWAs num Android e num iPhone de verdade.
 - **Relatório do dia do Na Mesa** (desde 2026-10-18, commit `f9d3507`): aba Relatório no `/namesa`, últimos 7 dias, planilha e impressão. Entradas com mais de 7 dias são apagadas sozinhas. Ver Registro 2026-10-18.
 
+**Próximo trabalho (prioridade):** resolver o **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
+
+**Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta.
+
+**Não commitado na árvore de trabalho (de propósito, aguardando o usuário decidir):** scripts de token em `backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, e a alteração em `get-google-refresh-token.js` (opção `OUTPUT_FILE` pra não imprimir o token). Também há um `AGENTS.md` (cópia do CLAUDE.md pro Codex). Há 2 commits do diário em `main` que ainda não foram enviados ao GitHub, pra não disparar deploy à toa.
+
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
 - Vincular Google Ads de Alma, Giulí e Malibu à MCC da agência — precisa ser feito manualmente pelo usuário na interface do Google Ads.
 - WhatsApp oficial (Cloud API) do Malibu está bloqueado por verificação de negócio + cartão de pagamento recusado na Meta. Baileys é o caminho interino enquanto isso não resolve — usuário pretendia migrar pra oficial "essa semana" (dito em 2026-10-12).
