@@ -38,6 +38,8 @@
 - Falta: cadastrar a Mercearia de verdade, testar a fila com celular real e instalar os PWAs num Android e num iPhone de verdade.
 - **Relatório do dia do Na Mesa** (desde 2026-10-18, commit `f9d3507`): aba Relatório no `/namesa`, últimos 7 dias, planilha e impressão. Entradas com mais de 7 dias são apagadas sozinhas. Ver Registro 2026-10-18.
 
+**Data de início dos dados (19/10, commit `761919f`, não enviado):** Alma, Giulí e Malibu só a partir de 05/10/2026. Falta o deploy e salvar a data nos 3 clientes. O Google do Alma está bloqueado: o refresh token do Google venceu (o sync do Recreio também para) e falta o customer ID do Alma. Ver Registro 2026-10-19.
+
 **Próximo trabalho (prioridade):** resolver o **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
@@ -617,3 +619,21 @@ Detalhes:
   - trocar o "WhatsApp do restaurante" no Configurar;
   - reimprimir o QR da porta (o atual aponta pro número antigo).
 - **Prioridade:** resolver o standby depois de deploy. O processo novo precisa assumir sozinho a sessão (ex.: o antigo ceder no SIGTERM, ou o novo forçar a posse na subida). Hoje todo deploy pode exigir restart manual.
+
+### 2026-10-19 — Data de início dos dados por cliente + Google do Alma (commit `761919f`, não enviado)
+
+**Pedido do usuário:** Alma, Giulí e Malibu só contam a partir de **05/10/2026**. O que vem antes era de outro gestor e não deve aparecer. Incorporar o Google do Alma. O Google da Giulí e do Malibu ainda não está vinculado à MCC da Further: o usuário vai vincular e avisar, e aí é só colocar pra sincronizar.
+
+**Feito:**
+- Coluna `clients.data_start_date` (DATE, aditiva). Campo "Mostrar dados de anúncio a partir de" no cadastro do cliente, e a data aparece no cartão.
+- `syncService.js`: `dropRowsBeforeStart` filtra antes de gravar, no Google (`syncPlatformForClient`) e no Meta (`syncMetaAccountGroup`, por `resolvedClientId`; `getMetaAccountMembers` agora traz `dataStartDate`).
+- `purgeMetricsBeforeStart`: apaga `daily_metrics` anteriores à data e as campanhas que ficaram sem métrica. Roda no `updateClient` quando a data é definida ou muda. Os dados podem voltar com um sync se a data for removida, mas só dentro da janela de 30 dias.
+- Testes: backend 258, frontend 57, build ok.
+
+**Medido no banco (só leitura):** antes de 05/10 há 69 linhas do Alma (R$ 2.504,29, 5 campanhas) e 87 da Giulí (R$ 1.412,78, 6 campanhas). O Malibu não tem nada antes de 06/10.
+
+**Bloqueado:**
+- **O refresh token do Google está vencido** (`invalid_grant: Token has been expired or revoked`, conferido com `scripts/validate-google-token.js 5`). O Recreio sincronizou o Google pela última vez em 19/10. O usuário precisa gerar um novo (`get-google-refresh-token.js`) e gravar com `update-google-token-db.js`.
+- **Alma não tem credencial Google no banco** e eu não sei o customer ID. Com o token novo dá pra listar as contas da MCC (`customer_client`) e achar o do Alma. A credencial é a mesma do Recreio (client_id/secret/refresh/developer token, `login_customer_id` = MCC 6729846360), mudando só o `customer_id`.
+
+**Pendente:** o usuário confirmar o deploy e o apagamento. Depois do deploy, editar Alma, Giulí e Malibu, colocar 05/10/2026 e salvar (isso apaga o que vem antes).
