@@ -66,9 +66,11 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">E-mail de Acesso</label>
+            <label className="form-label">E-mail ou usuário</label>
             <input
-              type="email"
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
               required
               className="form-input"
               placeholder="seuemail@agencia.com.br"

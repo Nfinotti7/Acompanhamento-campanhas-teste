@@ -17,9 +17,21 @@ export function authenticateToken(req, res, next) {
     if (err) {
       return res.status(403).json({ error: 'Token inválido ou expirado.' });
     }
-    req.user = user;
+    req.user = scopeGroupClient(user, req);
     next();
   });
+}
+
+// Login de grupo (um dono com vários restaurantes): o token traz `clientIds` e cada
+// requisição escolhe o restaurante por clientId (query/corpo) ou pelo cabeçalho
+// X-Client-Id. Só vale um restaurante da lista; senão fica o padrão do usuário.
+// Daí pra frente o resto do código só enxerga `req.user.clientId`, como um cliente comum.
+export function scopeGroupClient(user, req) {
+  if (user?.role !== 'client' || !Array.isArray(user.clientIds)) return user;
+  const raw = req.query?.clientId ?? req.body?.clientId ?? req.headers?.['x-client-id'];
+  const requested = Number(raw);
+  if (!raw || !user.clientIds.includes(requested)) return user;
+  return { ...user, clientId: requested };
 }
 
 export function requireAdmin(req, res, next) {

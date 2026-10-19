@@ -47,7 +47,7 @@ function MainApp() {
 
 
   useEffect(() => {
-    if (user && user.role === 'admin') {
+    if (user && (user.role === 'admin' || user.clients?.length)) {
       fetchClients();
     }
   }, [user]);

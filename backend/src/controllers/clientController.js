@@ -31,6 +31,12 @@ export async function listClients(req, res) {
         ORDER BY c.name ASC
       `);
       clients = rows;
+    } else if (Array.isArray(req.user.clientIds)) {
+      const { rows } = await db.query(
+        "SELECT *, to_char(data_start_date, 'YYYY-MM-DD') as data_start_date FROM clients WHERE id = ANY(?) ORDER BY name ASC",
+        [req.user.clientIds]
+      );
+      clients = rows;
     } else {
       const { rows } = await db.query(
         "SELECT *, to_char(data_start_date, 'YYYY-MM-DD') as data_start_date FROM clients WHERE id = ?",

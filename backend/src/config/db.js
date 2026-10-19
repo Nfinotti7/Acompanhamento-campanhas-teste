@@ -307,6 +307,14 @@ export async function initDb() {
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS waitlist_enabled BOOLEAN DEFAULT false`);
   // Data a partir da qual as métricas de anúncio do cliente contam (antes disso era outro gestor).
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS data_start_date DATE`);
+  // Login de grupo: um usuário 'client' que enxerga vários restaurantes do mesmo dono.
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_clients (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, client_id)
+    )
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS waitlist_settings (
       client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,

@@ -9,6 +9,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState('');
 
+  // Login de grupo: toda requisição leva o restaurante escolhido no cabeçalho, pra as
+  // chamadas que não mandam clientId (ex: detalhe de campanha) também caírem nele.
+  useEffect(() => {
+    if (user?.clients?.length && selectedClientId) {
+      axios.defaults.headers.common['X-Client-Id'] = String(selectedClientId);
+    } else {
+      delete axios.defaults.headers.common['X-Client-Id'];
+    }
+  }, [user, selectedClientId]);
+
   // Axios default configuration
   useEffect(() => {
     if (token) {

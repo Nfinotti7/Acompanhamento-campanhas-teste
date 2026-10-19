@@ -29,7 +29,10 @@ export default function Navbar({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilters = (selectedClient ? 1 : 0) + (selectedPlatform !== 'all' ? 1 : 0) + (selectedRange !== '30d' ? 1 : 0);
 
-  const clientSelect = user?.role === 'admin' && (
+  const isAdmin = user?.role === 'admin';
+  // Login de grupo (um dono, vários restaurantes): troca entre os restaurantes dele, sem "Todos".
+  const isGroup = !isAdmin && user?.clients?.length > 1;
+  const clientSelect = (isAdmin || isGroup) && (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: phone ? '100%' : undefined }}>
       <Building2 size={18} color="var(--accent-primary)" />
       <select
@@ -39,7 +42,7 @@ export default function Navbar({
         aria-label="Cliente"
         style={{ width: phone ? '100%' : '220px', fontWeight: 600, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
       >
-        <option value="">Todos os Clientes (Visão Geral)</option>
+        {isAdmin && <option value="">Todos os Clientes (Visão Geral)</option>}
         {clients.map(c => (
           <option key={c.id} value={c.id}>
             {c.name} ({c.company}){c.dashboard_enabled === false ? ' · Na Mesa' : ''}
@@ -114,7 +117,7 @@ export default function Navbar({
         <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filtros">
           <div style={{ display: 'grid', gap: '14px' }}>
             {clientSelect}
-            {user?.role !== 'admin' && (
+            {!isAdmin && !isGroup && (
               <div style={{ fontWeight: 700 }}>{user?.clientCompany || user?.clientName}</div>
             )}
             {platformPicker}
@@ -130,7 +133,7 @@ export default function Navbar({
     <header className="navbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <button className="mobile-menu-btn" onClick={onToggleSidebar} aria-label="Abrir menu"><Menu size={20} /></button>
-        {user?.role === 'admin' ? clientSelect : (
+        {isAdmin || isGroup ? clientSelect : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={20} color="var(--accent-primary)" />
             <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
