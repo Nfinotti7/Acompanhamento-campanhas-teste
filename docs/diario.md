@@ -637,3 +637,5 @@ Detalhes:
 - **Alma não tem credencial Google no banco** e eu não sei o customer ID. Com o token novo dá pra listar as contas da MCC (`customer_client`) e achar o do Alma. A credencial é a mesma do Recreio (client_id/secret/refresh/developer token, `login_customer_id` = MCC 6729846360), mudando só o `customer_id`.
 
 **Pendente:** o usuário confirmar o deploy e o apagamento. Depois do deploy, editar Alma, Giulí e Malibu, colocar 05/10/2026 e salvar (isso apaga o que vem antes).
+
+**Continuação (19/10):** o refresh token Google do Recreio foi renovado com o perfil Trabalho do Chrome e gravado no banco, e foi validado: lista as campanhas. A MCC da Further (6729846360) hoje só enxerga o Recreio (9270706247). **O Alma ainda não está vinculado à MCC**, então ainda não dá pra cadastrar o Google dele. O push dos commits `761919f`/`490eff4` foi bloqueado pela permissão do Claude Code; o usuário vai fazer o push ou liberar.
