@@ -159,7 +159,7 @@ export default function ReservationsView({ api, lastEvent }) {
   };
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: phone ? '12px' : 0, display: 'grid', gap: '12px', alignContent: 'start', maxWidth: '980px' }}>
+    <div style={{ height: '100%', overflow: 'auto', padding: phone ? '12px' : 0, display: 'grid', gap: '12px', alignContent: 'start', gridAutoRows: 'max-content', maxWidth: '980px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         <button type="button" className="nm-btn nm-btn-ghost" onClick={() => setDay(addDaysISO(day, -1))} aria-label="Dia anterior"><ChevronLeft size={20} /></button>
         <input type="date" className="nm-input" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} style={{ width: 'auto' }} aria-label="Dia" />
@@ -200,7 +200,7 @@ export default function ReservationsView({ api, lastEvent }) {
 
       {phone && (
         <button type="button" className="nm-fab nm-btn nm-btn-primary" onClick={() => setFormOpen(true)} aria-label="Nova reserva" style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
-          <Plus size={22} /> Reserva
+          <Plus size={26} />
         </button>
       )}
 
