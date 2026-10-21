@@ -40,17 +40,7 @@
 
 **Data de início dos dados (19/10, commit `761919f`, não enviado):** Alma, Giulí e Malibu só a partir de 05/10/2026. Falta o deploy e salvar a data nos 3 clientes. O Google do Alma está bloqueado: o refresh token do Google venceu (o sync do Recreio também para) e falta o customer ID do Alma. Ver Registro 2026-10-19.
 
-**Reservas pelo WhatsApp (21/10, branch `feat/reservas`, NÃO juntado na `main` nem enviado):**
-- Robô de reserva (gatilho `cód. RESERVA` da mensagem pronta do anúncio), mesas por tamanho, tela Reservas no Caixa e pausa do robô quando o atendente responde.
-- Testado: 354 testes no backend, 64 no frontend, ponta a ponta 27/27 contra o banco de produção, telas no Playwright.
-- Falta:
-  - o usuário mandar subir;
-  - deploy **fora do horário do Malibu**;
-  - ligar o Malibu;
-  - desligar a saudação automática do WhatsApp Business;
-  - teste real com clique no anúncio.
-
-  Ver Registro 2026-10-21.
+**Reservas pelo WhatsApp: no ar desde 21/10 15:36** (push `7c5f1a4`, que levou junto os commits pendentes de 19/10: data de início e login de grupo). Malibu ligado (`reservations_enabled`, mesas 2×2/2×4/2×6, turnos do spec, robô ligado, plano B desligado). Falta do usuário: conectar o número novo dos anúncios no Caixa do Malibu (WhatsApp → trocar número), deixar sem saudação/ausência automática, e o teste real. Ver Registro 2026-10-21.
 
 **Próximo trabalho (prioridade):** resolver o **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
@@ -757,3 +747,5 @@ Spec: `docs/superpowers/specs/2026-10-21-reservas-design.md`. Plano: `docs/super
 6. Teste real: clicar no anúncio com outro celular, fazer a reserva e conferir a aba Origem e a tela Reservas.
 
 **Incidente meu:** o commit `dbbd3f8` (spec, na `main`, sem push) usou `git commit -a` e levou junto a alteração do usuário em `backend/scripts/get-google-refresh-token.js` (opção `OUTPUT_FILE`, sem segredo). O histórico não foi reescrito. O usuário decide se mantém. Daqui pra frente, nunca usar `commit -a` neste repo, porque há arquivos de propósito fora dos commits.
+
+**Deploy (21/10, ~15:30):** o usuário mandou subir tudo e manter no commit a alteração do script do token. O push `1fbe709..7c5f1a4` foi feito daqui, e o bundle novo confirmou às 15:36. O Malibu foi configurado direto no banco pelo `saveReservationSettings`. O Malibu vai usar um **número novo**, só pros anúncios, ainda sem mensagens e sem saudação. O WhatsApp atual do Malibu não recebia nada desde 17/10. Como a data de início (19/10) foi junto, falta salvar 05/10/2026 em Alma, Giulí e Malibu pela tela de Clientes.
