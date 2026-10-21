@@ -16,7 +16,7 @@ export const DEFAULT_MESSAGES = {
 
 export const MESSAGE_KEYS = Object.keys(DEFAULT_MESSAGES);
 
-function normalize(text) {
+export function normalize(text) {
   return String(text || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().trim();
