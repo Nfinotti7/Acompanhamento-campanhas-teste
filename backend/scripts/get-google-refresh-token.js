@@ -103,9 +103,15 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\n=== Sucesso! ===');
-  console.log('Refresh Token:', data.refresh_token);
-  console.log('\nCole esse valor no campo "OAuth Refresh Token" da tela de Chaves & Integrações do app.');
+  if (process.env.OUTPUT_FILE) {
+    const fs = await import('node:fs');
+    fs.writeFileSync(process.env.OUTPUT_FILE, data.refresh_token, 'utf8');
+    console.log('\n=== Sucesso! === Refresh token salvo em arquivo local (não exibido aqui).');
+  } else {
+    console.log('\n=== Sucesso! ===');
+    console.log('Refresh Token:', data.refresh_token);
+    console.log('\nCole esse valor no campo "OAuth Refresh Token" da tela de Chaves & Integrações do app.');
+  }
 }
 
 main().catch((err) => {

@@ -101,8 +101,8 @@ Fora disso o robô não fala. Quem já tem conversa de reserva em andamento cont
 
 Comportamentos gerais:
 
-- **Não entendeu** a mesma etapa 2 vezes → "Vou chamar alguém da equipe pra te ajudar" e para. A conversa fica como não lida no Caixa (já acontece naturalmente).
-- **Atendente respondeu** o contato (mensagem `outbound` que não é do robô) durante a conversa → robô para na hora.
+- **Não entendeu** a mesma etapa 2 vezes → texto neutro e pausa (ver "Pausa do robô" abaixo).
+- **Atendente respondeu** o contato → robô pausa (ver "Pausa do robô" abaixo).
 - **Sem resposta por 60 min** → a conversa de reserva expira em silêncio.
 - **"cancelar"** durante a conversa → encerra sem reservar. Depois de confirmada, "cancelar" → "Quer cancelar a reserva de sábado 25/10, 19h30? Responda SIM." → cancela e libera a mesa. Com mais de uma reserva futura: lista numerada.
 - **Depois de confirmada**, outras mensagens não acionam o robô (vão pra equipe), exceto CANCELAR e um novo código RESERVA (que começa outra reserva).
@@ -126,6 +126,13 @@ Reserva manual sem WhatsApp (pessoa ligou) cria/acha o contato pelo telefone, ig
   - reserva manual por telefone também move o card e dispara o evento, como já acontece hoje com o agendamento manual.
 - **Cancelar, "não veio" e "chegou" não mexem no card nem mandam evento.** A equipe move se quiser. A venda lançada continua movendo pra "Compareceu", como hoje.
 - **"Atendente respondeu"** = qualquer mensagem `outbound` pro contato que não foi enviada pelo robô, inclusive resposta pelo próprio celular. As mensagens do robô ganham uma marca (ex.: `whatsapp_messages.sent_by = 'bot_reserva'`), gravada pelo `sendToContact`. Assim o eco do Baileys não para o próprio robô. Um novo `cód. RESERVA` do mesmo contato reabre o robô.
+- **Pausa do robô (pedido do usuário: o cliente não precisa saber que fala com um robô; quando o atendente responde, o robô pausa):**
+  - Os textos nunca dizem que é robô ou assistente virtual. Antes de cada resposta, o robô mostra "digitando..." por 2 a 4 s (`sendPresenceUpdate('composing')` no Baileys). Isso deixa o ritmo humano e também reduz o risco pro número.
+  - **Como reconhece o atendente:** toda mensagem enviada é gravada com `sent_by` (`bot_reserva` | `staff`). O robô gera o id da mensagem antes de enviar (opção `messageId` do `sendMessage` do Baileys) e já grava esse id como dele. Assim, o eco que o Baileys devolve como `outbound` é reconhecido como do robô. Se o Baileys não aceitar o id próprio, a alternativa é uma lista em memória de "envios do robô em andamento" por contato, consultada no ingest. **Toda `outbound` sem marca do robô é atendente**: resposta pelo Caixa (`replyToConversation`, `sent_by = 'staff'`) ou pelo celular/WhatsApp Web (eco do Baileys).
+  - **O que a pausa faz:** grava `whatsapp_contacts.bot_paused_until = agora + 12h` e encerra a reserva em rascunho do contato (status `handed_off`). Durante a pausa o robô não responde nada a esse contato, nem CANCELAR (a equipe está conversando e resolve). A pausa é renovada a cada nova mensagem do atendente. Um `cód. RESERVA` novo **durante** a pausa também não religa o robô, porque a pessoa está com a equipe. Depois da pausa, sim.
+  - **Corrida:** o robô confere a pausa logo antes de enviar, depois do "digitando...". Se o atendente respondeu nesse meio-tempo, o robô não envia.
+  - **Na tela do Caixa:** a conversa mostra o selo "Robô atendendo" enquanto há reserva em rascunho, com o botão **Pausar robô** (pausa na hora, pra quem quer assumir antes de digitar). Durante a pausa, mostra **Retomar robô**, que zera a pausa mas não recria o rascunho: a próxima mensagem com código começa de novo.
+  - **Quando o robô não entende** (2 tentativas na mesma etapa) ou o grupo é grande demais, ele manda um texto neutro ("Só um instante, já te respondo 🙂"), pausa a si mesmo e a conversa fica destacada no Caixa como **"Precisa de atendimento"**, com som. Sem mencionar robô nem "vou chamar a equipe".
 - **CANCELAR depois de confirmada:** vale enquanto houver reserva confirmada que ainda não começou. Só aciona se a mensagem inteira for "cancelar", "cancela" ou "cancelar reserva" (com pontuação). Frases comuns com a palavra no meio vão pra equipe.
 
 ## Dados
