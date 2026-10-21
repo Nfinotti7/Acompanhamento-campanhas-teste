@@ -40,6 +40,18 @@
 
 **Data de início dos dados (19/10, commit `761919f`, não enviado):** Alma, Giulí e Malibu só a partir de 05/10/2026. Falta o deploy e salvar a data nos 3 clientes. O Google do Alma está bloqueado: o refresh token do Google venceu (o sync do Recreio também para) e falta o customer ID do Alma. Ver Registro 2026-10-19.
 
+**Reservas pelo WhatsApp (21/10, branch `feat/reservas`, NÃO juntado na `main` nem enviado):**
+- Robô de reserva (gatilho `cód. RESERVA` da mensagem pronta do anúncio), mesas por tamanho, tela Reservas no Caixa e pausa do robô quando o atendente responde.
+- Testado: 354 testes no backend, 64 no frontend, ponta a ponta 27/27 contra o banco de produção, telas no Playwright.
+- Falta:
+  - o usuário mandar subir;
+  - deploy **fora do horário do Malibu**;
+  - ligar o Malibu;
+  - desligar a saudação automática do WhatsApp Business;
+  - teste real com clique no anúncio.
+
+  Ver Registro 2026-10-21.
+
 **Próximo trabalho (prioridade):** resolver o **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
@@ -660,3 +672,88 @@ Detalhes:
 - **Atenção:** o refresh token agora está copiado em 2 linhas de `credentials` (clientes 5 e 7). Ao renovar o token, atualizar as duas.
 - **Convite da MCC pela API** (`customerClientLinks:mutate` + aceite em `customerManagerLinks`): bloqueado pelo modo auto ("Permission Grant"). Script pronto no scratchpad da sessão (`link-mcc.mjs <customerId>`). O usuário manda o convite pela interface da MCC.
 - **Data de início 05/10:** o apagamento pelo script foi bloqueado pelo modo auto. O usuário vai salvar a data pela tela de Clientes em Alma, Giulí e Malibu.
+
+### 2026-10-21 — Reservas pelo WhatsApp (branch `feat/reservas`, não enviado)
+
+**Pedido do usuário:** o Malibu vai rodar anúncios de engajamento que abrem o WhatsApp, com perguntas prontas. Uma delas é "Quero fazer uma reserva (cód. RESERVA)". Ele quer um robô que faça a reserva sozinho: pessoas, dia, horário e nome, conferindo vaga pelas mesas de cada restaurante e caindo na agenda. Depois vale pros outros clientes.
+
+**Decisões do usuário:**
+- A reserva mora no **Caixa**, não no Na Mesa, porque é onde estão o funil e a origem do anúncio.
+- **Mesas por tamanho**, editáveis, com exceção por data. O sistema desconta o que já está reservado. O Malibu começa com 2 de 2, 2 de 4 e 2 de 6.
+- **Horários do Malibu:**
+  - seg a qui das 17:00 às 23:30;
+  - sex a dom das 12:00 às 15:30 e das 18:00 às 23:30.
+- **O cliente não precisa saber que fala com um robô.** Nenhum texto diz "robô", e aparece "digitando..." antes de cada resposta.
+- **Quando o atendente responde, o robô pausa.**
+- A origem do lead continua vindo do cartão do anúncio (`externalAdReply`), não do código. O `RESERVA` só diz o que a pessoa quer. Em Link Rastreável, o código do link já basta.
+- Valores padrão aceitos:
+  - confirma na hora;
+  - mesa ocupada por 2h;
+  - tolerância de 15 min;
+  - reserva de 2h a 30 dias de antecedência;
+  - grupo acima da maior mesa vai pra equipe;
+  - plano B "toda conversa de anúncio pergunta se quer reservar" **desligado**.
+
+**Decisões minhas:**
+- Último horário de reserva = fechamento − 1h, de 30 em 30 min.
+- Com reservas ligadas, "Agendar" vira "Nova reserva" (a reserva é dona do `appointment_at`).
+- Cancelar, "não veio" e "chegou" não mexem no card.
+
+Spec: `docs/superpowers/specs/2026-10-21-reservas-design.md`. Plano: `docs/superpowers/plans/2026-10-21-reservas.md`.
+
+**Como ficou:**
+- **Serviços puros (testados):**
+  - `reservationSlots.js`: horários, vaga por tamanho e ocupação. Uma reserva das 22:30 ocupa até 00:30.
+  - `reservationText.js`: "sábado", "dia 5", "25/10", "19h30", número da lista, SIM, CANCELAR estrito. "12"/"13" valem como hora quando estão na lista.
+- **`reservationStore.js`:** gravação em transação com `pg_advisory_xact_lock(900000 + client_id)`. Sincroniza `appointment_at` e chama `moveToAutoStage('agendado')`, que dispara o evento Meta da etapa.
+- **`reservationBot.js`:** a conversa (estado em `reservation_conversations`, que expira em 60 min).
+  - Trata uma mensagem por vez por contato, com uma fila em memória.
+  - Se não entende 2 vezes, ou o grupo é grande demais, manda "Só um instante, já te respondo 🙂", pausa e avisa o Caixa ("Precisa de atendimento", com som).
+- **Pausa (`botPause.js`, `whatsapp_contacts.bot_paused_until`, 12h):**
+  - As mensagens do robô são gravadas **antes** de enviar, com id próprio (`sendMessage(..., { messageId })` do Baileys). Assim o eco cai no `ON CONFLICT`.
+  - Qualquer outra mensagem de saída nova pausa o robô, inclusive a resposta pelo celular. O robô da fila também passou a marcar `sent_by = 'bot_fila'`.
+  - Saída até 10s depois da última recebida **não** pausa: é resposta automática do WhatsApp Business.
+- **Banco** (`initDb`, aditivo): `clients.reservations_enabled`, `whatsapp_contacts.bot_paused_until`, `whatsapp_messages.sent_by`, `reservation_settings` (JSONB), `reservations` e `reservation_conversations`.
+- **Rotas:** `/api/reservations*` (staff e admin) e `/api/whatsapp/contacts/:id/bot[/pause|/resume]`. Chave "Reservas pelo WhatsApp" no cadastro do cliente.
+- **Caixa:**
+  - item **Reservas**, só pra restaurante com a chave ligada: dia, ocupação por horário, Chegou / Não veio / Cancelar (com aviso pelo WhatsApp) / Editar, e "+ Reserva" manual com "acima do limite";
+  - **Configurar:** mesas, datas especiais, turnos, números e textos;
+  - no painel do contato, "Robô atendendo / Pausar robô / Retomar".
+
+**Testado:**
+- `node --test`: backend 354, frontend 64. Build ok.
+- **Ponta a ponta 27/27**, com backend local na porta 5055 contra o **banco de produção**. Usou o cliente de teste "Reservas (teste)", webhook assinado e Cloud API falsa, e o cliente foi apagado depois. Cobriu:
+  - anúncio → reserva → card "Agendado";
+  - corrida pela última mesa;
+  - pausa e retomada;
+  - cancelamento pelo cliente e pela equipe;
+  - reserva manual com 409 e com `force`;
+  - frase comum ignorada;
+  - chave no cadastro.
+- Telas no Playwright: PC no tema escuro e celular no claro.
+- **Atenção:** o `initDb` local já criou as colunas e tabelas novas **no banco de produção** (aditivo, inofensivo).
+- Revisão final por revisor novo: "com correções". Os 4 importantes foram corrigidos, mais 2 menores reclassificados (commit `2ec6051`).
+
+**Não testado:** Baileys real, ou seja, o eco com `messageId` próprio, o "digitando..." e a janela de 10s da saudação. Conferir no teste real.
+
+**Menores anotados (não feitos):**
+- O aviso de cancelamento da equipe pode pausar o robô (eco antes da gravação).
+- "cancelar" aciona fila e reserva juntos.
+- Configuração com tipo errado dá 500.
+- A antecedência mínima não é revalidada no SIM.
+- "Agendar" aparece por um instante antes de virar "Nova reserva".
+
+**Fase 2 (combinada no spec):** lembrete 3h antes, "não veio" automático, reservas e custo por reserva por campanha no Dashboard WhatsApp, relatório por dia.
+
+**Pra colocar o Malibu no ar (depois do usuário mandar subir):**
+1. Juntar `feat/reservas` na `main` e enviar **fora do horário de serviço do Malibu**. Se o WhatsApp ficar em `standby`, reiniciar o app no hPanel.
+2. Admin → Clientes → Malibu → marcar "Reservas pelo WhatsApp".
+3. Caixa do Malibu → Reservas → Configurar:
+   - mesas 2×2, 2×4, 2×6;
+   - turnos seg–qui 17:00–22:30 e sex–dom 12:00–14:30 + 18:00–22:30;
+   - salvar.
+4. **No celular do Malibu, desligar a saudação e a mensagem de ausência automáticas do WhatsApp Business**, se existirem. A janela de 10s cobre o caso comum, mas é melhor não depender dela.
+5. Anúncio: mensagem pronta "Quero fazer uma reserva (cód. RESERVA)".
+6. Teste real: clicar no anúncio com outro celular, fazer a reserva e conferir a aba Origem e a tela Reservas.
+
+**Incidente meu:** o commit `dbbd3f8` (spec, na `main`, sem push) usou `git commit -a` e levou junto a alteração do usuário em `backend/scripts/get-google-refresh-token.js` (opção `OUTPUT_FILE`, sem segredo). O histórico não foi reescrito. O usuário decide se mantém. Daqui pra frente, nunca usar `commit -a` neste repo, porque há arquivos de propósito fora dos commits.
