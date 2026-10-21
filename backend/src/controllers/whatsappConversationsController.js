@@ -19,6 +19,8 @@ export async function listConversations(req, res) {
     // conversa (last_read_at). created_at é gravado em UTC sem fuso, por isso a conversão.
     const { rows } = await db.query(
       `SELECT wc.id, wc.wa_id, wc.profile_name, wc.source, wc.ad_headline, wc.last_message_at, wc.profile_pic_media_id,
+              wc.bot_paused_until,
+              EXISTS (SELECT 1 FROM reservation_conversations rc WHERE rc.contact_id = wc.id AND rc.status = 'active') AS bot_active,
               (SELECT MIN(sent_at) FROM whatsapp_messages WHERE contact_id = wc.id AND direction = 'inbound') as first_inbound_at,
               (SELECT MIN(sent_at) FROM whatsapp_messages WHERE contact_id = wc.id AND direction = 'outbound') as first_outbound_at,
               (SELECT COUNT(*) FROM whatsapp_messages m

@@ -8,6 +8,9 @@ import { DEFAULT_RESERVATION_SETTINGS, pickTableSize, tablesForDay, dayOf } from
 // Chave do pg_advisory_xact_lock: LOCK_BASE + client_id (longe de qualquer outra trava).
 export const LOCK_BASE = 900000;
 
+// Configuração inválida (mensagem pronta pra mostrar na tela).
+export class ReservationSettingsError extends Error {}
+
 export class SlotTakenError extends Error {
   constructor() {
     super('Esse horário não tem mais mesa livre.');
@@ -41,24 +44,24 @@ function validTables(tables) {
 }
 
 function validateSettings(s) {
-  if (!validTables(s.tables)) throw new Error('Mesa inválida: use de 1 a 30 lugares e até 50 mesas por tamanho.');
+  if (!validTables(s.tables)) throw new ReservationSettingsError('Mesa inválida: use de 1 a 30 lugares e até 50 mesas por tamanho.');
   for (const shifts of Object.values(s.hours)) {
     for (const shift of shifts || []) {
       if (!HHMM.test(shift.start) || !HHMM.test(shift.lastBooking) || shift.start > shift.lastBooking) {
-        throw new Error('Horário inválido: o último horário de reserva precisa ser depois do início.');
+        throw new ReservationSettingsError('Horário inválido: o último horário de reserva precisa ser depois do início.');
       }
     }
   }
   for (const e of s.exceptions) {
-    if (!DAY.test(e.date || '')) throw new Error('Exceção sem data válida.');
-    if (e.tables && !validTables(e.tables)) throw new Error('Mesa inválida na exceção de ' + e.date + '.');
+    if (!DAY.test(e.date || '')) throw new ReservationSettingsError('Exceção sem data válida.');
+    if (e.tables && !validTables(e.tables)) throw new ReservationSettingsError('Mesa inválida na exceção de ' + e.date + '.');
   }
   const ints = ['duration_minutes', 'slot_minutes', 'hold_minutes', 'min_advance_minutes', 'max_advance_days'];
   for (const key of ints) {
-    if (!Number.isInteger(s[key]) || s[key] < 0) throw new Error(`Valor inválido em ${key}.`);
+    if (!Number.isInteger(s[key]) || s[key] < 0) throw new ReservationSettingsError(`Valor inválido em ${key}.`);
   }
-  if (s.slot_minutes < 5 || s.duration_minutes < 15) throw new Error('Duração ou intervalo muito curtos.');
-  if (s.max_party !== null && (!Number.isInteger(s.max_party) || s.max_party < 1)) throw new Error('Limite de grupo inválido.');
+  if (s.slot_minutes < 5 || s.duration_minutes < 15) throw new ReservationSettingsError('Duração ou intervalo muito curtos.');
+  if (s.max_party !== null && (!Number.isInteger(s.max_party) || s.max_party < 1)) throw new ReservationSettingsError('Limite de grupo inválido.');
 }
 
 export async function saveReservationSettings(dbImpl, clientId, patch) {

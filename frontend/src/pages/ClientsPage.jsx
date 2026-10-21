@@ -11,6 +11,7 @@ const EMPTY_FORM = {
   page_id: '',
   dashboard_enabled: true,
   waitlist_enabled: false,
+  reservations_enabled: false,
   data_start_date: '',
   clientUserEmail: '',
   clientUserPassword: ''
@@ -58,6 +59,7 @@ export default function ClientsPage() {
       page_id: client.page_id || '',
       dashboard_enabled: client.dashboard_enabled !== false,
       waitlist_enabled: Boolean(client.waitlist_enabled),
+      reservations_enabled: Boolean(client.reservations_enabled),
       data_start_date: client.data_start_date || '',
       clientUserEmail: '',
       clientUserPassword: ''
@@ -191,6 +193,11 @@ export default function ClientsPage() {
               {c.waitlist_enabled && (
                 <span style={{ display: 'inline-block', marginBottom: '12px', padding: '2px 8px', borderRadius: '999px', background: 'color-mix(in srgb, var(--accent-warning) 15%, transparent)', color: 'var(--accent-warning)', fontSize: '0.75rem', fontWeight: 700 }}>
                   Na Mesa{c.dashboard_enabled === false ? ' (só fila)' : ''}
+                </span>
+              )}
+              {c.reservations_enabled && (
+                <span style={{ display: 'inline-block', marginBottom: '12px', marginLeft: '6px', padding: '2px 8px', borderRadius: '999px', background: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)', color: 'var(--accent-link)', fontSize: '0.75rem', fontWeight: 700 }}>
+                  Reservas
                 </span>
               )}
             </div>
@@ -327,6 +334,11 @@ export default function ClientsPage() {
                   <input type="checkbox" checked={formData.waitlist_enabled}
                     onChange={(e) => setFormData({ ...formData, waitlist_enabled: e.target.checked })} />
                   Na Mesa (fila de espera)
+                </label>
+                <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={formData.reservations_enabled}
+                    onChange={(e) => setFormData({ ...formData, reservations_enabled: e.target.checked })} />
+                  Reservas pelo WhatsApp
                 </label>
               </div>
 

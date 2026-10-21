@@ -28,6 +28,7 @@ import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, ge
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
+import { reservationHandlers } from './controllers/reservationController.js';
 import db from './config/db.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 
@@ -157,6 +158,20 @@ app.post('/api/waitlist/:id/remove', removeEntry);
 app.post('/api/waitlist/:id/requeue', requeueEntry);
 app.post('/api/waitlist/:id/requeue-end', requeueEndEntry);
 app.post('/api/waitlist/:id/restore', restoreEntry);
+
+// Reservas pelo WhatsApp -- equipe do restaurante (staff, no Caixa) e admin.
+app.get('/api/reservations/settings', reservationHandlers.getSettings);
+app.put('/api/reservations/settings', reservationHandlers.saveSettings);
+app.get('/api/reservations/availability', reservationHandlers.availability);
+app.get('/api/reservations', reservationHandlers.getDay);
+app.post('/api/reservations', reservationHandlers.create);
+app.patch('/api/reservations/:id', reservationHandlers.update);
+app.post('/api/reservations/:id/arrived', reservationHandlers.arrived);
+app.post('/api/reservations/:id/no-show', reservationHandlers.noShow);
+app.post('/api/reservations/:id/confirm', reservationHandlers.confirm);
+app.post('/api/reservations/:id/cancel', reservationHandlers.cancel);
+app.post('/api/whatsapp/contacts/:id/bot/pause', reservationHandlers.pauseContactBot);
+app.post('/api/whatsapp/contacts/:id/bot/resume', reservationHandlers.resumeContactBot);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);
