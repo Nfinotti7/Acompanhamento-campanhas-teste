@@ -128,3 +128,27 @@ test('GET do dia devolve ocupação dos horários', async () => {
   assert.deepEqual(res.body.occupancy[0], { time: '19:00', free: { 4: 1 } });
   assert.equal(res.body.overLimit, false);
 });
+
+test('GET bot do contato: pausado e conversa ativa', async () => {
+  const handlers = createReservationHandlers({
+    db: {
+      query: async (sql) => {
+        if (/FROM clients WHERE id/.test(sql)) return { rows: [{ reservations_enabled: true }] };
+        if (/bot_paused_until/.test(sql)) return { rows: [{ bot_paused_until: '2026-10-23T06:00:00Z', bot_active: true }] };
+        return { rows: [] };
+      }
+    },
+    now: () => new Date('2026-10-22T18:00:00Z')
+  });
+  const res = fakeRes();
+  await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
+  assert.deepEqual(res.body, { enabled: true, pausedUntil: '2026-10-23T06:00:00Z', paused: true, active: true });
+});
+
+test('GET bot do contato com reservas desligadas devolve enabled:false', async () => {
+  const { handlers } = make({ enabled: false });
+  const res = fakeRes();
+  await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.enabled, false);
+});

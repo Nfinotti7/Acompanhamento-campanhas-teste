@@ -170,6 +170,7 @@ app.post('/api/reservations/:id/arrived', reservationHandlers.arrived);
 app.post('/api/reservations/:id/no-show', reservationHandlers.noShow);
 app.post('/api/reservations/:id/confirm', reservationHandlers.confirm);
 app.post('/api/reservations/:id/cancel', reservationHandlers.cancel);
+app.get('/api/whatsapp/contacts/:id/bot', reservationHandlers.contactBot);
 app.post('/api/whatsapp/contacts/:id/bot/pause', reservationHandlers.pauseContactBot);
 app.post('/api/whatsapp/contacts/:id/bot/resume', reservationHandlers.resumeContactBot);
 

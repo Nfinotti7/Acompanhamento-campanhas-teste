@@ -4,6 +4,8 @@ import { Avatar, MessageMedia, ImageLightbox, isPlaceholderBody } from './whatsa
 import AttributionView from './AttributionView';
 import { formatTime, dayLabel, isSameDay, StatusTicks } from './chatFormat';
 import DealBar from './crm/DealBar';
+import BotStatusBar, { useContactBot } from './reservas/BotStatusBar';
+import ReservationForm from './reservas/ReservationForm';
 
 
 const fieldStyle = {
@@ -35,6 +37,10 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   const [section, setSection] = useState('conversa');
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [attribution, setAttribution] = useState(null);
+  // Com reservas ligadas, "Agendar" vira "Nova reserva": o agendamento sempre desconta
+  // uma mesa (não existe agendamento por fora do controle de mesas).
+  const bot = useContactBot(apiClient, clientId, contact.id, liveUpdateSignal);
+  const [reservationOpen, setReservationOpen] = useState(false);
   const messagesContainerRef = useRef(null);
   // Fica "grudado" no fim enquanto a pessoa está vendo as últimas mensagens; se ela
   // subiu pra ler o histórico, mensagem nova (ou atualização de tique) não a puxa pra baixo.
@@ -296,8 +302,8 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
           <button type="button" onClick={() => setActionMode('sale')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: 'var(--accent-success)', color: 'var(--on-accent)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
             <DollarSign size={14} /> Venda
           </button>
-          <button type="button" onClick={() => setActionMode('appointment')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
-            <CalendarPlus size={14} /> Agendar
+          <button type="button" onClick={() => (bot.enabled ? setReservationOpen(true) : setActionMode('appointment'))} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+            <CalendarPlus size={14} /> {bot.enabled ? 'Nova reserva' : 'Agendar'}
           </button>
           <button
             type="button"
@@ -317,6 +323,17 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
       </div>
 
       <DealBar apiClient={apiClient} clientId={clientId} contactId={contact.id} version={dealVersion} onChanged={onUpdated} />
+      <BotStatusBar bot={bot} />
+      {bot.enabled && (
+        <ReservationForm
+          api={apiClient}
+          clientId={clientId}
+          open={reservationOpen}
+          onClose={() => setReservationOpen(false)}
+          onSaved={() => { setDealVersion((v) => v + 1); onUpdated?.(); }}
+          initial={{ name: contact.profile_name || '', phone: contact.wa_id || '' }}
+        />
+      )}
 
       {actionMode === 'success' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>

@@ -48,3 +48,24 @@ export function groupByTime(reservations) {
   }
   return [...groups.entries()].map(([time, items]) => ({ time, items }));
 }
+
+// Confere o formulário de Configurar antes de salvar (o backend valida de novo).
+export function validateSettingsForm({ tables = [], hours = {}, exceptions = [] }) {
+  const seen = new Set();
+  for (const t of tables) {
+    const seats = Number(t.seats);
+    if (!Number.isInteger(seats) || seats < 1 || seats > 30) return 'Preencha os lugares de cada mesa (1 a 30).';
+    if (!Number.isInteger(Number(t.count)) || Number(t.count) < 0) return 'Quantidade de mesas inválida.';
+    if (seen.has(seats)) return `Mesa de ${seats} lugares repetida: some as quantidades numa linha só.`;
+    seen.add(seats);
+  }
+  for (const shifts of Object.values(hours)) {
+    for (const s of shifts || []) {
+      if (!s.start || !s.lastBooking || s.start > s.lastBooking) return 'Horário inválido: o último horário de reserva precisa ser depois do início.';
+    }
+  }
+  for (const e of exceptions) {
+    if (!e.date) return 'Toda exceção precisa de uma data.';
+  }
+  return null;
+}

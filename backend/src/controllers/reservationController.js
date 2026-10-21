@@ -206,6 +206,25 @@ export function createReservationHandlers(overrides = {}) {
       return res.json({ reservation: r, notified });
     }, 'Erro ao cancelar a reserva'),
 
+    // Estado do robô num contato, pro painel da conversa (selo "Robô atendendo" / pausado).
+    contactBot: handler(async (req, res, clientId, flags) => {
+      if (!flags.reservations_enabled) return res.json({ enabled: false });
+      const { rows } = await d.db.query(
+        `SELECT wc.bot_paused_until,
+                EXISTS (SELECT 1 FROM reservation_conversations rc WHERE rc.contact_id = wc.id AND rc.status = 'active') AS bot_active
+         FROM whatsapp_contacts wc WHERE wc.id = ? AND wc.client_id = ?`,
+        [Number(req.params.id), clientId]
+      );
+      const row = rows[0] || {};
+      const pausedUntil = row.bot_paused_until || null;
+      return res.json({
+        enabled: true,
+        pausedUntil,
+        paused: Boolean(pausedUntil) && new Date(pausedUntil).getTime() > d.now().getTime(),
+        active: Boolean(row.bot_active)
+      });
+    }, 'Erro ao consultar o robô', { requireEnabled: false }),
+
     pauseContactBot: handler(async (req, res, clientId) => {
       const until = await d.pauseBot(d.db, { clientId, contactId: Number(req.params.id) });
       return res.json({ pausedUntil: until });

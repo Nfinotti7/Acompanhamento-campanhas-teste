@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { originLabel, statusLabel, groupByTime, todayBrasilia, timeOf, addDaysISO, dayTitle } from './reservationFormat.js';
+import { originLabel, statusLabel, groupByTime, todayBrasilia, timeOf, addDaysISO, dayTitle, validateSettingsForm } from './reservationFormat.js';
 
 test('originLabel', () => {
   assert.equal(originLabel({ source: 'manual' }), 'Telefone/balcão');
@@ -43,4 +43,13 @@ test('dayTitle', () => {
   assert.equal(dayTitle('2026-10-24', '2026-10-24'), 'Hoje · sábado, 24/10');
   assert.equal(dayTitle('2026-10-25', '2026-10-24'), 'Amanhã · domingo, 25/10');
   assert.equal(dayTitle('2026-10-27', '2026-10-24'), 'terça, 27/10');
+});
+
+test('validateSettingsForm', () => {
+  const ok = { tables: [{ seats: 2, count: 2 }], hours: { 1: [{ start: '17:00', lastBooking: '22:30' }] }, exceptions: [] };
+  assert.equal(validateSettingsForm(ok), null);
+  assert.match(validateSettingsForm({ ...ok, hours: { 1: [{ start: '23:00', lastBooking: '17:00' }] } }), /horário/i);
+  assert.match(validateSettingsForm({ ...ok, tables: [{ seats: '', count: 2 }] }), /lugares/i);
+  assert.match(validateSettingsForm({ ...ok, exceptions: [{ date: '', closed: true }] }), /data/i);
+  assert.match(validateSettingsForm({ ...ok, tables: [{ seats: 2, count: 2 }, { seats: 2, count: 1 }] }), /repetid/i);
 });

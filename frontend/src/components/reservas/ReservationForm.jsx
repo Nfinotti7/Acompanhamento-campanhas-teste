@@ -5,7 +5,8 @@ import { todayBrasilia, timeOf } from './reservationFormat';
 
 // Reserva manual (telefone, balcão) ou edição. Os horários vêm de /availability e só
 // mostram os que têm mesa; "outro horário" grava acima do limite, com aviso.
-export default function ReservationForm({ api, open, onClose, onSaved, initial = {}, reservation = null }) {
+// clientId: só no painel do admin (o token de staff já é do restaurante).
+export default function ReservationForm({ api, clientId, open, onClose, onSaved, initial = {}, reservation = null }) {
   const editing = Boolean(reservation);
   const [form, setForm] = useState({ name: '', phone: '', partySize: '2', day: todayBrasilia() });
   const [time, setTime] = useState('');
@@ -35,11 +36,11 @@ export default function ReservationForm({ api, open, onClose, onSaved, initial =
     if (!open || !form.day || !Number(form.partySize)) return;
     let alive = true;
     setSlots(null);
-    api.get('/api/reservations/availability', { params: { day: form.day, party: form.partySize } })
+    api.get('/api/reservations/availability', { params: { day: form.day, party: form.partySize, clientId } })
       .then((res) => { if (alive) setSlots(res.data.slots || []); })
       .catch(() => { if (alive) setSlots([]); });
     return () => { alive = false; };
-  }, [api, open, form.day, form.partySize]);
+  }, [api, clientId, open, form.day, form.partySize]);
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -53,7 +54,7 @@ export default function ReservationForm({ api, open, onClose, onSaved, initial =
     if (overLimit && !window.confirm('Esse horário está sem mesa livre pra esse grupo. Reservar mesmo assim (acima do limite)?')) return;
     setSaving(true);
     setError('');
-    const body = { name: form.name.trim(), partySize: Number(form.partySize), day: form.day, time, force: overLimit };
+    const body = { name: form.name.trim(), partySize: Number(form.partySize), day: form.day, time, force: overLimit, clientId };
     try {
       if (editing) await api.patch(`/api/reservations/${reservation.id}`, body);
       else await api.post('/api/reservations', { ...body, phone: form.phone.trim() });

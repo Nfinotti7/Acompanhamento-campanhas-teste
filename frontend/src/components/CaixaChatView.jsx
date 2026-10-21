@@ -93,8 +93,14 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
     fetchConversations();
   }, []);
 
+  // Conversas que o robô de reserva passou pra equipe: destaque até alguém abrir.
+  const [needsAttention, setNeedsAttention] = useState(() => new Set());
+
   useEffect(() => {
     if (!lastEvent) return;
+    if (lastEvent.kind === 'reservation' && lastEvent.needsAttention) {
+      setNeedsAttention((prev) => new Set(prev).add(lastEvent.contactId));
+    }
     fetchConversations();
     if (selectedContact && lastEvent.contactId === selectedContact.id) {
       setLiveSignal(lastEvent.receivedAt);
@@ -128,6 +134,12 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
 
   const selectConversation = (contact) => {
     setSelectedContact(contact);
+    setNeedsAttention((prev) => {
+      if (!prev.has(contact.id)) return prev;
+      const next = new Set(prev);
+      next.delete(contact.id);
+      return next;
+    });
     setManualEntryName(null);
   };
 
@@ -225,6 +237,11 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                     <div style={{ flex: 1, fontWeight: unread > 0 ? 800 : 600, color: 'var(--text-primary)', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.profile_name || c.wa_id}
                     </div>
+                    {needsAttention.has(c.id) ? (
+                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-warning)', border: '1px solid var(--accent-warning)', borderRadius: '999px', padding: '0 6px', flexShrink: 0 }}>Precisa de atendimento</span>
+                    ) : c.bot_active && (
+                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--accent-link)', flexShrink: 0 }}>Robô</span>
+                    )}
                     <span style={{ fontSize: '0.68rem', color: unread > 0 ? 'var(--accent-success)' : 'var(--text-secondary)', flexShrink: 0, fontWeight: unread > 0 ? 700 : 400 }}>
                       {formatListTime(c.last_sent_at || c.last_message_at)}
                     </span>

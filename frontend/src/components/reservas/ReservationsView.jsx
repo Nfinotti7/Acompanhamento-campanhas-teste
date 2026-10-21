@@ -4,6 +4,7 @@ import Modal from '../Modal';
 import Sheet from '../ui/Sheet';
 import ContactDetailPanel from '../ContactDetailPanel';
 import ReservationForm from './ReservationForm';
+import ReservationSettings from './ReservationSettings';
 import { useBreakpoint } from '../../responsive/useBreakpoint';
 import { groupByTime, originLabel, statusLabel, todayBrasilia, addDaysISO, dayTitle } from './reservationFormat';
 
@@ -50,7 +51,7 @@ function OccupancyStrip({ occupancy }) {
   );
 }
 
-export default function ReservationsView({ api, lastEvent, onOpenSettings }) {
+export default function ReservationsView({ api, lastEvent }) {
   const phone = useBreakpoint() === 'phone';
   const today = todayBrasilia();
   const [day, setDay] = useState(today);
@@ -62,6 +63,7 @@ export default function ReservationsView({ api, lastEvent, onOpenSettings }) {
   const [notify, setNotify] = useState(true);
   const [openContact, setOpenContact] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const load = useCallback(() => {
     api.get('/api/reservations', { params: { day } })
@@ -101,6 +103,14 @@ export default function ReservationsView({ api, lastEvent, onOpenSettings }) {
       load();
     }
   };
+
+  if (showSettings) {
+    return (
+      <div style={{ height: '100%', overflow: 'auto', padding: phone ? '12px' : 0 }}>
+        <ReservationSettings api={api} onBack={() => { setShowSettings(false); load(); }} />
+      </div>
+    );
+  }
 
   const reservations = data?.reservations || [];
   const active = reservations.filter((r) => r.status !== 'cancelled');
@@ -156,9 +166,7 @@ export default function ReservationsView({ api, lastEvent, onOpenSettings }) {
         <button type="button" className="nm-btn nm-btn-ghost" onClick={() => setDay(addDaysISO(day, 1))} aria-label="Próximo dia"><ChevronRight size={20} /></button>
         {day !== today && <button type="button" className="nm-btn nm-btn-muted" onClick={() => setDay(today)}>Hoje</button>}
         <div style={{ flex: 1 }} />
-        {onOpenSettings && (
-          <button type="button" className="nm-btn nm-btn-muted" onClick={onOpenSettings}><Settings size={16} /> Configurar</button>
-        )}
+        <button type="button" className="nm-btn nm-btn-muted" onClick={() => setShowSettings(true)}><Settings size={16} /> Configurar</button>
         {!phone && <button type="button" className="nm-btn nm-btn-primary" onClick={() => setFormOpen(true)}><Plus size={18} /> Reserva</button>}
       </div>
 
