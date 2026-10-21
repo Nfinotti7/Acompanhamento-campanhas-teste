@@ -159,3 +159,12 @@ test('saveReservationSettings recusa horário invertido, seats 0 e exceção sem
   assert.equal(saved.hold_minutes, 20);
   assert.deepEqual(db.state.config.tables, [{ seats: 2, count: 3 }]);
 });
+
+test('erro depois de gravar (funil/agenda) não derruba a reserva já gravada', async () => {
+  const db = fakeDb();
+  const d = deps();
+  d.moveToAutoStage = async () => { throw new Error('banco caiu'); };
+  const r = await createReservation(db, base, d);
+  assert.equal(r.party_size, 4);
+  assert.equal(db.state.reservations.length, 1);
+});

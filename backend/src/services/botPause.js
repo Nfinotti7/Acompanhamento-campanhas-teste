@@ -15,8 +15,8 @@ export async function pauseBot(dbImpl, { clientId, contactId, now = new Date() }
   // A reserva pela metade fica com o atendente.
   await dbImpl.query(
     `UPDATE reservation_conversations SET status = 'handed_off', updated_at = now()
-     WHERE contact_id = ? AND status = 'active'`,
-    [contactId]
+     WHERE client_id = ? AND contact_id = ? AND status = 'active'`,
+    [clientId, contactId]
   );
   broadcastFn(clientId, 'reservation', { contactId: Number(contactId), botPaused: true });
   return until;

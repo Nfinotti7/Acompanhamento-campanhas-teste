@@ -14,7 +14,7 @@ import {
 } from './reservationSlots.js';
 import {
   DEFAULT_RESERVATION_MESSAGES, isReservationCommand, isCancelCommand, isYes, parseDay, parseTimeChoice,
-  formatDayLabel, formatTime, formatOptions
+  formatDayLabel, formatTime, formatOptions, mentionsWeekday
 } from './reservationText.js';
 import {
   loadReservationSettings, createReservation, listReservations, upcomingReservationsForContact,
@@ -257,6 +257,17 @@ async function handleOne(
         await reply('askTime', { dia, opcoes: formatOptions(options) });
         return 'asked_time';
       }
+      // "sábado" dito num sábado sem horário restante: é o próximo sábado.
+      if (day === today && mentionsWeekday(text)) {
+        const nextWeek = addDays(today, 7);
+        const weekSlots = await slotsFor(nextWeek, data.size);
+        if (weekSlots.length > 0) {
+          const options = weekSlots.map((s) => s.time);
+          await save(conv, 'time', { ...data, day: nextWeek, options });
+          await reply('askTime', { dia: formatDayLabel(nextWeek, today), opcoes: formatOptions(options) });
+          return 'asked_time';
+        }
+      }
       for (let i = 1; i <= SUGGEST_DAYS; i++) {
         const next = addDays(day, i);
         const nextSlots = await slotsFor(next, data.size);
@@ -304,10 +315,18 @@ async function handleOne(
 
     case 'confirm': {
       if (!isYes(text)) {
+        // "não" no resumo: quase sempre o horário saiu errado; volta pra lista do dia.
         if (/^n[aã]o\b/i.test(text.trim())) {
-          await finish(conv, 'done');
-          await reply('aborted');
-          return 'aborted';
+          const slots = await slotsFor(data.day, data.size);
+          if (slots.length === 0) {
+            await finish(conv, 'done');
+            await reply('aborted');
+            return 'aborted';
+          }
+          const options = slots.map((s) => s.time);
+          await save(conv, 'time', { ...data, options });
+          await reply('askTime', { dia: formatDayLabel(data.day, today), opcoes: formatOptions(options) });
+          return 'asked_time';
         }
         return retry(conv, 'confirm', confirmVars(data));
       }
@@ -336,8 +355,12 @@ async function handleOne(
     case 'cancel_pick': {
       const n = Number(text.trim().replace(/[).]$/, ''));
       const targets = data.targets || [];
-      if (!Number.isInteger(n) || n < 1 || n > targets.length) return retry(conv, 'cancelPick', { opcoes: '' });
       const upcoming = await d.upcomingReservations(q, { clientId, contactId, now: d.now });
+      if (!Number.isInteger(n) || n < 1 || n > targets.length) {
+        const listed = targets.map((id) => upcoming.find((r) => r.id === id)).filter(Boolean);
+        const opcoes = listed.map((r, i) => `${i + 1}) ${reservationLabel(r, today)}`).join('  ');
+        return retry(conv, 'cancelPick', { opcoes });
+      }
       const target = upcoming.find((r) => r.id === targets[n - 1]);
       if (!target) {
         await finish(conv, 'done');

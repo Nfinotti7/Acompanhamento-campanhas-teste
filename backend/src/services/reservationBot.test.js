@@ -310,3 +310,28 @@ test('pausa que chega enquanto a conversa começa: a conversa já nasce com a eq
   assert.equal(s.conversations[0].status, 'handed_off');
   assert.equal(s.sent.length, 0);
 });
+
+test('"sábado" num sábado depois do último horário vai pro próximo sábado', async () => {
+  const { say, last } = setup({ now: toInstant('2026-10-24', '22:00') });
+  await say('RESERVA'); await say('2');
+  assert.equal(await say('sábado'), 'asked_time');
+  assert.match(last(), /^Pra sábado 31\/10 tenho: 1\) 12h/);
+});
+
+test('"não" na confirmação volta pra escolher o horário', async () => {
+  const { say, last, conversations } = setup();
+  await say('RESERVA'); await say('2'); await say('amanhã'); await say('1'); await say('sim');
+  assert.equal(await say('não'), 'asked_time');
+  assert.match(last(), /^Pra amanhã \(23\/10\) tenho: 1\) 12h/);
+  assert.equal(conversations[0].status, 'active');
+});
+
+test('CANCELAR com 2 reservas: resposta errada repete a lista', async () => {
+  const { say, last } = setup({ reservations: [
+    { table_seats: 4, starts_at: toInstant('2026-10-24', '20:00'), ends_at: toInstant('2026-10-24', '22:00') },
+    { table_seats: 2, starts_at: toInstant('2026-10-25', '13:00'), ends_at: toInstant('2026-10-25', '15:00') }
+  ] });
+  await say('cancelar');
+  assert.equal(await say('a de sábado'), 'asked_cancel_pick_again');
+  assert.equal(last(), 'Qual reserva você quer cancelar? 1) sábado 24/10, 20h  2) domingo 25/10, 13h');
+});

@@ -95,11 +95,19 @@ export function parseDay(text, today) {
   return null;
 }
 
+export function mentionsWeekday(text) {
+  const words = clean(text).split(/[^a-z]+/);
+  return WEEKDAYS.some((w) => words.includes(w));
+}
+
 export function parseTimeChoice(text, options) {
   const t = clean(text);
   const pick = t.match(/^(\d{1,2})\s*[).]?$/);
   if (pick) {
     const n = Number(pick[1]);
+    // "12" com 16 opções: quem responde a hora pelada quer meio-dia, não o item 12.
+    const asHour = `${String(n).padStart(2, '0')}:00`;
+    if (n >= 10 && options.includes(asHour)) return asHour;
     if (n >= 1 && n <= options.length) return options[n - 1];
   }
   const time = t.match(/(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?|\s+e\s+(\d{2}))?/);

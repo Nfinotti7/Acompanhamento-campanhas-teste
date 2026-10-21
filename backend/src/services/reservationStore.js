@@ -126,9 +126,15 @@ export async function createReservation(dbImpl, { clientId, contactId = null, na
     );
     return rows[0];
   });
+  // A reserva já está gravada: erro na agenda/funil daqui pra frente só vai pro log.
+  // Se subisse, o robô não confirmaria e um novo "SIM" gravaria a reserva de novo.
   if (contactId) {
-    await syncContactAppointment(dbImpl, contactId);
-    await d.moveToAutoStage(dbImpl, { clientId, contactId, event: 'agendado' });
+    try {
+      await syncContactAppointment(dbImpl, contactId);
+      await d.moveToAutoStage(dbImpl, { clientId, contactId, event: 'agendado' });
+    } catch (error) {
+      console.error(`Reservas: reserva ${reservation.id} gravada, mas falhou agenda/funil:`, error.message);
+    }
   }
   d.broadcast(clientId, 'reservation', { id: reservation.id, contactId });
   return reservation;

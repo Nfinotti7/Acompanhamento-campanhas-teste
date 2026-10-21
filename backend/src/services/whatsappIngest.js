@@ -10,6 +10,10 @@ import { handleInboundForReservation } from './reservationBot.js';
 // Postgres, e vídeos grandes encheriam o banco rápido.
 export const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
 
+// Mensagem de saída até esse tempo depois da última recebida é resposta automática
+// (saudação/ausência do WhatsApp Business), não atendente: não pausa o robô de reserva.
+export const AUTO_REPLY_WINDOW_MS = 10 * 1000;
+
 async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
   let data;
   try {
@@ -170,7 +174,15 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // As do robô já foram gravadas antes do envio e caem no ON CONFLICT (whatsappSender.js).
   if (event.direction === 'outbound' && messageRows.length > 0 && flags.reservations_enabled) {
     try {
-      await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
+      // Saudação/ausência automática do WhatsApp Business sai segundos depois da mensagem
+      // do cliente; gente não responde tão rápido. Essa não é atendente assumindo.
+      const { rows: lastIn } = await dbImpl.query(
+        `SELECT sent_at FROM whatsapp_messages WHERE contact_id = ? AND direction = 'inbound'
+         ORDER BY sent_at DESC LIMIT 1`,
+        [contactId]
+      );
+      const sinceInbound = lastIn[0] ? new Date(event.sentAt).getTime() - new Date(lastIn[0].sent_at).getTime() : Infinity;
+      if (sinceInbound >= AUTO_REPLY_WINDOW_MS) await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
     } catch (error) {
       console.error('Reservas: erro ao pausar o robô:', error.message);
     }

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_RESERVATION_MESSAGES, RESERVATION_MESSAGE_KEYS, isReservationCommand, isCancelCommand, isYes,
-  parseDay, parseTimeChoice, formatDayLabel, formatTime, formatOptions
+  parseDay, parseTimeChoice, formatDayLabel, formatTime, formatOptions, mentionsWeekday
 } from './reservationText.js';
 
 test('isReservationCommand', () => {
@@ -80,4 +80,19 @@ test('textos padrão: chaves e nada de robô', () => {
   }
   assert.equal(DEFAULT_RESERVATION_MESSAGES.handoff, 'Só um instante, já te respondo 🙂');
   for (const t of Object.values(DEFAULT_RESERVATION_MESSAGES)) assert.ok(!/rob[oô]|assistente|equipe/i.test(t), t);
+});
+
+test('parseTimeChoice: hora pelada (12, 13) vale como hora quando está na lista', () => {
+  const weekend = ['12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30'];
+  assert.equal(parseTimeChoice('12', weekend), '12:00');
+  assert.equal(parseTimeChoice('13', weekend), '13:00');
+  assert.equal(parseTimeChoice('3', weekend), '13:00');
+  assert.equal(parseTimeChoice('11', weekend), '20:00');
+  assert.equal(parseTimeChoice('19', weekend), '19:00');
+});
+
+test('mentionsWeekday', () => {
+  assert.ok(mentionsWeekday('pode ser sábado'));
+  assert.ok(!mentionsWeekday('hoje'));
+  assert.ok(!mentionsWeekday('25/10'));
 });

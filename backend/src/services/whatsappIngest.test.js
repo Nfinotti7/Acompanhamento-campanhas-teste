@@ -345,3 +345,28 @@ test('ingest não aciona o robô de reserva sem a chave ligada nem em mensagem r
   await tick();
   assert.equal(seen.length, 0);
 });
+
+function autoReplyDb(lastInboundAt) {
+  return {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ dashboard_enabled: true, reservations_enabled: true }] };
+      if (/direction = 'inbound'\s+ORDER BY sent_at DESC/.test(sql)) return { rows: lastInboundAt ? [{ sent_at: lastInboundAt }] : [] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+}
+
+test('resposta automática do WhatsApp Business (segundos depois da mensagem do cliente) não pausa', async () => {
+  const paused = [];
+  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', waMessageId: 'auto1', sentAt: '2026-10-12T12:00:03.000Z' }),
+    { db: autoReplyDb('2026-10-12T12:00:00.000Z'), broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
+  assert.equal(paused.length, 0);
+});
+
+test('resposta do atendente depois de um tempo pausa', async () => {
+  const paused = [];
+  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', waMessageId: 'human1', sentAt: '2026-10-12T12:01:00.000Z' }),
+    { db: autoReplyDb('2026-10-12T12:00:00.000Z'), broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
+  assert.equal(paused.length, 1);
+});
