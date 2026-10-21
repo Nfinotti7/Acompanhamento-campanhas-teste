@@ -4,6 +4,7 @@ import { moveToAutoStage } from './crmStages.js';
 import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
 import { handleInboundForWaitlist } from './waitlistBot.js';
 import { pauseBot } from './botPause.js';
+import { handleInboundForReservation } from './reservationBot.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -77,7 +78,7 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
        tracking_method = COALESCE(whatsapp_contacts.tracking_method, excluded.tracking_method),
        source = CASE WHEN whatsapp_contacts.source = 'ad' THEN 'ad' ELSE excluded.source END,
        last_message_at = excluded.last_message_at
-     RETURNING id`,
+     RETURNING id, (xmax = 0) AS inserted`,
     [
       clientId,
       event.waId,
@@ -97,7 +98,7 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
 
   // Cliente só do Na Mesa (sem dashboard) não tem funil nem Link Rastreável.
   const { rows: flagRows } = await dbImpl.query(
-    `SELECT dashboard_enabled, waitlist_enabled, reservations_enabled FROM clients WHERE id = ?`,
+    `SELECT name, dashboard_enabled, waitlist_enabled, reservations_enabled FROM clients WHERE id = ?`,
     [clientId]
   );
   const flags = flagRows[0] || {};
@@ -142,6 +143,20 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
         deps.db ? { db: dbImpl } : {}
       ))
       .catch((error) => console.error('Na Mesa: erro no robô da fila:', error.message));
+  }
+
+  // Robô de reserva: mesmas regras do robô da fila (recebida, nova, de telefone).
+  if (event.direction === 'inbound' && isPhone && flags.reservations_enabled && messageRows.length > 0) {
+    const onReservation = deps.onReservation || handleInboundForReservation;
+    Promise.resolve()
+      .then(() => onReservation(
+        {
+          clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
+          fromAd, isNewContact: Boolean(contactRows[0].inserted), restaurantName: flags.name || ''
+        },
+        deps.db ? { db: dbImpl } : {}
+      ))
+      .catch((error) => console.error('Reservas: erro no robô de reserva:', error.message));
   }
 
   // Alguém da equipe respondeu direto pelo celular (Baileys entrega essa mensagem

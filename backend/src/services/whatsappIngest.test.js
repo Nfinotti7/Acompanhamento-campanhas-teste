@@ -310,3 +310,38 @@ test('sem reservas ligadas, mensagem de saída não pausa nada', async () => {
   await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', waMessageId: 'w10' }), { db, broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
   assert.equal(paused.length, 0);
 });
+
+test('ingest aciona o robô de reserva com origem de anúncio, contato novo e nome do restaurante', async () => {
+  const calls = [];
+  let nextId = 1;
+  const db = {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ dashboard_enabled: true, reservations_enabled: true, name: 'Malibu' }] };
+      if (/INSERT INTO whatsapp_contacts/.test(sql)) return { rows: [{ id: 7, inserted: true }] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: nextId++ }] };
+      calls.push(sql);
+      return { rows: [] };
+    }
+  };
+  const seen = [];
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero fazer uma reserva (cód. RESERVA)', adId: 'ad1' }), { db, broadcast: () => {}, onReservation: async (a) => seen.push(a) });
+  await tick();
+  assert.deepEqual(seen, [{ clientId: 9, contactId: 7, waId: '5511999998888', profileName: 'Maria Teste', body: 'Quero fazer uma reserva (cód. RESERVA)', fromAd: true, isNewContact: true, restaurantName: 'Malibu' }]);
+});
+
+test('ingest não aciona o robô de reserva sem a chave ligada nem em mensagem repetida', async () => {
+  const seen = [];
+  const onReservation = async (a) => seen.push(a);
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'RESERVA' }), { db: flagsDb({ dashboard_enabled: true, reservations_enabled: false }), broadcast: () => {}, onReservation });
+  const repeated = {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ dashboard_enabled: true, reservations_enabled: true }] };
+      if (/INSERT INTO whatsapp_messages/.test(sql)) return { rows: [] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'RESERVA' }), { db: repeated, broadcast: () => {}, onReservation });
+  await tick();
+  assert.equal(seen.length, 0);
+});
