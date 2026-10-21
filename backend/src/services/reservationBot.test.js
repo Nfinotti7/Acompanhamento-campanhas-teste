@@ -25,7 +25,8 @@ function setup({ settings = MALIBU, now = THURSDAY_3PM, reservations = [], pause
     query: async (sql, params = []) => {
       if (/SELECT \* FROM reservation_conversations/.test(sql)) {
         const [clientId, contactId] = params;
-        return { rows: conversations.filter((c) => c.client_id === clientId && c.contact_id === contactId && c.status === 'active') };
+        // Cópias, como um banco de verdade: quem leu não vê a gravação de outro por referência.
+        return { rows: conversations.filter((c) => c.client_id === clientId && c.contact_id === contactId && c.status === 'active').map((c) => ({ ...c, data: { ...c.data } })) };
       }
       if (/INSERT INTO reservation_conversations/.test(sql)) {
         const [client_id, contact_id, step, data] = params;
@@ -287,4 +288,25 @@ test('"não" na pergunta do nome pede o nome, não vira o nome', async () => {
   assert.equal(last(), 'Em nome de quem fica a reserva?');
   assert.equal(await say('Bruno'), 'asked_confirm');
   assert.match(last(), /em nome de Bruno\./);
+});
+
+test('mensagens seguidas do mesmo contato são tratadas em ordem, uma de cada vez', async () => {
+  const s = setup();
+  // Banco lento: cada consulta espera um pouco, como no Supabase de verdade.
+  const query = s.deps.db.query;
+  s.deps.db.query = async (sql, params) => { await new Promise((r) => setTimeout(r, 5)); return query(sql, params); };
+  await s.say('RESERVA');
+  const results = await Promise.all([s.say('4'), s.say('sábado')]);
+  assert.deepEqual(results, ['asked_day', 'asked_time']);
+  assert.equal(s.conversations[0].step, 'time');
+});
+
+test('pausa que chega enquanto a conversa começa: a conversa já nasce com a equipe', async () => {
+  const s = setup();
+  let calls = 0;
+  // 1ª checagem (entrada): livre; depois disso a equipe pausou.
+  s.deps.isBotPaused = async () => (calls++ > 0);
+  assert.equal(await s.say('RESERVA'), 'paused');
+  assert.equal(s.conversations[0].status, 'handed_off');
+  assert.equal(s.sent.length, 0);
 });

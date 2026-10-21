@@ -51,7 +51,20 @@ function reservationLabel(r, today) {
   return `${formatDayLabel(dayOf(new Date(r.starts_at)), today)}, ${formatTime(hhmmInBrasilia(r.starts_at))}`;
 }
 
-export async function handleInboundForReservation(
+// Uma mensagem por vez em cada contato: quem manda "4" e "sábado" em seguida não pode
+// ter as duas lidas no mesmo passo da conversa (o ingest chama o robô em segundo plano).
+const queues = new Map();
+
+export function handleInboundForReservation(args, deps = {}) {
+  const key = `${args.clientId}:${args.contactId}`;
+  const previous = queues.get(key) || Promise.resolve();
+  const run = previous.catch(() => {}).then(() => handleOne(args, deps));
+  queues.set(key, run);
+  run.catch(() => {}).finally(() => { if (queues.get(key) === run) queues.delete(key); });
+  return run;
+}
+
+async function handleOne(
   { clientId, contactId, waId, profileName, body, fromAd = false, isNewContact = false, restaurantName = '' },
   deps = {}
 ) {
@@ -176,6 +189,11 @@ export async function handleInboundForReservation(
     if (isReservationCommand(text)) {
       const c = await start('size');
       if (!c) return 'ignored';
+      // A equipe pode ter pausado entre a checagem de entrada e a criação da conversa.
+      if (await d.isBotPaused(q, { contactId, now: d.now })) {
+        await finish(c, 'handed_off');
+        return 'paused';
+      }
       return askSize(null);
     }
     if (isCancelCommand(text)) {
@@ -195,6 +213,8 @@ export async function handleInboundForReservation(
   const data = conv.data || {};
 
   if (RESERVATION_STEPS.includes(conv.step)) {
+    // Código repetido logo no começo (tocou enviar duas vezes): a pergunta já foi feita.
+    if (isReservationCommand(text) && conv.step === 'size' && !conv.attempts) return 'ignored';
     if (isReservationCommand(text) && conv.step !== 'ad_fallback') return askSize(conv);
     if (isCancelCommand(text)) {
       await finish(conv, 'done');
