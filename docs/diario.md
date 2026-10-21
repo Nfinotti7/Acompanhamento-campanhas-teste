@@ -46,7 +46,7 @@
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
-**Não commitado na árvore de trabalho (de propósito, aguardando o usuário decidir):** scripts de token em `backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, e a alteração em `get-google-refresh-token.js` (opção `OUTPUT_FILE` pra não imprimir o token). Também há um `AGENTS.md` (cópia do CLAUDE.md pro Codex). Há 2 commits do diário em `main` que ainda não foram enviados ao GitHub, pra não disparar deploy à toa.
+**Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
 
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
 - Vincular Google Ads de Alma, Giulí e Malibu à MCC da agência — precisa ser feito manualmente pelo usuário na interface do Google Ads.
