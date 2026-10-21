@@ -212,6 +212,20 @@ export async function transitionEntry(dbImpl, { clientId, entryId, action }, dep
   return entry;
 }
 
+// Entrada digitada pela equipe (fila ou reserva por telefone): acha ou cria o contato
+// pelo número já normalizado. Sem número, não há contato.
+export async function findOrCreateContactByPhone(dbImpl, { clientId, waId, name }) {
+  if (!waId) return null;
+  const { rows } = await dbImpl.query(
+    `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, source)
+     VALUES (?, ?, ?, 'organic')
+     ON CONFLICT (client_id, wa_id) DO UPDATE SET profile_name = COALESCE(whatsapp_contacts.profile_name, excluded.profile_name)
+     RETURNING id`,
+    [clientId, waId, name || null]
+  );
+  return rows[0].id;
+}
+
 export async function addManualEntry(dbImpl, { clientId, name, phone, partySize }, deps = {}) {
   const rawPhone = String(phone || '').trim();
   const waId = rawPhone ? normalizePhone(rawPhone) : null;
@@ -219,17 +233,7 @@ export async function addManualEntry(dbImpl, { clientId, name, phone, partySize 
   const size = Number(partySize);
   if (!Number.isInteger(size) || size < 1 || size > 30) throw new Error('Número de pessoas inválido.');
 
-  let contactId = null;
-  if (waId) {
-    const { rows } = await dbImpl.query(
-      `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, source)
-       VALUES (?, ?, ?, 'organic')
-       ON CONFLICT (client_id, wa_id) DO UPDATE SET profile_name = COALESCE(whatsapp_contacts.profile_name, excluded.profile_name)
-       RETURNING id`,
-      [clientId, waId, name || null]
-    );
-    contactId = rows[0].id;
-  }
+  const contactId = await findOrCreateContactByPhone(dbImpl, { clientId, waId, name });
 
   await expireStaleEntries(dbImpl, { clientId, phone: waId, now: resolveDeps(deps).now });
   let rows;

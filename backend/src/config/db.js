@@ -411,6 +411,58 @@ export async function initDb() {
     )
   `);
 
+  // Reservas pelo WhatsApp (services/reservationStore.js, reservationBot.js).
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS reservations_enabled BOOLEAN DEFAULT false`);
+  // Robô pausado nesse contato até essa hora: um atendente respondeu (services/botPause.js).
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS bot_paused_until TIMESTAMPTZ`);
+  // Quem enviou a mensagem de saída: 'staff' (Caixa) ou o robô ('bot_reserva').
+  await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS sent_by TEXT`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS reservation_settings (
+      client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+      config JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS reservations (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+      name TEXT,
+      phone TEXT,
+      party_size INTEGER NOT NULL,
+      table_seats INTEGER NOT NULL,
+      starts_at TIMESTAMPTZ NOT NULL,
+      ends_at TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('confirmed','cancelled','arrived','no_show')),
+      source TEXT NOT NULL CHECK (source IN ('whatsapp','manual')),
+      over_limit BOOLEAN DEFAULT false,
+      cancelled_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_reservations_client_start ON reservations (client_id, starts_at)`);
+  // Conversa do robô em andamento (passo, respostas já dadas). Uma ativa por contato.
+  await query(`
+    CREATE TABLE IF NOT EXISTS reservation_conversations (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      status TEXT NOT NULL CHECK (status IN ('active','done','handed_off','expired')),
+      step TEXT,
+      data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      attempts INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_reservation_conversation_active ON reservation_conversations (client_id, contact_id)
+    WHERE status = 'active'
+  `);
+
   await seedData();
 }
 
