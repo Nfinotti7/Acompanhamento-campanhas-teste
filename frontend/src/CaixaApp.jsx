@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays, LogOut, MoreHorizontal, QrCode, AlertTriangle } from 'lucide-react';
+import { Store, Lock, ArrowLeft, MessageCircle, Columns3, CalendarDays, CalendarCheck, LogOut, MoreHorizontal, QrCode, AlertTriangle } from 'lucide-react';
 import WhatsAppConnect from './components/WhatsAppConnect';
+import ReservationsView from './components/reservas/ReservationsView';
 import CaixaChatView from './components/CaixaChatView';
 import CaixaFunilView from './components/CaixaFunilView';
 import { playNotificationSound, unlockNotificationSound } from './components/notificationSound';
@@ -16,6 +17,8 @@ const NAV_ITEMS = [
   { key: 'funil', label: 'Funil', icon: Columns3 },
   { key: 'agenda', label: 'Agenda', icon: CalendarDays }
 ];
+// Só aparece pra restaurante com reservas ligadas (GET /api/reservations/settings).
+const RESERVATIONS_ITEM = { key: 'reservas', label: 'Reservas', icon: CalendarCheck };
 
 const TOKEN_KEY = 'caixa_token';
 const RESTAURANT_KEY = 'caixa_restaurant';
@@ -61,6 +64,8 @@ export default function CaixaApp() {
   const [moreOpen, setMoreOpen] = useState(false);
   const bp = useBreakpoint();
   const [waStatus, setWaStatus] = useState(null);
+  const [reservationsEnabled, setReservationsEnabled] = useState(false);
+  const navItems = reservationsEnabled ? [...NAV_ITEMS, RESERVATIONS_ITEM] : NAV_ITEMS;
 
   if (stored) {
     caixaApi.defaults.headers.common['Authorization'] = `Bearer ${stored.token}`;
@@ -119,8 +124,25 @@ export default function CaixaApp() {
         console.error('Error parsing SSE event:', err);
       }
     };
+    // Reserva nova/alterada, robô pausado, ou conversa que o robô passou pra equipe.
+    source.addEventListener('reservation', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        setLastEvent({ ...data, kind: 'reservation', receivedAt: Date.now() });
+        if (data.needsAttention) playNotificationSound();
+      } catch (err) {
+        console.error('Error parsing SSE event:', err);
+      }
+    });
 
     return () => source.close();
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 'app') return;
+    caixaApi.get('/api/reservations/settings')
+      .then((res) => setReservationsEnabled(Boolean(res.data.enabled)))
+      .catch(() => setReservationsEnabled(false));
   }, [step]);
 
   // Status do WhatsApp pra mostrar a faixa "desconectado" com atalho pro QR. Cliente na
@@ -243,6 +265,9 @@ export default function CaixaApp() {
           <CaixaFunilView caixaApi={caixaApi} inputStyle={inputStyle} view={view} lastEvent={lastEvent} />
         </div>
       )}
+      {view === 'reservas' && reservationsEnabled && (
+        <ReservationsView api={caixaApi} lastEvent={lastEvent} />
+      )}
       {view === 'whatsapp' && (
         <div style={{ height: '100%', overflow: 'auto', padding: phone ? '12px' : 0, maxWidth: '560px' }}>
           <WhatsAppConnect api={caixaApi} />
@@ -267,11 +292,11 @@ export default function CaixaApp() {
       <div style={{ height: '100dvh', backgroundColor: 'var(--bg-dark)', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)' }}>
         {content}
         <nav style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', flexShrink: 0,
+          display: 'grid', gridTemplateColumns: `repeat(${navItems.length + 1}, 1fr)`, flexShrink: 0,
           backgroundColor: 'var(--bg-sidebar)', borderTop: '1px solid var(--border-color)',
           paddingBottom: 'env(safe-area-inset-bottom)'
         }}>
-          {NAV_ITEMS.map(({ key, label, icon: Icon }) => tab(key, label, Icon, () => setView(key), view === key))}
+          {navItems.map(({ key, label, icon: Icon }) => tab(key, label, Icon, () => setView(key), view === key))}
           {tab('mais', 'Mais', MoreHorizontal, () => setMoreOpen(true), false)}
         </nav>
         <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title={selectedRestaurant?.name || 'Caixa'}>
@@ -312,7 +337,7 @@ export default function CaixaApp() {
       }}>
         <AppIcon app="caixa" size={40} />
         <div style={{ height: '8px' }} />
-        {NAV_ITEMS.map(({ key, label, icon: Icon }) => railButton(key, label, Icon, () => setView(key), view === key))}
+        {navItems.map(({ key, label, icon: Icon }) => railButton(key, label, Icon, () => setView(key), view === key))}
         {railButton('whatsapp', 'WhatsApp', QrCode, () => setView('whatsapp'), view === 'whatsapp', 'Conexão do WhatsApp')}
         <div style={{ flex: 1 }} />
         <ThemeToggle />
