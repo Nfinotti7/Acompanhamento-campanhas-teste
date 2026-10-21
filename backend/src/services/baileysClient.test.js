@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections, sendTyping } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -427,4 +427,41 @@ test('envio: se a consulta do número falha, manda como está (não trava o envi
   await handler({ connection: 'open' });
   await sendViaBaileys('test-nono-digito-2', '5562996952514', 'oi');
   assert.deepEqual(sent, ['5562996952514@s.whatsapp.net']);
+});
+
+test('sendViaBaileys repassa o id próprio da mensagem ao sock', async () => {
+  let handler = null;
+  const sent = [];
+  const fakeBaileys = {
+    default: () => ({
+      ev: { on: (event, h) => { if (event === 'connection.update') handler = h; } },
+      sendMessage: async (jid, msg, opts) => { sent.push(opts); return { key: { id: opts?.messageId || 'auto' } }; }
+    }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  await connectClient('test-msgid', { baileys: fakeBaileys });
+  await handler({ connection: 'open' });
+  const id = await sendViaBaileys('test-msgid', '5511999998888', 'oi', { messageId: '3EB0ABC' });
+  assert.equal(id, '3EB0ABC');
+  assert.deepEqual(sent[0], { messageId: '3EB0ABC' });
+});
+
+test('sendTyping mostra "digitando", espera e para', async () => {
+  let handler = null;
+  const presence = [];
+  const fakeBaileys = {
+    default: () => ({
+      ev: { on: (event, h) => { if (event === 'connection.update') handler = h; } },
+      sendPresenceUpdate: async (type, jid) => presence.push([type, jid])
+    }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  await connectClient('test-typing', { baileys: fakeBaileys });
+  await handler({ connection: 'open' });
+  const waited = [];
+  await sendTyping('test-typing', '5511999998888', 3000, { sleep: async (ms) => waited.push(ms) });
+  assert.deepEqual(presence, [['composing', '5511999998888@s.whatsapp.net'], ['paused', '5511999998888@s.whatsapp.net']]);
+  assert.deepEqual(waited, [3000]);
 });

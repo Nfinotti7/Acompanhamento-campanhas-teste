@@ -26,6 +26,7 @@ export async function handleInboundForWaitlist({ clientId, contactId, waId, prof
       await send({
         clientId,
         contactId,
+        sentBy: 'bot_fila',
         body: renderMessage(settings.messages[key], {
           nome: firstName(entry?.name || profileName),
           tolerancia: settings.hold_minutes,

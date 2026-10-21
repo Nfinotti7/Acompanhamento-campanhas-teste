@@ -113,7 +113,7 @@ async function notifyEntry(entry, key, vars, { settings, send }) {
     ...vars
   });
   try {
-    await send({ clientId: entry.client_id, contactId: entry.contact_id, body });
+    await send({ clientId: entry.client_id, contactId: entry.contact_id, body, sentBy: 'bot_fila' });
     return true;
   } catch (error) {
     console.error(`Na Mesa: falha ao enviar "${key}" pra entrada ${entry.id}:`, error.message);

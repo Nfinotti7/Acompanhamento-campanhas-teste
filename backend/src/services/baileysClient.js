@@ -475,15 +475,32 @@ async function resolveJid(clientId, sock, waId) {
   return fallback;
 }
 
-export async function sendViaBaileys(clientId, waId, body) {
+// messageId: id próprio da mensagem (o robô grava a linha antes de enviar; ver whatsappSender.js).
+export async function sendViaBaileys(clientId, waId, body, { messageId } = {}) {
   const state = connections.get(normalizeClientId(clientId));
   if (!state?.sock || state.status !== 'connected') {
     throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
   }
   const jid = await resolveJid(clientId, state.sock, waId);
-  const sent = await state.sock.sendMessage(jid, { text: body });
+  const sent = await state.sock.sendMessage(jid, { text: body }, messageId ? { messageId } : undefined);
   // O id é o que liga os avisos de entregue/lida (messages.update) a esta mensagem.
   const id = sent?.key?.id || null;
   if (id) state.pendingAcks.set(id, (state.deps?.now || Date.now)());
   return id;
+}
+
+// "digitando..." antes da resposta do robô: ritmo de gente, e menos cara de robô pro
+// WhatsApp. Erro aqui nunca impede a resposta.
+export async function sendTyping(clientId, waId, ms, deps = {}) {
+  const sleep = deps.sleep || ((t) => new Promise((r) => setTimeout(r, t)));
+  const state = connections.get(normalizeClientId(clientId));
+  if (!state?.sock || state.status !== 'connected') return;
+  try {
+    const jid = await resolveJid(clientId, state.sock, waId);
+    await state.sock.sendPresenceUpdate('composing', jid);
+    await sleep(ms);
+    await state.sock.sendPresenceUpdate('paused', jid);
+  } catch (error) {
+    console.error(`Baileys [client ${clientId}]: falha no "digitando":`, error.message);
+  }
 }

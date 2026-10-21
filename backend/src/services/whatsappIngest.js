@@ -3,6 +3,7 @@ import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
 import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
 import { handleInboundForWaitlist } from './waitlistBot.js';
+import { pauseBot } from './botPause.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -96,7 +97,7 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
 
   // Cliente só do Na Mesa (sem dashboard) não tem funil nem Link Rastreável.
   const { rows: flagRows } = await dbImpl.query(
-    `SELECT dashboard_enabled, waitlist_enabled FROM clients WHERE id = ?`,
+    `SELECT dashboard_enabled, waitlist_enabled, reservations_enabled FROM clients WHERE id = ?`,
     [clientId]
   );
   const flags = flagRows[0] || {};
@@ -147,6 +148,17 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // também): igual no WhatsApp, responder conta como ter lido a conversa.
   if (event.direction === 'outbound') {
     await dbImpl.query(`UPDATE whatsapp_contacts SET last_read_at = CURRENT_TIMESTAMP WHERE id = ?`, [contactId]);
+  }
+
+  // Mensagem de saída que ainda não estava gravada é de um atendente (pelo celular ou
+  // pelo Caixa, cujo eco às vezes chega antes da gravação): pausa o robô de reserva.
+  // As do robô já foram gravadas antes do envio e caem no ON CONFLICT (whatsappSender.js).
+  if (event.direction === 'outbound' && messageRows.length > 0 && flags.reservations_enabled) {
+    try {
+      await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
+    } catch (error) {
+      console.error('Reservas: erro ao pausar o robô:', error.message);
+    }
   }
 
   broadcastFn(clientId, 'message', {

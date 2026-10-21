@@ -165,3 +165,12 @@ test('número com e sem o 9º dígito acha a mesma entrada manual', async () => 
   assert.equal(await say('oi', 3), 'status'); // waId 551199999003 (sem o 9)
   assert.equal(db.entries[0].contact_id, 3);
 });
+
+test('mensagens do robô da fila saem marcadas como do robô', async () => {
+  const db = memoryDb();
+  const sentBy = [];
+  await handleInboundForWaitlist({ clientId: 1, contactId: 3, waId: '551199999003', profileName: 'Maria', body: 'FILA' }, {
+    db, send: async (m) => { sentBy.push(m.sentBy); return 'w'; }, broadcast: () => {}, now: () => NOW
+  });
+  assert.deepEqual(sentBy, ['bot_fila']);
+});

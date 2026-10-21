@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import { sendToContact, SendError } from '../services/whatsappSender.js';
+import { pauseBot } from '../services/botPause.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -96,7 +97,11 @@ export async function replyToConversation(req, res) {
       return res.status(400).json({ error: 'Mensagem não pode ser vazia.' });
     }
 
-    await sendToContact({ clientId, contactId, body });
+    await sendToContact({ clientId, contactId, body, sentBy: 'staff' });
+    // Atendente assumiu a conversa: o robô de reserva para (na Cloud API não há eco da
+    // mensagem enviada, então o ingest não veria). Só onde reserva está ligada.
+    const { rows } = await db.query(`SELECT reservations_enabled FROM clients WHERE id = ?`, [clientId]);
+    if (rows[0]?.reservations_enabled) await pauseBot(db, { clientId, contactId });
     return res.json({ message: 'Mensagem enviada.' });
   } catch (error) {
     if (error instanceof SendError) {

@@ -282,3 +282,31 @@ test('mensagem de grupo não aciona o robô da fila', async () => {
   await tick();
   assert.equal(seen.length, 0);
 });
+
+test('mensagem do celular (outbound nova) pausa o robô de reserva', async () => {
+  const db = flagsDb({ dashboard_enabled: true, reservations_enabled: true });
+  const paused = [];
+  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', waMessageId: 'w9' }), { db, broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
+  assert.deepEqual(paused, [{ clientId: 9, contactId: 1 }]);
+});
+
+test('eco do Baileys de mensagem do robô (já gravada) não pausa', async () => {
+  const paused = [];
+  const echo = {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ dashboard_enabled: true, reservations_enabled: true }] };
+      if (/INSERT INTO whatsapp_messages/.test(sql)) return { rows: [] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound' }), { db: echo, broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
+  assert.equal(paused.length, 0);
+});
+
+test('sem reservas ligadas, mensagem de saída não pausa nada', async () => {
+  const db = flagsDb({ dashboard_enabled: true, reservations_enabled: false });
+  const paused = [];
+  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', waMessageId: 'w10' }), { db, broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
+  assert.equal(paused.length, 0);
+});
