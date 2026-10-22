@@ -789,3 +789,25 @@ Spec: `docs/superpowers/specs/2026-10-21-reservas-design.md`. Plano: `docs/super
 - não deixa virar mensagem os avisos sem conteúdo (álbum, fixar, "manter na conversa", só `messageContextInfo`).
 
 Visualização única não é baixada: o WhatsApp não manda pra aparelho conectado. O que ainda cair em "📩 Mensagem" loga `tipo de mensagem não reconhecido (...)`; olhar o log depois do deploy. As 97 antigas continuam como estão. Backend: 378 testes.
+
+**Bolinha no ícone + notificações push (22/10, commit `9ac43ea`, mesma branch, não enviado).** Pedido do usuário: número no ícone dos apps instalados, como o WhatsApp. Aceitou a recomendação de fazer as duas etapas (bolinha com o app aberto e push com ele fechado). O número do Na Mesa é a quantidade de **grupos esperando**; o do Caixa é a de **mensagens não lidas**, a mesma soma do título da aba.
+- **Backend:** `services/pushNotify.js` + `controllers/pushController.js`, rotas `/api/push/public-key|subscribe|unsubscribe` (staff e admin).
+  - **Chaves VAPID:** geradas sozinhas e gravadas em `push_config` (já criada no banco de produção pelo teste local). Não precisa de variável no Hostinger. Trocar as chaves invalida as inscrições.
+  - **Inscrições:** em `push_subscriptions`, com `UNIQUE (endpoint, app)`. O mesmo aparelho pode ter Caixa e Na Mesa, porque é um único service worker.
+  - **Gatilhos:** mensagem recebida nova de telefone em cliente com dashboard (`whatsappIngest.js`, não avisa grupo) e entrada pela conversa do WhatsApp na fila (`enterQueue`; a entrada manual não avisa).
+  - Com o db falso dos testes não manda push (`dbImpl === db`).
+- **Frontend:**
+  - `public/sw.js` com `push` (notificação + `setAppBadge`) e `notificationclick`;
+  - `pwa/push.js` e a faixa `pwa/PushPrompt.jsx` ("Ativar", ou X pra dispensar, guardado em localStorage);
+  - `setBadge` no `CaixaChatView` (não lidas) e no `QueueBoard` (esperando);
+  - "Sair" remove a inscrição do aparelho.
+- **Onde a bolinha funciona:**
+  - PC (Chrome/Edge instalado) e Mac, direto;
+  - iPhone com iOS 16.4 ou mais novo, com o app na Tela de Início e notificação permitida;
+  - Android pela notificação (o número depende do celular).
+- **iPhone no push:** só pede a permissão dentro do app instalado.
+- **Testado:** backend 381 testes, frontend 68, build ok. Chaves e assinatura conferidas contra o banco real (`generateRequestDetails`). A faixa foi conferida no PC e no celular (Playwright).
+- **Não testado:** entrega num aparelho real (precisa de HTTPS de produção). Depois do deploy, ativar num celular e mandar mensagem pro Malibu.
+- **Achado (anterior a esta mudança, não corrigido):** no Caixa no celular, a lista de conversas é cortada à direita (horário e bolinha de não lidas somem).
+
+**Deploy marcado pelo usuário pra 22/10 às 20:30** (branch inteira: dois processos, tipos de mensagem, push).
