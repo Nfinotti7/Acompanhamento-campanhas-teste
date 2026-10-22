@@ -42,7 +42,7 @@
 
 **Reservas pelo WhatsApp: no ar desde 21/10 15:36** (push `7c5f1a4`, que levou junto os commits pendentes de 19/10: data de início e login de grupo). Malibu ligado (`reservations_enabled`, mesas 2×2/2×4/2×6, turnos do spec, robô ligado, plano B desligado). Falta do usuário: conectar o número novo dos anúncios no Caixa do Malibu (WhatsApp → trocar número), deixar sem saudação/ausência automática, e o teste real. Ver Registro 2026-10-21.
 
-**Dois processos do Node no Hostinger (22/10):** corrigido na branch `fix/baileys-multiprocesso` (commit `9413d7c`, **não enviado**): ponte pelo banco, qualquer processo envia. Falta o deploy fora do horário de serviço e conferir no log. Provavelmente era também a causa do **standby depois de deploy**. Ver Registro 2026-10-22. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
+**No ar desde 22/10 19:40 (push `e27a6af`):** ponte entre processos pelo banco (qualquer processo envia; provável causa do antigo "standby depois de deploy"), tipos de mensagem do WhatsApp, bolinha + notificações push, sincronização de campanhas em segundo plano, lista do Balcão no celular e **Caixa → Balcão (`/balcao`)**. O deploy reconectou sozinho, sem restart. Ver Registro 2026-10-22. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
@@ -830,3 +830,12 @@ Visualização única não é baixada: o WhatsApp não manda pra aparelho conect
 - Textos trocados: login, título da aba, menu do celular e "PIN do Balcão e do Na Mesa" em Chaves e APIs.
 - **Testado:** frontend 73 testes, backend 381, build. No Playwright, `/caixa` e `/balcão` caíram no `/balcao` com o manifesto novo, e o login salvo continuou valendo. O caso do app instalado está coberto por teste (não dá pra emular standalone no Playwright).
 - **Daqui pra frente, falar "Balcão" com o usuário.** No código o nome continua caixa.
+
+**Deploy (22/10, 19:40 BRT, push `c5a28d3..e27a6af`):** o usuário mandou subir no meio do serviço. O site novo entrou no ar às 19:40:42. Às 19:41:03 um processo novo (`320864-…`) publicou Malibu e Mercearia como `connected`, **sem QR, sem standby e sem restart no hPanel**. Na hora não havia pedido repassado nem evento de outro processo, ou seja, um processo só.
+- A linha `9=qr` que aparecia antes vinha do meu backend local de teste: abrir o Balcão local chama `getBaileysStatus`, que conecta mesmo com `BAILEYS_AUTOCONNECT=false`. Ela foi sobrescrita pelo servidor novo.
+- **Cuidado:** testar a tela do Balcão local contra o banco de produção publica um status falso em `baileys_status` até o dono de produção sobrescrever (≤10 s com o código novo no ar).
+- **Pendente pro usuário:**
+  - ativar as notificações num celular e testar;
+  - reinstalar o Balcão no iPhone pelo `/balcao`, se quiser o nome novo;
+  - abrir um app do Caixa já instalado, pra ver que continua no `/caixa`;
+  - conferir no log do Hostinger linhas `tipo de mensagem não reconhecido`.
