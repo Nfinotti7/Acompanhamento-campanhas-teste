@@ -811,3 +811,12 @@ Visualização única não é baixada: o WhatsApp não manda pra aparelho conect
 - **Achado (anterior a esta mudança, não corrigido):** no Caixa no celular, a lista de conversas é cortada à direita (horário e bolinha de não lidas somem).
 
 **Deploy marcado pelo usuário pra 22/10 às 20:30** (branch inteira: dois processos, tipos de mensagem, push).
+
+**Sincronização de campanhas e lista do Caixa (22/10, commit seguinte ao `8a734a1`, mesma branch).**
+- **"Erro ao sincronizar campanhas" na dashboard:** rodando a mesma sincronização localmente, todos os clientes deram ok, mas ela levou **92 s** (só o Recreio ~50 s). O Hostinger corta a requisição antes disso, e a tela mostrava o erro genérico, mesmo com o servidor terminando a sincronização.
+  - Agora `POST /api/campaigns/sync` cria uma linha em `sync_jobs` (já criada no banco de produção), responde 202 com `jobId` e sincroniza em segundo plano. `GET /api/campaigns/sync/:jobId` devolve o andamento, e a tela consulta a cada 3 s, até 10 min.
+  - O andamento fica no banco por causa dos dois processos.
+  - Clique duplo devolve a mesma sincronização.
+  - Uma sincronização "rodando" há mais de 15 min (processo caiu) aparece como interrompida.
+  - Testado local: resposta em 0,5 s, resultado em ~50 s.
+- **Lista do Caixa no celular:** a coluna era `1fr`, que alarga até a prévia mais longa (`nowrap`). Agora é `minmax(0, 1fr)`, também no tablet e no PC. Conferido no Playwright em 375px.
