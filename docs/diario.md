@@ -42,7 +42,7 @@
 
 **Reservas pelo WhatsApp: no ar desde 21/10 15:36** (push `7c5f1a4`, que levou junto os commits pendentes de 19/10: data de início e login de grupo). Malibu ligado (`reservations_enabled`, mesas 2×2/2×4/2×6, turnos do spec, robô ligado, plano B desligado). Falta do usuário: conectar o número novo dos anúncios no Caixa do Malibu (WhatsApp → trocar número), deixar sem saudação/ausência automática, e o teste real. Ver Registro 2026-10-21.
 
-**Próximo trabalho (prioridade):** resolver o **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
+**Próximo trabalho (prioridade):** **dois processos do Node ao mesmo tempo no Hostinger** (diagnóstico de 22/10, ver Registro). Provavelmente é a mesma causa do **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
@@ -749,3 +749,20 @@ Spec: `docs/superpowers/specs/2026-10-21-reservas-design.md`. Plano: `docs/super
 **Incidente meu:** o commit `dbbd3f8` (spec, na `main`, sem push) usou `git commit -a` e levou junto a alteração do usuário em `backend/scripts/get-google-refresh-token.js` (opção `OUTPUT_FILE`, sem segredo). O histórico não foi reescrito. O usuário decide se mantém. Daqui pra frente, nunca usar `commit -a` neste repo, porque há arquivos de propósito fora dos commits.
 
 **Deploy (21/10, ~15:30):** o usuário mandou subir tudo e manter no commit a alteração do script do token. O push `1fbe709..7c5f1a4` foi feito daqui, e o bundle novo confirmou às 15:36. O Malibu foi configurado direto no banco pelo `saveReservationSettings`. O Malibu vai usar um **número novo**, só pros anúncios, ainda sem mensagens e sem saudação. O WhatsApp atual do Malibu não recebia nada desde 17/10. Como a data de início (19/10) foi junto, falta salvar 05/10/2026 em Alma, Giulí e Malibu pela tela de Clientes.
+
+### 2026-10-22 — Caixa sem conseguir enviar: dois processos do Node ao mesmo tempo (diagnóstico)
+
+**Relato do usuário:** à tarde o cliente não conseguia enviar mensagem no Caixa ("desconectado"). O usuário reiniciou o app no hPanel por fora de casa. Mandou o log do Hostinger.
+
+**O que o log mostra:**
+- 16:13: o vigia renovou Mercearia (13) e Malibu (9) normalmente.
+- **16:29:16.716 e 16:29:16.764: duas linhas "rodando na porta 5000", com 48 ms de diferença**, e três avisos "App did not call listen() within 3 seconds". O Hostinger subiu **dois processos novos ao mesmo tempo** (não é processo velho de deploy: não houve deploy hoje, e os dois são novos).
+- 16:30 a 16:43: 10 erros "Conexão WhatsApp (Baileys) não está ativa" no `replyToConversation`.
+- 16:40:48: queda normal do Malibu (503), que reconecta sozinha.
+- 16:51:56: o restart do usuário subiu **um** processo só, e os erros pararam.
+
+**Causa (hipótese forte, explica tudo):** o Hostinger reparte as requisições entre os processos. Os dois gravam `owner.json` na subida; só um fica dono e conecta o WhatsApp, o outro fica em `standby`. Toda requisição que cai no processo em standby falha no envio (e o status que a tela mostra depende de qual processo respondeu). O SSE também é em memória, então o Caixa ligado ao processo errado não recebe mensagem nova ao vivo. O desenho atual (`baileysClient.js`) supõe um processo só atendendo. Os "standby depois de deploy" de 14/10, 16/10 e 18/10 provavelmente eram isso, e não o processo antigo vivo.
+
+**Achado à parte (segurança):** a libsignal do Baileys imprime "Closing session" no log com as chaves da sessão do WhatsApp (`privKey`, `rootKey`). Silenciar.
+
+**Pendente:** o usuário escolher a correção (processos sem dono repassam o envio pro dono pelo Postgres, e o status e os eventos SSE também passam pelo banco).
