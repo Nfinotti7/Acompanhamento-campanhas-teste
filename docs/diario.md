@@ -820,3 +820,13 @@ Visualização única não é baixada: o WhatsApp não manda pra aparelho conect
   - Uma sincronização "rodando" há mais de 15 min (processo caiu) aparece como interrompida.
   - Testado local: resposta em 0,5 s, resultado em ~50 s.
 - **Lista do Caixa no celular:** a coluna era `1fr`, que alarga até a prévia mais longa (`nowrap`). Agora é `minmax(0, 1fr)`, também no tablet e no PC. Conferido no Playwright em 375px.
+
+**Caixa → Balcão (22/10, commit `2abdf85`, mesma branch).** Pedido do usuário: o app passa a se chamar **Balcão**, com o endereço `furtherads.online/balcao`. O ícone não muda. Ele aceitou manter os dois endereços.
+- `/balcao` usa o manifesto `balcao.webmanifest` (id `/balcao`).
+- `/balcão` (com til) e `/caixa` **no navegador** vão pro `/balcao` (`canonicalPath`, `main.jsx`).
+- **O app do Caixa já instalado** (display-mode standalone) fica no `/caixa`, porque é o endereço que ele guardou, e sair do escopo abriria a barra do navegador.
+  - O `caixa.webmanifest` manteve o id `/caixa` e passou a se chamar Balcão. Android e PC atualizam o nome sozinhos; o iPhone continua "Caixa" até reinstalar pelo `/balcao`.
+- **A chave interna continua `caixa`:** `caixa_token` (ninguém é deslogado), ícones `caixa-*`, `push_subscriptions.app = 'caixa'`, `CaixaApp.jsx`. Notificações abrem `/balcao`; o service worker também reaproveita uma janela no `/caixa`.
+- Textos trocados: login, título da aba, menu do celular e "PIN do Balcão e do Na Mesa" em Chaves e APIs.
+- **Testado:** frontend 73 testes, backend 381, build. No Playwright, `/caixa` e `/balcão` caíram no `/balcao` com o manifesto novo, e o login salvo continuou valendo. O caso do app instalado está coberto por teste (não dá pra emular standalone no Playwright).
+- **Daqui pra frente, falar "Balcão" com o usuário.** No código o nome continua caixa.
