@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import db from '../config/db.js';
-import { getConnectionState } from '../services/baileysClient.js';
+import { getSharedConnectionState } from '../services/baileysClient.js';
 import { DEFAULT_MESSAGES, MESSAGE_KEYS, normalizePhone } from '../services/waitlistText.js';
 import { loadQueueState, loadSettings, transitionEntry, addManualEntry, updateEntry } from '../services/waitlistQueue.js';
 import { loadReport } from '../services/waitlistReport.js';
@@ -30,7 +30,7 @@ async function whatsappStatus(clientId) {
   const { rows } = await db.query('SELECT connection_type FROM whatsapp_settings WHERE client_id = ?', [clientId]);
   if (!rows[0]) return 'not_configured';
   if (rows[0].connection_type !== 'baileys') return 'cloud_api';
-  return getConnectionState(clientId).status;
+  return (await getSharedConnectionState(clientId)).status;
 }
 
 export const getQueue = handler(async (req, res, clientId) => {

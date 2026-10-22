@@ -8,8 +8,9 @@
 // dentro do projeto sumia a cada deploy e obrigava escanear o QR de novo.
 // BAILEYS_SESSIONS_DIR sobrescreve o local se precisar.
 //
-// So funciona com UMA instancia do backend rodando por vez -- duas instancias
-// tentando abrir a mesma sessao ao mesmo tempo quebram a conexao.
+// Só UM processo pode abrir a sessão (o dono, ver owner.json). O Hostinger às vezes roda
+// dois processos e reparte as requisições: quem não é dono pede ao dono pelo banco
+// (processRelay.js) pra enviar, resetar ou gerar código, e lê dali o status da conexão.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,6 +22,8 @@ import { refreshProfilePicture } from './profilePicture.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
 import { normalizePhone, phoneVariants } from './waitlistText.js';
+import { INSTANCE_ID } from './instance.js';
+import { requestFromOwner, processRelayQueue, publishStatus, readPublishedStatus, purgeRelayTables } from './processRelay.js';
 
 const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
 
@@ -35,6 +38,10 @@ const STALE_CONNECTING_MS = 30000;
 // ao mesmo tempo. Um atraso pequeno antes de tentar de novo evita esse ciclo (cai ->
 // reconecta rapido demais -> conflito -> cai de novo -> ...).
 const RECONNECT_DELAY_MS = 5000;
+
+// Envio no meio de uma queda (ex: 503 do WhatsApp, que reconecta em ~5s): espera a
+// conexão voltar em vez de dar erro na cara do atendente.
+const SEND_WAIT_MS = 10000;
 
 // ---- Vigia da conexão zumbi ----
 // Em 17/10 a conexão da Mercearia parou de receber mensagens e de confirmar entregas, mas
@@ -69,6 +76,7 @@ function recycleConnection(clientId, state, reason) {
   state.status = 'disconnected';
   state.connectingSince = null;
   state.pendingAcks = new Map();
+  shareState(clientId, state);
   try {
     sock?.end?.(new Error(reason));
   } catch {
@@ -109,7 +117,6 @@ const connections = new Map();
 // o dono: o processo mais novo assume na subida; os outros, ao ver que não são mais
 // donos, fecham a conexão e param de reconectar. Se o dono parar de dar sinal de vida
 // (heartbeat), outro assume.
-const INSTANCE_ID = `${process.pid}-${Date.now()}`;
 const OWNER_HEARTBEAT_MS = 10000;
 const OWNER_STALE_MS = 60000;
 let ownerWatchdog = null;
@@ -165,10 +172,11 @@ function startOwnerWatchdog(reconnect) {
     const decision = decideOwnership({ owner: readOwner(), instanceId: INSTANCE_ID });
     if (decision === 'owner') {
       writeOwner(); // heartbeat
+      for (const [clientId, state] of connections) shareState(clientId, state);
     } else if (decision === 'yield') {
       stopAllConnections('outro processo do servidor assumiu a sessão do WhatsApp');
     } else {
-      console.error('Baileys: o processo dono da sessão parou de responder; este processo assume.');
+      console.error(`Baileys: o processo dono da sessão parou de responder; este processo (${INSTANCE_ID}) assume.`);
       writeOwner();
       reconnect().catch((error) => console.error('Erro ao reassumir conexões Baileys:', error));
     }
@@ -192,6 +200,20 @@ function getOrInitState(clientId) {
     connections.set(key, { sock: null, status: 'disconnected', qrDataUrl: null, connectPromise: null, connectingSince: null, lastActivityAt: null, pendingAcks: new Map(), deps: {} });
   }
   return connections.get(key);
+}
+
+function isConnected(state) {
+  return Boolean(state?.sock) && state.status === 'connected';
+}
+
+// O dono grava o status no banco pros outros processos mostrarem o mesmo na tela.
+function shareState(clientId, state) {
+  const deps = state.deps || {};
+  const publish = deps.publishStatus || (deps.baileys ? null : publishStatus);
+  if (!publish) return;
+  if (!deps.baileys && !isOwner()) return;
+  publish(clientId, { status: state.status, qrDataUrl: state.qrDataUrl, lastDisconnectReason: state.lastDisconnectReason })
+    .catch((error) => console.error(`Baileys [client ${clientId}]: erro ao publicar o status:`, error.message));
 }
 
 export async function connectClient(clientId, deps = {}) {
@@ -249,6 +271,7 @@ async function doConnect(clientId, state, deps) {
   state.connectingSince = now();
   state.deps = deps;
   state.pendingAcks = new Map();
+  shareState(clientId, state);
   const markActivity = () => { if (state.sock === sock) state.lastActivityAt = now(); };
 
   sock.ev.on('creds.update', saveCreds);
@@ -260,6 +283,7 @@ async function doConnect(clientId, state, deps) {
       state.status = 'qr';
       state.qrDataUrl = await QRCode.toDataURL(qr);
       state.connectingSince = null;
+      shareState(clientId, state);
     }
 
     if (connection === 'open') {
@@ -267,6 +291,7 @@ async function doConnect(clientId, state, deps) {
       markActivity();
       state.qrDataUrl = null;
       state.connectingSince = null;
+      shareState(clientId, state);
     }
 
     if (connection === 'close') {
@@ -279,6 +304,7 @@ async function doConnect(clientId, state, deps) {
       state.sock = null;
       state.status = 'disconnected';
       state.connectingSince = null;
+      shareState(clientId, state);
       if (!deps.baileys && !isOwner()) {
         console.error(`Baileys [client ${clientId}]: este processo não é mais o dono da sessão; não reconecta.`);
       } else {
@@ -359,6 +385,10 @@ async function doConnect(clientId, state, deps) {
 // no celular), apaga a sessão e abre uma conexão nova, que pede QR. Também destrava uma
 // conexão que ficou presa em "conectando".
 export async function resetClient(clientId, deps = {}) {
+  if (!deps.baileys && !deps.viaRelay && !isOwner()) {
+    await requestFromOwner('reset', clientId);
+    return getConnectionState(clientId);
+  }
   const state = getOrInitState(clientId);
   if (state.connectPromise) {
     try { await state.connectPromise; } catch { /* segue pro reset mesmo assim */ }
@@ -381,7 +411,9 @@ export async function resetClient(clientId, deps = {}) {
   return connectClient(clientId, deps);
 }
 
-export class PairingError extends Error {}
+export class PairingError extends Error {
+  userFacing = true; // a mensagem vai pra tela (400), inclusive quando volta pela ponte
+}
 
 // Conectar com código em vez de QR: pra quando o QR aparece no MESMO celular que tem o
 // WhatsApp (não dá pra escanear a própria tela). O WhatsApp aceita um código de 8
@@ -389,6 +421,10 @@ export class PairingError extends Error {}
 export async function requestPairingCode(clientId, rawPhone, deps = {}) {
   const phone = normalizePhone(rawPhone);
   if (!phone) throw new PairingError('Número inválido. Use DDD + número, ex: (11) 99999-8888.');
+  if (!deps.baileys && !deps.viaRelay && !isOwner()) {
+    const { code } = await requestFromOwner('pairing', clientId, { phone: rawPhone }, { timeoutMs: 30000 });
+    return code;
+  }
 
   let state = getOrInitState(clientId);
   if (!state.sock) state = await connectClient(clientId, deps);
@@ -421,8 +457,10 @@ export async function reconnectAllBaileysClients(deps = {}) {
   // Subida do servidor: o processo mais novo vira o dono da sessão (ver owner.json).
   if (!deps.db) {
     writeOwner();
+    console.log(`Baileys: processo ${INSTANCE_ID} assumiu a sessão do WhatsApp`);
     startOwnerWatchdog(() => reconnectAllBaileysClients(deps));
     startConnectionWatchdog();
+    startRelayWorker();
   }
 
   const { rows } = await dbImpl.query(
@@ -444,6 +482,62 @@ export function getConnectionState(clientId) {
   const state = connections.get(normalizeClientId(clientId));
   if (!state) return { status: 'disconnected', qrDataUrl: null };
   return { status: state.status, qrDataUrl: state.qrDataUrl, lastDisconnectReason: state.lastDisconnectReason };
+}
+
+// O status de verdade é o do dono. Num processo que não é dono, o estado local é sempre
+// "standby", então lê o que o dono publicou no banco.
+export async function getSharedConnectionState(clientId, deps = {}) {
+  const local = getConnectionState(clientId);
+  if (!deps.readPublishedStatus && isOwner()) return { ...local, ownerInstance: INSTANCE_ID };
+  const published = await (deps.readPublishedStatus || readPublishedStatus)(clientId);
+  return published || local;
+}
+
+// Abre a conexão se ainda não existe (ex: cliente acabou de ser configurado como Baileys).
+// Fora do dono, só pede ao dono quando o status publicado não mostra conexão nenhuma.
+export async function ensureConnection(clientId) {
+  if (isOwner()) {
+    await connectClient(clientId);
+    return;
+  }
+  const published = await readPublishedStatus(clientId);
+  if (published && published.status !== 'disconnected') return;
+  try {
+    await requestFromOwner('connect', clientId, {}, { timeoutMs: 8000 });
+  } catch (error) {
+    console.error(`Baileys [client ${clientId}]: o dono não abriu a conexão (${error.message}).`);
+  }
+}
+
+// ---- Pedidos de outros processos (ver processRelay.js) ----
+const RELAY_POLL_MS = 500;
+const RELAY_PURGE_EVERY = 1200; // ~10 min
+let relayWorker = null;
+
+const relayHandlers = {
+  send: async (clientId, p) => ({ id: await sendViaBaileys(clientId, p.waId, p.body, { messageId: p.messageId, viaRelay: true }) }),
+  reset: async (clientId) => { await resetClient(clientId, { viaRelay: true }); return {}; },
+  pairing: async (clientId, p) => ({ code: await requestPairingCode(clientId, p.phone, { viaRelay: true }) }),
+  connect: async (clientId) => { await connectClient(clientId); return {}; }
+};
+
+function startRelayWorker() {
+  if (relayWorker) return;
+  let running = false;
+  let ticks = 0;
+  relayWorker = setInterval(async () => {
+    if (running || !isOwner()) return;
+    running = true;
+    try {
+      await processRelayQueue(relayHandlers);
+      if (++ticks % RELAY_PURGE_EVERY === 0) await purgeRelayTables();
+    } catch (error) {
+      console.error('Erro ao atender pedidos de outro processo:', error.message);
+    } finally {
+      running = false;
+    }
+  }, RELAY_POLL_MS);
+  relayWorker.unref?.();
 }
 
 // Celular brasileiro existe no WhatsApp com OU sem o 9º dígito, conforme a idade da conta
@@ -476,10 +570,32 @@ async function resolveJid(clientId, sock, waId) {
 }
 
 // messageId: id próprio da mensagem (o robô grava a linha antes de enviar; ver whatsappSender.js).
-export async function sendViaBaileys(clientId, waId, body, { messageId } = {}) {
-  const state = connections.get(normalizeClientId(clientId));
-  if (!state?.sock || state.status !== 'connected') {
-    throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
+// Espera a conexão voltar quando ela está caindo/reconectando. QR e standby não voltam
+// sozinhos, então não adianta esperar.
+async function waitForConnection(clientId, deps) {
+  const now = deps.now || Date.now;
+  const sleep = deps.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const deadline = now() + (deps.sendWaitMs ?? SEND_WAIT_MS);
+  let state = connections.get(normalizeClientId(clientId));
+  while (state && ['connecting', 'disconnected'].includes(state.status) && now() < deadline) {
+    await sleep(250);
+    state = connections.get(normalizeClientId(clientId));
+  }
+  return state;
+}
+
+export async function sendViaBaileys(clientId, waId, body, { messageId, viaRelay = false } = {}) {
+  let state = connections.get(normalizeClientId(clientId));
+  if (!isConnected(state)) {
+    const deps = state?.deps || {};
+    if (!viaRelay && !deps.baileys && !isOwner()) {
+      const { id } = await requestFromOwner('send', clientId, { waId, body, messageId: messageId || null });
+      return id || null;
+    }
+    state = await waitForConnection(clientId, deps);
+    if (!isConnected(state)) {
+      throw new Error('Conexão WhatsApp (Baileys) não está ativa para este cliente.');
+    }
   }
   const jid = await resolveJid(clientId, state.sock, waId);
   const sent = await state.sock.sendMessage(jid, { text: body }, messageId ? { messageId } : undefined);

@@ -1,5 +1,6 @@
 import db from '../config/db.js';
-import { connectClient, getConnectionState, resetClient, requestPairingCode, PairingError } from '../services/baileysClient.js';
+import { ensureConnection, getSharedConnectionState, resetClient, requestPairingCode, PairingError } from '../services/baileysClient.js';
+import { RelayError } from '../services/processRelay.js';
 
 export function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -24,9 +25,8 @@ export async function getBaileysStatus(req, res) {
       return res.status(400).json({ error: 'Este cliente não está configurado pro modo não-oficial (Baileys).' });
     }
 
-    await connectClient(clientId);
-    const state = getConnectionState(clientId);
-    return res.json(state);
+    await ensureConnection(clientId);
+    return res.json(await getSharedConnectionState(clientId));
   } catch (error) {
     console.error('Get Baileys status error:', error);
     return res.status(500).json({ error: 'Erro ao conectar via WhatsApp Web.' });
@@ -50,8 +50,9 @@ export async function resetBaileys(req, res) {
       return res.status(400).json({ error: 'Este cliente não está configurado pro modo não-oficial (Baileys).' });
     }
     await resetClient(clientId);
-    return res.json(getConnectionState(clientId));
+    return res.json(await getSharedConnectionState(clientId));
   } catch (error) {
+    if (error instanceof RelayError) return res.status(503).json({ error: error.message });
     console.error('Reset Baileys error:', error);
     return res.status(500).json({ error: 'Erro ao reiniciar a conexão do WhatsApp.' });
   }
@@ -74,7 +75,10 @@ export async function pairingCodeBaileys(req, res) {
     const code = await requestPairingCode(clientId, req.body?.phone);
     return res.json({ code });
   } catch (error) {
-    if (error instanceof PairingError) return res.status(400).json({ error: error.message });
+    if (error instanceof PairingError || (error instanceof RelayError && error.userFacing)) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error instanceof RelayError) return res.status(503).json({ error: error.message });
     console.error('Pairing code error:', error);
     return res.status(500).json({ error: 'Não foi possível gerar o código. Tente de novo.' });
   }

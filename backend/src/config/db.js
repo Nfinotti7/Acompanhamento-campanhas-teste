@@ -463,6 +463,44 @@ export async function initDb() {
     WHERE status = 'active'
   `);
 
+  // Ponte entre processos do servidor (services/processRelay.js): o Hostinger às vezes roda
+  // dois processos, e só o dono da sessão do WhatsApp consegue enviar.
+  await query(`
+    CREATE TABLE IF NOT EXISTS baileys_relay (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','done','error','expired')),
+      result JSONB,
+      error TEXT,
+      error_user_facing BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      done_at TIMESTAMPTZ
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_baileys_relay_pending ON baileys_relay (id) WHERE status = 'pending'`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS baileys_status (
+      client_id TEXT PRIMARY KEY,
+      status TEXT,
+      qr_data_url TEXT,
+      last_disconnect JSONB,
+      instance_id TEXT,
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS sse_relay (
+      id BIGSERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      data JSONB,
+      origin TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+
   await seedData();
 }
 

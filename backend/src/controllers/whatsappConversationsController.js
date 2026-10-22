@@ -1,6 +1,7 @@
 import db from '../config/db.js';
 import { sendToContact, SendError } from '../services/whatsappSender.js';
 import { pauseBot } from '../services/botPause.js';
+import { RelayError } from '../services/processRelay.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -110,6 +111,8 @@ export async function replyToConversation(req, res) {
       return res.status(error.httpStatus).json({ error: error.message });
     }
     console.error('Reply to conversation error:', error);
+    // Veio do processo dono pela ponte: a mensagem já é legível (ex: "confira se saiu").
+    if (error instanceof RelayError) return res.status(503).json({ error: error.message });
     return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
   }
 }

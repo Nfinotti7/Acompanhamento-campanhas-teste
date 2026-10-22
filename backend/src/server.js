@@ -31,8 +31,13 @@ import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistR
 import { reservationHandlers } from './controllers/reservationController.js';
 import db from './config/db.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
+import { quietLibsignal } from './utils/quietLibsignal.js';
+import { INSTANCE_ID } from './services/instance.js';
+import { setBroadcastRelay, deliverLocal } from './services/sseHub.js';
+import { relayEvent, pollRelayedEvents } from './services/processRelay.js';
 
 dotenv.config();
+quietLibsignal();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +46,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
+
+// O servidor escuta a porta antes de preparar o banco (ver o final do arquivo). Até o
+// banco ficar pronto, a API responde 503; as telas já tratam isso como "tente de novo".
+let dbReady = false;
+app.use((req, res, next) => {
+  if (dbReady || !(req.path.startsWith('/api') || req.path.startsWith('/r/'))) return next();
+  return res.status(503).json({ error: 'Servidor iniciando. Tente de novo em alguns segundos.' });
+});
 // Guarda o corpo cru: o webhook da Meta é assinado sobre os bytes exatos recebidos,
 // não sobre o JSON re-serializado.
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
@@ -192,11 +205,38 @@ app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
+// listen() primeiro: o Hostinger espera o app escutar em até 3s ("App did not call
+// listen() within 3 seconds"), e o initDb() leva mais que isso. Em 22/10, logo depois
+// desses avisos, subiram dois processos ao mesmo tempo.
+app.listen(PORT, () => {
+  console.log(`🚀 Backend Ad Campaign Tracker rodando na porta ${PORT} (processo ${INSTANCE_ID})`);
+});
+
 initDb()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`🚀 Backend Ad Campaign Tracker rodando na porta ${PORT}`);
-    });
+    dbReady = true;
+
+    // Eventos ao vivo entre processos (ver processRelay.js). Desligado junto com o
+    // BAILEYS_AUTOCONNECT=false do backend local, pra ele não trocar eventos com a produção.
+    if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
+      setBroadcastRelay((clientId, eventName, data) => {
+        relayEvent(clientId, eventName, data).catch((err) => console.error('Erro ao repassar evento ao vivo:', err.message));
+      });
+      let lastEventId = null;
+      let polling = false;
+      setInterval(async () => {
+        if (polling) return;
+        polling = true;
+        try {
+          lastEventId = await pollRelayedEvents(lastEventId, deliverLocal);
+        } catch (err) {
+          console.error('Erro ao ler eventos de outro processo:', err.message);
+        } finally {
+          polling = false;
+        }
+      }, 1000).unref();
+    }
+
     // Reconecta sozinho as sessoes Baileys existentes -- sem isso, depois de um
     // restart (deploy, crash) a conexao fica parada ate alguem abrir a pagina
     // de Credenciais e disparar getBaileysStatus manualmente.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections, sendTyping } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, getSharedConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections, sendTyping } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -464,4 +464,96 @@ test('sendTyping mostra "digitando", espera e para', async () => {
   await sendTyping('test-typing', '5511999998888', 3000, { sleep: async (ms) => waited.push(ms) });
   assert.deepEqual(presence, [['composing', '5511999998888@s.whatsapp.net'], ['paused', '5511999998888@s.whatsapp.net']]);
   assert.deepEqual(waited, [3000]);
+});
+
+function reconnectingFakeBaileys(sentMessages) {
+  const handlers = [];
+  return {
+    handlers,
+    module: {
+      default: () => {
+        const sock = {
+          ev: { on: (event, h) => { if (event === 'connection.update') handlers.push(h); } },
+          sendMessage: async (jid, msg) => { sentMessages.push({ jid, msg }); return { key: { id: 'ENVIADA' } }; },
+          end: () => {}
+        };
+        return sock;
+      },
+      useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+      DisconnectReason: { loggedOut: 401 }
+    }
+  };
+}
+
+test('envio no meio de uma queda (ex: 503): espera a conexão voltar e envia, sem erro pro atendente', async () => {
+  const sent = [];
+  const fake = reconnectingFakeBaileys(sent);
+  const scheduled = [];
+  let t = 0;
+  const deps = {
+    baileys: fake.module,
+    setTimeout: (fn) => scheduled.push(fn),
+    now: () => t,
+    sleep: async (ms) => {
+      t += ms;
+      // 1s depois da queda, a reconexão agendada roda e abre.
+      if (t >= 1000 && scheduled.length) {
+        await scheduled.shift()();
+        await fake.handlers.at(-1)({ connection: 'open' });
+      }
+    }
+  };
+  await connectClient('test-wait-reconnect', deps);
+  await fake.handlers[0]({ connection: 'open' });
+  await fake.handlers[0]({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 503 }, message: 'Stream Errored (unknown)' } } });
+  assert.equal(getConnectionState('test-wait-reconnect').status, 'disconnected');
+
+  const id = await sendViaBaileys('test-wait-reconnect', '5511999998888', 'oi');
+  assert.equal(id, 'ENVIADA');
+  assert.equal(sent.length, 1);
+});
+
+test('envio com a conexão caída por tempo demais: desiste depois da espera, com o erro de sempre', async () => {
+  const sent = [];
+  const fake = reconnectingFakeBaileys(sent);
+  let t = 0;
+  const deps = { baileys: fake.module, setTimeout: () => {}, now: () => t, sleep: async (ms) => { t += ms; }, sendWaitMs: 10000 };
+  await connectClient('test-wait-timeout', deps);
+  await fake.handlers[0]({ connection: 'open' });
+  await fake.handlers[0]({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 503 } } } });
+
+  await assert.rejects(sendViaBaileys('test-wait-timeout', '5511999998888', 'oi'), /não está ativa/);
+  assert.ok(t >= 10000 && t < 11000);
+  assert.equal(sent.length, 0);
+});
+
+test('envio esperando QR não espera à toa (QR não volta sozinho)', async () => {
+  const fake = reconnectingFakeBaileys([]);
+  let t = 0;
+  await connectClient('test-wait-qr', { baileys: fake.module, now: () => t, sleep: async (ms) => { t += ms; } });
+  await fake.handlers[0]({ qr: 'qr-teste' });
+  await assert.rejects(sendViaBaileys('test-wait-qr', '5511999998888', 'oi'), /não está ativa/);
+  assert.equal(t, 0);
+});
+
+test('status compartilhado: processo que não é dono mostra o status que o dono publicou', async () => {
+  const published = { status: 'connected', qrDataUrl: null, ownerInstance: 'outro' };
+  const state = await getSharedConnectionState('test-shared-1', { readPublishedStatus: async () => published });
+  assert.equal(state.status, 'connected');
+});
+
+test('status compartilhado: sem publicação recente do dono, cai no estado local', async () => {
+  const state = await getSharedConnectionState('test-shared-2', { readPublishedStatus: async () => null });
+  assert.equal(state.status, 'disconnected');
+});
+
+test('o dono publica o status a cada mudança (conectando, QR, conectado, queda)', async () => {
+  const fake = reconnectingFakeBaileys([]);
+  const statuses = [];
+  const deps = { baileys: fake.module, setTimeout: () => {}, publishStatus: async (_id, s) => { statuses.push(s.status); } };
+  await connectClient('test-publish', deps);
+  await fake.handlers[0]({ qr: 'qr-teste' });
+  await fake.handlers[0]({ connection: 'open' });
+  await fake.handlers[0]({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 503 } } } });
+  assert.deepEqual(statuses, ['connecting', 'qr', 'connected', 'disconnected']);
 });

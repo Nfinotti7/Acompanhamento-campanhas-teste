@@ -28,7 +28,26 @@ export function subscribe(clientId, writer) {
   };
 }
 
+// Com mais de um processo do servidor, o Caixa pode estar ligado num processo diferente
+// do que gerou o evento. O relay (server.js -> processRelay.js) leva o evento pros outros.
+let relay = null;
+export function setBroadcastRelay(fn) {
+  relay = fn;
+}
+
 export function broadcast(clientId, eventName, data) {
+  deliverLocal(clientId, eventName, data);
+  if (relay) {
+    try {
+      relay(clientId, eventName, data);
+    } catch {
+      // relay é fire-and-forget; a entrega local já aconteceu
+    }
+  }
+}
+
+// Entrega só pros inscritos deste processo (usado também pro evento vindo de outro processo).
+export function deliverLocal(clientId, eventName, data) {
   const set = subscribersByClientId.get(normalize(clientId));
   if (!set || set.size === 0) return;
 
