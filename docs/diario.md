@@ -782,3 +782,10 @@ Spec: `docs/superpowers/specs/2026-10-21-reservas-design.md`. Plano: `docs/super
 - **Deploy:** fora do horário de serviço (Malibu fecha 23:30).
 
 **Discussão com o usuário (pra não repetir):** PM2 e nodemon não resolvem na hospedagem gerenciada (quem sobe os processos é o Hostinger). Uma VPS com 1 processo (PM2) resolveria esse problema, mas não as quedas do lado do WhatsApp; a Evolution API usa o Baileys por baixo e exigiria refazer a integração. Decisão: ponte pelo banco agora; VPS fica pra pensar se o produto crescer.
+
+**"📩 Mensagem" (22/10, commit `e08dc79`, mesma branch, não enviado).** O usuário perguntou o que era o envelope no Caixa do Malibu. É o rótulo genérico de tipo não reconhecido: no banco havia 97 (1 no Malibu, chegou 1 s depois da resposta do Caixa; 96 na Mercearia). O tipo cru não era guardado. `baileysMapper.js` agora:
+- abre os embrulhos (conversa temporária, visualização única, documento com legenda, mensagem editada, entre outros);
+- dá rótulo a recado de vídeo (baixa como vídeo), enquete, evento, convite de grupo e respostas de botão/lista;
+- não deixa virar mensagem os avisos sem conteúdo (álbum, fixar, "manter na conversa", só `messageContextInfo`).
+
+Visualização única não é baixada: o WhatsApp não manda pra aparelho conectado. O que ainda cair em "📩 Mensagem" loga `tipo de mensagem não reconhecido (...)`; olhar o log depois do deploy. As 97 antigas continuam como estão. Backend: 378 testes.
