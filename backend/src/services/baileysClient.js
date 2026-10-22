@@ -17,7 +17,7 @@ import path from 'node:path';
 import QRCode from 'qrcode';
 import db from '../config/db.js';
 import { ingestWhatsAppEvent } from './whatsappIngest.js';
-import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
+import { mapBaileysMessageToEvent, isUsableMessage, UNKNOWN_MESSAGE_LABEL, messageTypes } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
@@ -345,6 +345,9 @@ async function doConnect(clientId, state, deps) {
       if (!isUsableMessage(msg)) continue;
       try {
         const event = mapBaileysMessageToEvent(msg);
+        if (event.body === UNKNOWN_MESSAGE_LABEL) {
+          console.log(`Baileys [client ${clientId}]: tipo de mensagem não reconhecido (${messageTypes(msg).join(', ')})`);
+        }
         if (event.mediaType) {
           event.media = {
             mimeType: event.mimeType,

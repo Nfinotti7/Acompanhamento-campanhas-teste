@@ -4,9 +4,45 @@
 // Tipos que não representam uma mensagem de verdade (reação a outra mensagem, eventos
 // de protocolo como "mensagem apagada", enquete, distribuição de chave de grupo) --
 // esses não devem criar/atualizar contato nem aparecer na conversa.
-const NON_CONTENT_KEYS = ['reactionMessage', 'protocolMessage', 'pollUpdateMessage', 'senderKeyDistributionMessage'];
+// Também os avisos sem conteúdo próprio: álbum (as fotos chegam uma a uma depois), fixar
+// mensagem, "manter na conversa" e mensagem só com metadados.
+const NON_CONTENT_KEYS = ['reactionMessage', 'protocolMessage', 'pollUpdateMessage', 'senderKeyDistributionMessage',
+  'albumMessage', 'pinInChatMessage', 'keepInChatMessage', 'messageContextInfo', 'encReactionMessage'];
+
+export const UNKNOWN_MESSAGE_LABEL = '📩 Mensagem';
+
+// O WhatsApp embrulha o conteúdo de verdade em outros tipos: conversa temporária,
+// visualização única, documento com legenda, mensagem editada... Sem abrir o embrulho,
+// tudo isso caía em "📩 Mensagem".
+const WRAPPER_KEYS = ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension',
+  'documentWithCaptionMessage', 'editedMessage', 'deviceSentMessage', 'lottieStickerMessage',
+  'associatedChildMessage', 'groupMentionedMessage', 'botInvokeMessage'];
+const VIEW_ONCE_KEYS = ['viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension'];
+const MESSAGE_EDIT = 14; // protocolMessage.type
+
+function unwrap(message) {
+  let current = message || {};
+  let viewOnce = false;
+  for (let depth = 0; depth < 5; depth++) {
+    const key = WRAPPER_KEYS.find((k) => current[k]?.message);
+    if (!key) break;
+    if (VIEW_ONCE_KEYS.includes(key)) viewOnce = true;
+    current = current[key].message;
+  }
+  return { content: current, viewOnce };
+}
+
+function editedContent(message) {
+  const protocol = message.protocolMessage;
+  return protocol?.type === MESSAGE_EDIT && protocol.editedMessage ? protocol.editedMessage : null;
+}
 
 function extractContent(message) {
+  const edited = editedContent(message);
+  if (edited) {
+    const text = extractContent(unwrap(edited).content);
+    return text ? `✏️ Editou: ${text}` : '✏️ Mensagem editada';
+  }
   if (message.conversation) return message.conversation;
   if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
   if (message.imageMessage) return message.imageMessage.caption || '📷 Imagem';
@@ -18,12 +54,24 @@ function extractContent(message) {
   if (message.liveLocationMessage) return '📍 Localização em tempo real';
   if (message.contactMessage) return `👤 Contato: ${message.contactMessage.displayName || 'compartilhado'}`;
   if (message.contactsArrayMessage) return '👤 Contatos compartilhados';
+  if (message.ptvMessage) return message.ptvMessage.caption || '🎥 Recado de vídeo';
+  const poll = message.pollCreationMessage || message.pollCreationMessageV2 || message.pollCreationMessageV3;
+  if (poll) return `📊 Enquete: ${poll.name || ''}`.trim();
+  if (message.eventMessage) return `📅 Evento: ${message.eventMessage.name || ''}`.trim();
+  if (message.groupInviteMessage) return `👥 Convite pro grupo ${message.groupInviteMessage.groupName || ''}`.trim();
+  if (message.buttonsResponseMessage) return message.buttonsResponseMessage.selectedDisplayText || '🔘 Resposta de botão';
+  if (message.templateButtonReplyMessage) return message.templateButtonReplyMessage.selectedDisplayText || '🔘 Resposta de botão';
+  if (message.listResponseMessage) return message.listResponseMessage.title || '🔘 Resposta de lista';
+  if (message.interactiveResponseMessage) return message.interactiveResponseMessage.body?.text || '🔘 Resposta de botão';
+  if (message.productMessage) return '🛍️ Produto do catálogo';
+  if (message.orderMessage) return '🛒 Pedido';
   return null;
 }
 
 const MEDIA_KEYS = {
   imageMessage: 'image',
   videoMessage: 'video',
+  ptvMessage: 'video',
   audioMessage: 'audio',
   documentMessage: 'document',
   stickerMessage: 'sticker'
@@ -81,16 +129,24 @@ export function mapBaileysMessageToEvent(msg) {
   const sentAt = msg.messageTimestamp
     ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
     : new Date().toISOString();
+  const { content, viewOnce } = unwrap(msg.message);
   // Só a mensagem do lead traz o anúncio de onde ele veio.
-  const referral = msg.key?.fromMe ? null : extractAdReferral(msg.message);
+  const referral = msg.key?.fromMe ? null : extractAdReferral(content);
+  // Visualização única não chega pra aparelho conectado (o WhatsApp Web também mostra
+  // "abra no celular"), então nem tenta baixar.
+  const viewOnceCaption = content.imageMessage?.caption || content.videoMessage?.caption;
+  const body = viewOnce
+    ? `👁️ Foto ou vídeo de visualização única (abra no celular)${viewOnceCaption ? `: ${viewOnceCaption}` : ''}`
+    : extractContent(content) || UNKNOWN_MESSAGE_LABEL;
+  const media = viewOnce ? { mediaType: null, mimeType: null, filename: null } : extractMedia(content);
 
   return {
     waId: extractWaId(msg.key),
     profileName: msg.pushName || null,
     waMessageId: msg.key?.id || null,
     direction: msg.key?.fromMe ? 'outbound' : 'inbound',
-    body: extractContent(msg.message) || '📩 Mensagem',
-    ...extractMedia(msg.message),
+    body,
+    ...media,
     sentAt,
     ctwaClid: referral?.ctwa_clid || null,
     adId: referral?.source_id || null,
@@ -104,7 +160,14 @@ export function mapBaileysMessageToEvent(msg) {
 export function isUsableMessage(msg) {
   if (!msg.message) return false;
   if (!extractWaId(msg.key)) return false;
-  const messageKeys = Object.keys(msg.message);
+  const { content } = unwrap(msg.message);
+  if (editedContent(content)) return true;
+  const messageKeys = Object.keys(content);
   if (messageKeys.length > 0 && messageKeys.every((k) => NON_CONTENT_KEYS.includes(k))) return false;
   return true;
+}
+
+// Tipos crus da mensagem (depois de abrir o embrulho), pro log quando cai no rótulo genérico.
+export function messageTypes(msg) {
+  return Object.keys(unwrap(msg.message).content);
 }

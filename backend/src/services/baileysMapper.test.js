@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapBaileysMessageToEvent, isUsableMessage } from './baileysMapper.js';
+import { mapBaileysMessageToEvent, isUsableMessage, UNKNOWN_MESSAGE_LABEL, messageTypes } from './baileysMapper.js';
 
 test('mapBaileysMessageToEvent extrai texto simples (conversation)', () => {
   const msg = {
@@ -222,4 +222,75 @@ test('mensagem enviada por nos nunca carrega atribuicao de anuncio', () => {
     message: { extendedTextMessage: { text: 'x', contextInfo: { externalAdReply: { sourceType: 'ad', sourceId: 'AD_1' } } } }
   };
   assert.equal(mapBaileysMessageToEvent(msg).adId, null);
+});
+
+// ---- Tipos que chegavam como "📩 Mensagem" (22/10: 97 no banco, sem dar pra saber o que eram) ----
+const lead = { key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'T1', fromMe: false }, messageTimestamp: 1760001000 };
+const body = (message) => mapBaileysMessageToEvent({ ...lead, message }).body;
+
+test('conversa temporária (mensagens que somem): mostra o conteúdo de dentro do embrulho', () => {
+  assert.equal(body({ ephemeralMessage: { message: { extendedTextMessage: { text: 'Tem mesa pra 4?' } } } }), 'Tem mesa pra 4?');
+  const img = mapBaileysMessageToEvent({ ...lead, message: { ephemeralMessage: { message: { imageMessage: { mimetype: 'image/jpeg', caption: 'olha' } } } } });
+  assert.equal(img.body, 'olha');
+  assert.equal(img.mediaType, 'image');
+});
+
+test('cartão de anúncio dentro de conversa temporária também é lido', () => {
+  const event = mapBaileysMessageToEvent({ ...lead, message: { ephemeralMessage: { message: { extendedTextMessage: {
+    text: 'Quero reservar', contextInfo: { externalAdReply: { sourceType: 'ad', sourceId: '123', ctwaClid: 'clid' } }
+  } } } } });
+  assert.equal(event.adId, '123');
+});
+
+test('visualização única: rótulo próprio, sem tentar baixar (o WhatsApp não manda pra aparelho conectado)', () => {
+  const event = mapBaileysMessageToEvent({ ...lead, message: { viewOnceMessageV2: { message: { imageMessage: { mimetype: 'image/jpeg', viewOnce: true } } } } });
+  assert.match(event.body, /visualização única/);
+  assert.equal(event.mediaType, null);
+});
+
+test('documento com legenda vem embrulhado: mostra a legenda e baixa o arquivo', () => {
+  const event = mapBaileysMessageToEvent({ ...lead, message: { documentWithCaptionMessage: { message: { documentMessage: { mimetype: 'application/pdf', fileName: 'cardapio.pdf', caption: 'segue' } } } } });
+  assert.equal(event.body, 'segue');
+  assert.equal(event.mediaType, 'document');
+});
+
+test('recado de vídeo (bolinha) vira vídeo', () => {
+  const event = mapBaileysMessageToEvent({ ...lead, message: { ptvMessage: { mimetype: 'video/mp4' } } });
+  assert.equal(event.body, '🎥 Recado de vídeo');
+  assert.equal(event.mediaType, 'video');
+});
+
+test('enquete, evento, convite de grupo e respostas de botão têm rótulo próprio', () => {
+  assert.equal(body({ pollCreationMessageV3: { name: 'Qual dia?' } }), '📊 Enquete: Qual dia?');
+  assert.equal(body({ eventMessage: { name: 'Aniversário' } }), '📅 Evento: Aniversário');
+  assert.equal(body({ groupInviteMessage: { groupName: 'Família' } }), '👥 Convite pro grupo Família');
+  assert.equal(body({ buttonsResponseMessage: { selectedDisplayText: 'Sim' } }), 'Sim');
+  assert.equal(body({ listResponseMessage: { title: 'Sábado' } }), 'Sábado');
+});
+
+test('mensagem editada aparece com o texto novo', () => {
+  assert.equal(
+    body({ editedMessage: { message: { protocolMessage: { type: 14, editedMessage: { conversation: 'mesa pra 5' } } } } }),
+    '✏️ Editou: mesa pra 5'
+  );
+  assert.equal(body({ protocolMessage: { type: 14, editedMessage: { extendedTextMessage: { text: 'mesa pra 6' } } } }), '✏️ Editou: mesa pra 6');
+  assert.equal(isUsableMessage({ ...lead, message: { protocolMessage: { type: 14, editedMessage: { conversation: 'x' } } } }), true);
+});
+
+test('avisos sem conteúdo não viram mensagem (álbum, fixar, só metadados, mensagem apagada)', () => {
+  for (const message of [
+    { albumMessage: { expectedImageCount: 3 } },
+    { pinInChatMessage: {} },
+    { keepInChatMessage: {} },
+    { messageContextInfo: {} },
+    { ephemeralMessage: { message: { protocolMessage: { type: 0 } } } }
+  ]) {
+    assert.equal(isUsableMessage({ ...lead, message }), false, JSON.stringify(message));
+  }
+});
+
+test('tipo que ainda não conhecemos: rótulo de sempre e os tipos ficam disponíveis pro log', () => {
+  const msg = { ...lead, message: { tipoNovoDoWhatsapp: {}, messageContextInfo: {} } };
+  assert.equal(mapBaileysMessageToEvent(msg).body, UNKNOWN_MESSAGE_LABEL);
+  assert.deepEqual(messageTypes(msg), ['tipoNovoDoWhatsapp', 'messageContextInfo']);
 });
