@@ -515,7 +515,7 @@ export default function CredentialsPage({ selectedClient }) {
 
             <div className="form-group">
               <label className="form-label">
-                PIN do Caixa (4 a 8 dígitos) {hasWhatsappSettings ? '(deixe em branco para manter o atual)' : ''}
+                PIN do Balcão e do Na Mesa (4 a 8 dígitos) {hasWhatsappSettings ? '(deixe em branco para manter o atual)' : ''}
               </label>
               <input
                 type="password"

@@ -38,7 +38,7 @@ test('pushToApp manda pra todos os aparelhos do restaurante e apaga inscrição 
   const delivered = await pushToApp(9, 'caixa', { title: 'Maria', badge: 2 }, { db, send });
 
   assert.equal(delivered, 1);
-  assert.deepEqual(sent[0].body, { url: '/caixa', title: 'Maria', badge: 2 });
+  assert.deepEqual(sent[0].body, { url: '/balcao', title: 'Maria', badge: 2 });
   const deleted = queries.find((q) => q.sql.startsWith('DELETE'));
   assert.deepEqual(deleted.params, [2]);
 });

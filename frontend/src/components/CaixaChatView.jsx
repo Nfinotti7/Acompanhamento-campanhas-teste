@@ -155,7 +155,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
     0
   );
   useEffect(() => {
-    const baseTitle = 'Caixa';
+    const baseTitle = 'Balcão';
     document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
     setBadge(totalUnread); // bolinha no ícone do app instalado
   }, [totalUnread]);

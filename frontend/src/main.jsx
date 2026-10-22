@@ -9,8 +9,10 @@ import InstallPrompt from './pwa/InstallPrompt.jsx';
 import OfflineBanner from './pwa/OfflineBanner.jsx';
 import './index.css';
 
-// A raiz vai pra /painel, que é o escopo do app instalado do Further.
-const canonical = canonicalPath(window.location.pathname);
+// A raiz vai pra /painel, que é o escopo do app instalado do Further; /caixa e /balcão
+// vão pro /balcao (menos no app do Caixa já instalado, ver canonicalPath).
+const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const canonical = canonicalPath(window.location.pathname, { standalone });
 if (canonical) window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
 
 const app = appForPath(window.location.pathname);

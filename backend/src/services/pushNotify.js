@@ -9,7 +9,7 @@ import db from '../config/db.js';
 
 export const PUSH_APPS = ['caixa', 'namesa'];
 const SUBJECT = 'https://furtherads.online';
-const APP_URL = { caixa: '/caixa', namesa: '/namesa' };
+const APP_URL = { caixa: '/balcao', namesa: '/namesa' };
 
 let vapidCache = null;
 

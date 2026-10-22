@@ -91,7 +91,9 @@ self.addEventListener('notificationclick', (event) => {
   const url = event.notification.data?.url || '/';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
-      const open = windows.find((w) => new URL(w.url).pathname.startsWith(url));
+      // O Balcão também abre no /caixa (app instalado antes da troca de nome).
+      const paths = url === '/balcao' ? ['/balcao', '/caixa'] : [url];
+      const open = windows.find((w) => paths.some((p) => new URL(w.url).pathname.startsWith(p)));
       return open ? open.focus() : self.clients.openWindow(url);
     })
   );

@@ -200,7 +200,7 @@ export default function CaixaApp() {
         <div style={{ width: '100%', maxWidth: '400px', margin: 'auto 0', paddingTop: '16px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
             <AppIcon app="caixa" size={72} />
-            <h1 style={{ fontSize: '1.8rem', margin: 0 }}>Caixa</h1>
+            <h1 style={{ fontSize: '1.8rem', margin: 0 }}>Balcão</h1>
             <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Conversas, funil e agenda</p>
           </div>
           {step === 'select-restaurant' && (
@@ -308,7 +308,7 @@ export default function CaixaApp() {
           {navItems.map(({ key, label, icon: Icon }) => tab(key, label, Icon, () => setView(key), view === key))}
           {tab('mais', 'Mais', MoreHorizontal, () => setMoreOpen(true), false)}
         </nav>
-        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title={selectedRestaurant?.name || 'Caixa'}>
+        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title={selectedRestaurant?.name || 'Balcão'}>
           <div style={{ display: 'grid', gap: '8px' }}>
             <button type="button" onClick={() => { setMoreOpen(false); setView('whatsapp'); }} style={{ ...inputStyle, marginBottom: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
               <QrCode size={18} /> Conexão do WhatsApp
