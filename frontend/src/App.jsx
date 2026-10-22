@@ -132,8 +132,27 @@ function MainApp() {
     setIsSyncing(true);
     setSyncResult(null);
     try {
-      const res = await axios.post('/api/campaigns/sync', { clientId: selectedClientId });
-      setSyncResult({ type: 'success', message: res.data.message, details: res.data.results });
+      // O servidor sincroniza em segundo plano (leva mais de 1 minuto com todos os
+      // clientes); a tela consulta o andamento até terminar.
+      const { data: started } = await axios.post('/api/campaigns/sync', { clientId: selectedClientId });
+      const deadline = Date.now() + 10 * 60 * 1000;
+      let job = { status: 'running' };
+      while (job.status === 'running' && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          ({ data: job } = await axios.get(`/api/campaigns/sync/${started.jobId}`));
+        } catch (pollErr) {
+          // Falha momentânea na consulta (rede, servidor reiniciando): tenta de novo.
+          if (pollErr.response?.status === 404) throw pollErr;
+        }
+      }
+      if (job.status === 'running') {
+        setSyncResult({ type: 'error', message: 'A sincronização está demorando. Os dados aparecem quando ela terminar.', details: null });
+      } else if (job.status === 'error') {
+        setSyncResult({ type: 'error', message: job.message || 'Erro ao sincronizar campanhas.', details: null });
+      } else {
+        setSyncResult({ type: 'success', message: job.message, details: job.results });
+      }
       await fetchData();
     } catch (err) {
       setSyncResult({

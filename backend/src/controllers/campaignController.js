@@ -283,6 +283,37 @@ export async function getCampaigns(req, res) {
   }
 }
 
+// A sincronização de todos os clientes leva mais de 1 minuto (92 s em 22/10), e o
+// Hostinger corta a requisição antes: a tela mostrava "Erro ao sincronizar" mesmo com
+// tudo dando certo no servidor. Agora o botão só inicia a sincronização (sync_jobs) e a
+// tela consulta o andamento. O andamento fica no banco porque o Hostinger pode rodar
+// dois processos, e a consulta pode cair no processo que não está sincronizando.
+const SYNC_JOB_STALE_MINUTES = 15;
+
+async function runSyncJob(jobId, targets) {
+  try {
+    const syncResults = await syncClients(targets.map((t) => t.id));
+    const results = syncResults.map((r) => {
+      const client = targets.find((t) => t.id === r.clientId);
+      return { clientId: r.clientId, clientName: client.name, google: r.google, meta: r.meta };
+    });
+    const hasErrors = results.some((r) => r.google.status === 'error' || r.meta.status === 'error');
+    const message = hasErrors
+      ? 'Sincronização concluída com alertas. Veja os detalhes por cliente/plataforma.'
+      : 'Sincronização com Google Ads API e Meta Graph API realizada com sucesso!';
+    await db.query(
+      `UPDATE sync_jobs SET status = 'done', message = ?, results = ?, finished_at = now() WHERE id = ?`,
+      [message, JSON.stringify(results), jobId]
+    );
+  } catch (error) {
+    console.error('Sync campaigns error:', error);
+    await db.query(
+      `UPDATE sync_jobs SET status = 'error', message = ?, finished_at = now() WHERE id = ?`,
+      ['Erro ao sincronizar campanhas.', jobId]
+    ).catch((err) => console.error('Erro ao gravar falha da sincronização:', err.message));
+  }
+}
+
 export async function syncCampaigns(req, res) {
   try {
     const { clientId } = req.body;
@@ -299,23 +330,51 @@ export async function syncCampaigns(req, res) {
       targets = rows;
     }
 
-    const syncResults = await syncClients(targets.map((t) => t.id));
-    const results = syncResults.map((r) => {
-      const client = targets.find((t) => t.id === r.clientId);
-      return { clientId: r.clientId, clientName: client.name, google: r.google, meta: r.meta };
-    });
+    // Já tem uma sincronização igual rodando (clique duplo, outra aba): acompanha a mesma.
+    const scope = clientId ? String(clientId) : 'all';
+    const { rows: running } = await db.query(
+      `SELECT id FROM sync_jobs WHERE scope = ? AND status = 'running'
+         AND started_at > now() - make_interval(mins => ?)
+       ORDER BY id DESC LIMIT 1`,
+      [scope, SYNC_JOB_STALE_MINUTES]
+    );
+    if (running[0]) return res.status(202).json({ jobId: running[0].id });
 
-    const hasErrors = results.some((r) => r.google.status === 'error' || r.meta.status === 'error');
-
-    return res.json({
-      message: hasErrors
-        ? 'Sincronização concluída com alertas. Veja os detalhes por cliente/plataforma.'
-        : 'Sincronização com Google Ads API e Meta Graph API realizada com sucesso!',
-      results,
-      lastSync: new Date().toISOString()
-    });
+    const { rows } = await db.query(
+      `INSERT INTO sync_jobs (scope, status) VALUES (?, 'running') RETURNING id`,
+      [scope]
+    );
+    const jobId = rows[0].id;
+    runSyncJob(jobId, targets);
+    return res.status(202).json({ jobId });
   } catch (error) {
     console.error('Sync campaigns error:', error);
     return res.status(500).json({ error: 'Erro ao sincronizar campanhas.' });
+  }
+}
+
+export async function getSyncJob(req, res) {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, status, message, results, finished_at,
+              (status = 'running' AND started_at < now() - make_interval(mins => ?)) AS stale
+       FROM sync_jobs WHERE id = ?`,
+      [SYNC_JOB_STALE_MINUTES, req.params.jobId]
+    );
+    const job = rows[0];
+    if (!job) return res.status(404).json({ error: 'Sincronização não encontrada.' });
+    // O processo que sincronizava caiu no meio (deploy, reinício): não fica "rodando" pra sempre.
+    if (job.stale) {
+      return res.json({ status: 'error', message: 'A sincronização foi interrompida. Tente de novo.' });
+    }
+    return res.json({
+      status: job.status,
+      message: job.message,
+      results: job.results,
+      lastSync: job.finished_at
+    });
+  } catch (error) {
+    console.error('Get sync job error:', error);
+    return res.status(500).json({ error: 'Erro ao consultar a sincronização.' });
   }
 }

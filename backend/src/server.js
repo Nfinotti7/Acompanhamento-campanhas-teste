@@ -8,7 +8,7 @@ import { initDb } from './config/db.js';
 import { login, getMe } from './controllers/authController.js';
 import { listClients, createClient, updateClient, deleteClient } from './controllers/clientController.js';
 import { getCredentials, saveCredentials } from './controllers/credentialsController.js';
-import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns } from './controllers/campaignController.js';
+import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns, getSyncJob } from './controllers/campaignController.js';
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
@@ -198,6 +198,7 @@ app.get('/api/metrics/summary', getMetricsSummary);
 app.get('/api/campaigns', getCampaigns);
 app.get('/api/campaigns/:id/daily', getCampaignDaily);
 app.post('/api/campaigns/sync', syncCampaigns);
+app.get('/api/campaigns/sync/:jobId', getSyncJob);
 
 // Leads & Remarketing
 app.get('/api/leads', listLeads);

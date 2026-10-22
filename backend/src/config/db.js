@@ -490,6 +490,19 @@ export async function initDb() {
       updated_at TIMESTAMPTZ DEFAULT now()
     )
   `);
+  // Sincronização de campanhas em segundo plano (campaignController.syncCampaigns).
+  await query(`
+    CREATE TABLE IF NOT EXISTS sync_jobs (
+      id SERIAL PRIMARY KEY,
+      scope TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('running','done','error')),
+      message TEXT,
+      results JSONB,
+      started_at TIMESTAMPTZ DEFAULT now(),
+      finished_at TIMESTAMPTZ
+    )
+  `);
+
   // Notificações push dos apps instalados (services/pushNotify.js).
   await query(`
     CREATE TABLE IF NOT EXISTS push_config (

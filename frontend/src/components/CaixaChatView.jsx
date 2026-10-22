@@ -195,9 +195,11 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
 
   return (
     // minmax(0, 1fr) / minHeight: 0: sem isso as áreas com rolagem crescem do tamanho
-    // do conteúdo em vez de rolar, e as mensagens mais novas ficam cortadas.
-    <div style={{ display: 'grid', gridTemplateColumns: phone ? '1fr' : bp === 'tablet' ? '280px 1fr' : '300px 1fr', gridTemplateRows: 'minmax(0, 1fr)', height: '100%', border: phone ? 'none' : '1px solid var(--border-color)', borderRadius: phone ? 0 : '12px', overflow: 'hidden' }}>
-      <div style={{ borderRight: phone ? 'none' : '1px solid var(--border-color)', display: phone && detailOpen ? 'none' : 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)', minHeight: 0 }}>
+    // do conteúdo em vez de rolar, e as mensagens mais novas ficam cortadas. Nas colunas,
+    // o mesmo vale pra largura: com '1fr' a prévia mais longa (uma linha só) alargava a
+    // lista além da tela no celular e escondia o horário e as não lidas.
+    <div style={{ display: 'grid', gridTemplateColumns: phone ? 'minmax(0, 1fr)' : bp === 'tablet' ? '280px minmax(0, 1fr)' : '300px minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)', height: '100%', border: phone ? 'none' : '1px solid var(--border-color)', borderRadius: phone ? 0 : '12px', overflow: 'hidden' }}>
+      <div style={{ borderRight: phone ? 'none' : '1px solid var(--border-color)', display: phone && detailOpen ? 'none' : 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)', minHeight: 0, minWidth: 0 }}>
         <div style={{ padding: '10px' }}>
           <input
             type="text"
