@@ -42,7 +42,7 @@
 
 **Reservas pelo WhatsApp: no ar desde 21/10 15:36** (push `7c5f1a4`, que levou junto os commits pendentes de 19/10: data de início e login de grupo). Malibu ligado (`reservations_enabled`, mesas 2×2/2×4/2×6, turnos do spec, robô ligado, plano B desligado). Falta do usuário: conectar o número novo dos anúncios no Caixa do Malibu (WhatsApp → trocar número), deixar sem saudação/ausência automática, e o teste real. Ver Registro 2026-10-21.
 
-**Próximo trabalho (prioridade):** **dois processos do Node ao mesmo tempo no Hostinger** (diagnóstico de 22/10, ver Registro). Provavelmente é a mesma causa do **standby do Baileys depois de deploy**. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
+**Dois processos do Node no Hostinger (22/10):** corrigido na branch `fix/baileys-multiprocesso` (commit `9413d7c`, **não enviado**): ponte pelo banco, qualquer processo envia. Falta o deploy fora do horário de serviço e conferir no log. Provavelmente era também a causa do **standby depois de deploy**. Ver Registro 2026-10-22. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
@@ -766,3 +766,19 @@ Spec: `docs/superpowers/specs/2026-10-21-reservas-design.md`. Plano: `docs/super
 **Achado à parte (segurança):** a libsignal do Baileys imprime "Closing session" no log com as chaves da sessão do WhatsApp (`privKey`, `rootKey`). Silenciar.
 
 **Pendente:** o usuário escolher a correção (processos sem dono repassam o envio pro dono pelo Postgres, e o status e os eventos SSE também passam pelo banco).
+
+**Correção feita (22/10, branch `fix/baileys-multiprocesso`, commit `9413d7c`, não enviada).** O usuário escolheu a ponte pelo banco (discutiu PM2, nodemon, VPS e Evolution API antes; ver abaixo).
+- `services/processRelay.js` + tabelas `baileys_relay`, `baileys_status`, `sse_relay` (aditivas, já criadas no banco de produção pelo teste local):
+  - **Pedidos ao dono:** `sendViaBaileys`, `resetClient` e `requestPairingCode` num processo que não é dono gravam o pedido; o dono (`startRelayWorker`, a cada 500 ms) executa e grava o resultado. Quem pediu espera até 25 s. Pedido que ninguém pegou em 20 s é cancelado, pra não sair repetido depois.
+  - **Status:** o dono publica a cada mudança e no heartbeat de 10 s; `getSharedConnectionState` lê dali (publicação com mais de 60 s não vale). `getBaileysStatus` usa `ensureConnection`.
+  - **SSE:** `sseHub.broadcast` entrega local e grava em `sse_relay`; cada processo lê a cada 1 s os eventos dos outros (`deliverLocal`). Limpeza: relay 1 h, eventos 10 min.
+  - Não dá LISTEN/NOTIFY: o `DATABASE_URL` é o pooler de transação (6543).
+- **Envio durante queda:** o dono espera até 10 s a reconexão (só em `connecting`/`disconnected`; QR e standby falham na hora).
+- **`server.js`:** `listen()` antes do `initDb()`; a API responde 503 até o banco ficar pronto. A subida loga o id do processo, e o Baileys loga qual processo assumiu.
+- **Log:** `utils/quietLibsignal.js` tira o objeto da sessão das linhas da libsignal.
+- `BAILEYS_AUTOCONNECT=false` (backend local) desliga também a troca de eventos entre processos.
+- **Testado:** backend 369 testes. Dois processos locais (portas 5101/5102) com a mesma pasta de sessões contra o banco de produção: o não dono mostrou o QR publicado pelo dono, o envio dele voltou com a resposta do dono, e um Caixa ligado nele recebeu os eventos gerados no outro. Linhas de teste apagadas; nenhuma mensagem saiu.
+- **Não testado:** envio de verdade pela ponte (os processos locais não têm sessão do WhatsApp). Conferir depois do deploy: no log do Hostinger, se aparecerem dois "rodando na porta 5000", as respostas pelo Caixa devem sair mesmo assim.
+- **Deploy:** fora do horário de serviço (Malibu fecha 23:30).
+
+**Discussão com o usuário (pra não repetir):** PM2 e nodemon não resolvem na hospedagem gerenciada (quem sobe os processos é o Hostinger). Uma VPS com 1 processo (PM2) resolveria esse problema, mas não as quedas do lado do WhatsApp; a Evolution API usa o Baileys por baixo e exigiria refazer a integração. Decisão: ponte pelo banco agora; VPS fica pra pensar se o produto crescer.
