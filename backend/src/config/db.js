@@ -490,6 +490,27 @@ export async function initDb() {
       updated_at TIMESTAMPTZ DEFAULT now()
     )
   `);
+  // Notificações push dos apps instalados (services/pushNotify.js).
+  await query(`
+    CREATE TABLE IF NOT EXISTS push_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      public_key TEXT NOT NULL,
+      private_key TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      app TEXT NOT NULL CHECK (app IN ('caixa','namesa')),
+      endpoint TEXT NOT NULL,
+      keys JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE (endpoint, app)
+    )
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS sse_relay (
       id BIGSERIAL PRIMARY KEY,

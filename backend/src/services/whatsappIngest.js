@@ -5,6 +5,7 @@ import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
 import { handleInboundForWaitlist } from './waitlistBot.js';
 import { pauseBot } from './botPause.js';
 import { handleInboundForReservation } from './reservationBot.js';
+import { notifyInboundMessage } from './pushNotify.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -139,6 +140,13 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // plano: um erro no robô não pode derrubar a gravação da mensagem.
   // Grupo/lista de transmissão não é cliente na porta: o id deles não é um telefone.
   const isPhone = /^\d{8,15}$/.test(String(event.waId || ''));
+
+  // Notificação no Caixa instalado (mensagem nova de cliente; grupo não avisa). Teste
+  // (db falso) não manda.
+  if (usesCrm && event.direction === 'inbound' && isPhone && messageRows.length > 0) {
+    const notify = deps.notifyInbound || (dbImpl === db ? notifyInboundMessage : null);
+    notify?.({ clientId, contactId, profileName: event.profileName, waId: event.waId, body: event.body });
+  }
   if (event.direction === 'inbound' && isPhone && flags.waitlist_enabled && messageRows.length > 0) {
     const onInbound = deps.onInbound || handleInboundForWaitlist;
     Promise.resolve()

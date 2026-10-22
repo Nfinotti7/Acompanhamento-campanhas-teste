@@ -9,6 +9,8 @@ import AppIcon from './brand/AppIcon';
 import BrandLogo from './brand/BrandLogo';
 import ThemeToggle from './theme/ThemeToggle';
 import { useBreakpoint } from './responsive/useBreakpoint';
+import PushPrompt from './pwa/PushPrompt';
+import { syncPush, disablePush } from './pwa/push';
 
 const TOKEN_KEY = 'namesa_token';
 const RESTAURANT_KEY = 'namesa_restaurant';
@@ -62,6 +64,7 @@ export default function NaMesaApp() {
   }, []);
 
   const handleLogout = () => {
+    disablePush(api, 'namesa', api.defaults.headers.common['Authorization']);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(RESTAURANT_KEY);
     delete api.defaults.headers.common['Authorization'];
@@ -85,6 +88,11 @@ export default function NaMesaApp() {
       setError(err.response?.data?.error || 'PIN inválido.');
     }
   };
+
+  // Aparelho que já permitiu notificações: avisa o servidor de qual restaurante ele é.
+  useEffect(() => {
+    if (step === 'app') syncPush(api, 'namesa');
+  }, [step]);
 
   useEffect(() => {
     window.addEventListener('pointerdown', unlockNotificationSound);
@@ -179,6 +187,7 @@ export default function NaMesaApp() {
         <button onClick={handleLogout} title="Sair" aria-label="Sair" className="icon-button"><LogOut size={18} /></button>
       </header>
       <main className="page-pad" style={{ paddingTop: '16px', paddingBottom: '16px', maxWidth: '1100px', margin: '0 auto' }}>
+        <PushPrompt api={api} app="namesa" text="Ative as notificações pra saber quando alguém entrar na fila, mesmo com o app fechado." />
         {tab === 'fila' && <QueueBoard api={api} refreshKey={refreshKey} onReconnect={() => setTab('config')} />}
         {tab === 'relatorio' && <WaitlistReport api={api} restaurant={restaurant} />}
         {tab === 'config' && <WaitlistSettings api={api} />}

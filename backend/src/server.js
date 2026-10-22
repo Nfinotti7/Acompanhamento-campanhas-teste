@@ -29,6 +29,7 @@ import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tag
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
 import { reservationHandlers } from './controllers/reservationController.js';
+import { getPushPublicKey, subscribePush, unsubscribePush } from './controllers/pushController.js';
 import db from './config/db.js';
 import { authenticateToken, requireAdmin } from './middleware/authMiddleware.js';
 import { quietLibsignal } from './utils/quietLibsignal.js';
@@ -186,6 +187,11 @@ app.post('/api/reservations/:id/cancel', reservationHandlers.cancel);
 app.get('/api/whatsapp/contacts/:id/bot', reservationHandlers.contactBot);
 app.post('/api/whatsapp/contacts/:id/bot/pause', reservationHandlers.pauseContactBot);
 app.post('/api/whatsapp/contacts/:id/bot/resume', reservationHandlers.resumeContactBot);
+
+// Notificações push dos apps instalados (Caixa e Na Mesa).
+app.get('/api/push/public-key', getPushPublicKey);
+app.post('/api/push/subscribe', subscribePush);
+app.post('/api/push/unsubscribe', unsubscribePush);
 
 // Campaigns & Metrics
 app.get('/api/metrics/summary', getMetricsSummary);

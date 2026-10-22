@@ -4,6 +4,7 @@ import { CheckCircle2, ArrowLeft } from 'lucide-react';
 import ContactDetailPanel from './ContactDetailPanel';
 import { Avatar } from './whatsappMedia';
 import { formatListTime, StatusTicks } from './chatFormat';
+import { setBadge } from '../pwa/push';
 
 const fieldStyle = {
   width: '100%',
@@ -156,6 +157,7 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
   useEffect(() => {
     const baseTitle = 'Caixa';
     document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+    setBadge(totalUnread); // bolinha no ícone do app instalado
   }, [totalUnread]);
 
   const skipMatch = () => {

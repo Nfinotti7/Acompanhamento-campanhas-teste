@@ -11,6 +11,8 @@ import BrandLogo from './brand/BrandLogo';
 import ThemeToggle from './theme/ThemeToggle';
 import Sheet from './components/ui/Sheet';
 import { useBreakpoint } from './responsive/useBreakpoint';
+import PushPrompt from './pwa/PushPrompt';
+import { syncPush, disablePush } from './pwa/push';
 
 const NAV_ITEMS = [
   { key: 'conversas', label: 'Conversas', icon: MessageCircle },
@@ -92,6 +94,7 @@ export default function CaixaApp() {
   };
 
   const handleLogout = () => {
+    disablePush(caixaApi, 'caixa', caixaApi.defaults.headers.common['Authorization']);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(RESTAURANT_KEY);
     delete caixaApi.defaults.headers.common['Authorization'];
@@ -143,6 +146,11 @@ export default function CaixaApp() {
     caixaApi.get('/api/reservations/settings')
       .then((res) => setReservationsEnabled(Boolean(res.data.enabled)))
       .catch(() => setReservationsEnabled(false));
+  }, [step]);
+
+  // Aparelho que já permitiu notificações: avisa o servidor de qual restaurante ele é.
+  useEffect(() => {
+    if (step === 'app') syncPush(caixaApi, 'caixa');
   }, [step]);
 
   // Status do WhatsApp pra mostrar a faixa "desconectado" com atalho pro QR. Cliente na
@@ -256,6 +264,7 @@ export default function CaixaApp() {
           <AlertTriangle size={18} style={{ color: 'var(--accent-danger)', flexShrink: 0 }} /> WhatsApp desconectado: toque aqui pra reconectar
         </button>
       )}
+      <PushPrompt api={caixaApi} app="caixa" phone={phone} text="Ative as notificações pra saber de mensagem nova mesmo com o app fechado." />
       <div style={{ flex: 1, minHeight: 0 }}>
       {view === 'conversas' && (
         <CaixaChatView caixaApi={caixaApi} lastEvent={lastEvent} />

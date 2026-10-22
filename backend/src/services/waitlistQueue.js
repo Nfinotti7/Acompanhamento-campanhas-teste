@@ -3,6 +3,7 @@
 import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
 import { sendToContact } from './whatsappSender.js';
+import { notifyQueueJoined } from './pushNotify.js';
 import { DEFAULT_MESSAGES, renderMessage, firstName, formatGroupsAhead, normalizePhone, phoneVariants } from './waitlistText.js';
 
 export const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000;
@@ -160,7 +161,10 @@ export async function enterQueue(dbImpl, { clientId, entryId, partySize, needsCh
   // Já entrou perto da vez: o "Entrou" já diz a posição, não manda "quase lá" logo depois.
   if (me.position <= state.settings.near_threshold + 1) await claimNear(dbImpl, me.id);
   await notifyEntry(me, 'joined', { posicao: me.position, espera: me.estimated_wait }, { settings: state.settings, send });
-  await afterQueueChange(dbImpl, clientId, deps, 'joined');
+  const after = await afterQueueChange(dbImpl, clientId, deps, 'joined');
+  // Aviso no tablet/celular da recepção, mesmo com o Na Mesa fechado. Teste (db falso) não manda.
+  const notify = deps.notifyJoined || (dbImpl === db ? notifyQueueJoined : null);
+  notify?.({ clientId, name: firstName(me.name), partySize, waitingCount: after.waiting.length });
   return me;
 }
 

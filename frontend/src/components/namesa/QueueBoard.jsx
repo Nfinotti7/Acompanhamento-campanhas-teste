@@ -4,6 +4,7 @@ import { Bell, Check, UserX, Trash2, Plus, Pencil, AlertTriangle, MessageCircle,
 const FINISHED_LABEL = { seated: 'sentou', no_show: 'não veio', left: 'saiu da fila', removed: 'removido' };
 import { useBreakpoint } from '../../responsive/useBreakpoint';
 import Sheet from '../ui/Sheet';
+import { setBadge } from '../../pwa/push';
 
 function minutesSince(ts, now) {
   return Math.max(0, Math.floor((now - new Date(ts).getTime()) / 60000));
@@ -35,6 +36,8 @@ export default function QueueBoard({ api, refreshKey, onReconnect }) {
   }, [api]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
+  // Bolinha no ícone do app instalado: grupos esperando agora.
+  useEffect(() => { if (data) setBadge(data.waiting.length); }, [data]);
   useEffect(() => {
     const t = setInterval(() => { setNow(Date.now()); load(); }, 30000);
     return () => clearInterval(t);

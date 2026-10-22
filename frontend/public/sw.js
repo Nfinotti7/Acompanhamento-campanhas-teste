@@ -58,3 +58,41 @@ self.addEventListener('fetch', (event) => {
     }))
   );
 });
+
+// ---- Notificações push (Caixa e Na Mesa instalados) ----
+// O servidor manda { title, body, tag, url, badge }. badge é o número da bolinha no ícone.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const app = (data.url || '').startsWith('/namesa') ? 'namesa' : 'caixa';
+  const jobs = [
+    self.registration.showNotification(data.title || 'Nova mensagem', {
+      body: data.body || '',
+      tag: data.tag,
+      renotify: Boolean(data.tag),
+      icon: `/icons/${app}-192.png`,
+      badge: `/icons/${app}-192.png`,
+      data: { url: data.url || '/' }
+    })
+  ];
+  if (typeof data.badge === 'number' && self.navigator.setAppBadge) {
+    jobs.push((data.badge > 0 ? self.navigator.setAppBadge(data.badge) : self.navigator.clearAppBadge()).catch(() => {}));
+  }
+  event.waitUntil(Promise.all(jobs));
+});
+
+// Tocar na notificação abre o app (ou traz pra frente se já estiver aberto).
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).pathname.startsWith(url));
+      return open ? open.focus() : self.clients.openWindow(url);
+    })
+  );
+});
