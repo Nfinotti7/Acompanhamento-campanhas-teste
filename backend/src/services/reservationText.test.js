@@ -2,8 +2,52 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_RESERVATION_MESSAGES, RESERVATION_MESSAGE_KEYS, isReservationCommand, isCancelCommand, isYes,
-  parseDay, parseTimeChoice, formatDayLabel, formatTime, formatOptions, mentionsWeekday
+  parseDay, parseTimeChoice, formatDayLabel, formatTime, formatOptions, mentionsWeekday,
+  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName
 } from './reservationText.js';
+
+test('isChangeCommand', () => {
+  assert.ok(isChangeCommand('MUDAR'));
+  assert.ok(isChangeCommand('Posso mudar horário ?'));
+  assert.ok(isChangeCommand('mudar para 12:30'));
+  assert.ok(isChangeCommand('quero trocar a data'));
+  assert.ok(isChangeCommand('dá pra remarcar?'));
+  assert.ok(isChangeCommand('consigo mudar pra sábado?'));
+  assert.ok(isChangeCommand('alterar reserva'));
+  assert.ok(!isChangeCommand('muda nada'));
+  assert.ok(!isChangeCommand('vou trocar de roupa e já vou'));
+  assert.ok(!isChangeCommand('cancelar'));
+});
+
+test('mentionsTimeWord / mentionsDayWord', () => {
+  assert.ok(mentionsTimeWord('posso mudar o horário?'));
+  assert.ok(!mentionsTimeWord('mudar o dia'));
+  assert.ok(mentionsDayWord('quero mudar a data'));
+  assert.ok(mentionsDayWord('mudar o dia'));
+});
+
+test('extractTime: horário dentro da frase, sem pegar a data nem número pelado', () => {
+  assert.equal(extractTime('mudar para 12:30'), '12:30');
+  assert.equal(extractTime('sábado 20h'), '20:00');
+  assert.equal(extractTime('dia 25 às 19h30'), '19:30');
+  assert.equal(extractTime('às 21'), '21:00');
+  assert.equal(extractTime('As 12:00'), '12:00');
+  assert.equal(extractTime('25/10'), null);
+  assert.equal(extractTime('2'), null);
+  assert.equal(extractTime('mudar o horário'), null);
+  assert.equal(extractTime('às 25h'), null);
+});
+
+test('correctedName: nome completo que tem o nome da reserva', () => {
+  assert.equal(correctedName('Ana Luiza Pinheiro silva', 'Ana Luiza'), 'Ana Luiza Pinheiro silva');
+  assert.equal(correctedName('ana luiza pinheiro', 'Ana'), 'ana luiza pinheiro');
+  assert.equal(correctedName('tudo certo', 'Ana Luiza'), null);
+  assert.equal(correctedName('Carlos Lima', 'Ana Luiza'), null);
+  assert.equal(correctedName('Ana Luiza', 'Ana Luiza'), null);
+  assert.equal(correctedName('Ana', 'Ana Luiza'), null);
+  assert.equal(correctedName('sim Ana Luiza', 'Ana Luiza'), null);
+  assert.equal(correctedName('Ana 12h', 'Ana Luiza'), null);
+});
 
 test('isReservationCommand', () => {
   assert.ok(isReservationCommand('Quero fazer uma reserva (cód. RESERVA)'));

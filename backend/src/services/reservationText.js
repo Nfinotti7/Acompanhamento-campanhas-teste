@@ -17,14 +17,20 @@ export const DEFAULT_RESERVATION_MESSAGES = {
   askNameEmpty: 'Em nome de quem fica a reserva?',
   confirm: 'Confirmando: {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. Responda SIM pra confirmar.',
   slotTaken: 'Esse horário acabou de ser reservado. Pra {dia} ainda tenho: {opcoes}. Qual prefere?',
-  confirmed: '✅ Reserva confirmada: {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. A mesa fica guardada até {tolerancia} min depois do horário. Pra cancelar, responda CANCELAR.',
+  confirmed: '✅ Reserva confirmada: {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. A mesa fica guardada até {tolerancia} min depois do horário. Pra mudar o dia ou o horário, responda MUDAR. Pra cancelar, responda CANCELAR.',
   aborted: 'Tudo bem, não fiz a reserva. Se quiser, é só mandar RESERVA.',
   cancelPick: 'Qual reserva você quer cancelar? {opcoes}',
   cancelConfirm: 'Quer cancelar a reserva de {dia}, {hora}? Responda SIM.',
   cancelled: 'Reserva cancelada. Se quiser marcar de novo, é só mandar RESERVA.',
   cancelledByStaff: 'Sua reserva de {dia}, {hora} foi cancelada. Qualquer dúvida, é só responder aqui.',
   handoff: 'Só um instante, já te respondo 🙂',
-  adFallbackAsk: 'Quer fazer uma reserva? Responda 1 pra reservar ou 2 pra falar com a gente.'
+  adFallbackAsk: 'Quer fazer uma reserva? Responda 1 pra reservar ou 2 pra falar com a gente.',
+  changeAsk: 'Claro! Sua reserva está pra {dia}, {hora}, {pessoas} pessoas. Pra quando quer mudar? Pode mandar o dia, o horário ou os dois (ex: sábado 20h).',
+  changePick: 'Qual reserva você quer mudar? {opcoes}',
+  changeTimeUnavailable: 'Pra {dia}, {hora} não tenho mesa pra {pessoas} pessoas. Tenho: {opcoes}. Qual prefere?',
+  changeNoSlots: 'Pra {dia} não tenho mais mesa pra {pessoas} pessoas. Quer tentar outro dia?',
+  changeConfirm: 'Mudando sua reserva pra {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. Responda SIM pra confirmar.',
+  changed: '✅ Reserva alterada: {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. A mesa fica guardada até {tolerancia} min depois do horário.'
 };
 
 export const RESERVATION_MESSAGE_KEYS = Object.keys(DEFAULT_RESERVATION_MESSAGES);
@@ -42,6 +48,53 @@ export function isReservationCommand(text) {
 
 export function isCancelCommand(text) {
   return /^(cancelar|cancela)( a| minha)?( reserva)?$/.test(clean(text));
+}
+
+// Pedido de mudança de quem já tem reserva: "MUDAR", "posso mudar o horário?", "trocar a
+// data", "remarcar", "mudar pra 20h". O robô só atende se a pessoa tem reserva marcada.
+const CHANGE_VERB = /\b(mudar|muda|alterar|altera|trocar|troca|remarcar|remarca|reagendar|adiar|antecipar)\b/;
+const CHANGE_ALONE = /^(mudar|alterar|trocar|remarcar|reagendar)$/;
+
+export function isChangeCommand(text) {
+  const t = clean(text);
+  if (CHANGE_ALONE.test(t) || /\b(remarcar|remarca|reagendar|adiar|antecipar)\b/.test(t)) return true;
+  if (!CHANGE_VERB.test(t)) return false;
+  return /\b(horario|hora|data|dia|reserva|hoje|amanha)\b/.test(t) || /\d/.test(t) || mentionsWeekday(t);
+}
+
+// Fala de horário sem dizer qual ("mudar o horário"), pra mostrar a lista do mesmo dia.
+export function mentionsTimeWord(text) {
+  return /\b(horario|hora)\b/.test(clean(text));
+}
+
+export function mentionsDayWord(text) {
+  return /\b(data|dia)\b/.test(clean(text));
+}
+
+// Horário escrito por extenso numa frase ("sábado 20h", "pra 19:30", "às 21"), sem
+// confundir com a data ("25/10"). Número sozinho não vale: pode ser item de lista.
+export function extractTime(text) {
+  const t = clean(text);
+  const m = t.match(/\b(\d{1,2})\s*(?::|h)\s*(\d{2})?\b/) || t.match(/\bas (\d{1,2})\b(?!\s*\/)/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = m[2] || '00';
+  if (h > 23 || Number(min) > 59) return null;
+  return `${String(h).padStart(2, '0')}:${min}`;
+}
+
+// Nome completo mandado na hora do resumo ("Ana Luiza Pinheiro silva"): só letras, de 2 a
+// 6 palavras e com alguma palavra do nome que já estava na reserva. Sem essa última regra,
+// "tudo certo" viraria o nome da reserva.
+export function correctedName(text, currentName) {
+  const raw = String(text || '').trim().replace(/\s+/g, ' ');
+  if (raw.length > 60 || !/^[\p{L}][\p{L}'’\- ]*$/u.test(raw)) return null;
+  const words = clean(raw).split(' ');
+  if (words.length < 2 || words.length > 6 || isYes(raw)) return null;
+  const current = new Set(clean(currentName).split(/\s+/).filter((w) => w.length >= 2));
+  if (!words.some((w) => current.has(w))) return null;
+  if (clean(raw) === clean(currentName)) return null;
+  return raw;
 }
 
 const YES_WORDS = new Set(['sim', 's', 'ok', 'okay', 'isso', 'confirmo', 'confirmar', 'confirma', 'pode', 'claro', 'certo', 'yes']);

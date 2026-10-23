@@ -14,10 +14,11 @@ import {
 } from './reservationSlots.js';
 import {
   DEFAULT_RESERVATION_MESSAGES, isReservationCommand, isCancelCommand, isYes, parseDay, parseTimeChoice,
-  formatDayLabel, formatTime, formatOptions, mentionsWeekday
+  formatDayLabel, formatTime, formatOptions, mentionsWeekday,
+  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName
 } from './reservationText.js';
 import {
-  loadReservationSettings, createReservation, listReservations, upcomingReservationsForContact,
+  loadReservationSettings, createReservation, updateReservation, listReservations, upcomingReservationsForContact,
   setReservationStatus, SlotTakenError
 } from './reservationStore.js';
 
@@ -25,6 +26,7 @@ export const EXPIRE_MS = 60 * 60e3;
 const MAX_ATTEMPTS = 2;
 const SUGGEST_DAYS = 7;
 const RESERVATION_STEPS = ['ad_fallback', 'size', 'day', 'time', 'name', 'confirm'];
+const CHANGE_STEPS = ['change_pick', 'change', 'change_time', 'change_confirm'];
 
 function resolveDeps(deps) {
   return {
@@ -39,6 +41,7 @@ function resolveDeps(deps) {
     listReservations: deps.listReservations || listReservations,
     upcomingReservations: deps.upcomingReservations || upcomingReservationsForContact,
     createReservation: deps.createReservation || createReservation,
+    updateReservation: deps.updateReservation || updateReservation,
     setReservationStatus: deps.setReservationStatus || setReservationStatus
   };
 }
@@ -154,15 +157,87 @@ async function handleOne(
     return `asked_${c.step}_again`;
   }
 
-  async function occupying(day) {
+  // exceptId: a reserva que está sendo mudada não ocupa a própria mesa.
+  async function occupying(day, exceptId = null) {
     const from = new Date(toInstant(day, '00:00').getTime() - settings.duration_minutes * 60e3);
     const to = new Date(toInstant(day, '00:00').getTime() + 24 * 3600e3 + settings.duration_minutes * 60e3);
     const list = await d.listReservations(q, { clientId, from, to });
-    return list.filter((r) => ['confirmed', 'arrived'].includes(r.status));
+    return list.filter((r) => ['confirmed', 'arrived'].includes(r.status) && r.id !== exceptId);
   }
 
-  async function slotsFor(day, partySize) {
-    return availableSlots({ settings, day, partySize, reservations: await occupying(day), now: d.now });
+  async function slotsFor(day, partySize, exceptId = null) {
+    return availableSlots({ settings, day, partySize, reservations: await occupying(day, exceptId), now: d.now });
+  }
+
+  function dayOpen(day) {
+    return day >= today && day <= addDays(today, settings.max_advance_days)
+      && slotsForDay(settings, day).length > 0 && tablesForDay(settings, day).length > 0;
+  }
+
+  // Mudança de reserva: data guarda a reserva (target), o que ela tem hoje (day/time) e,
+  // depois de escolhido, o novo dia e horário (newDay/newTime).
+  function changeData(r) {
+    const startsAt = new Date(r.starts_at);
+    return { target: r.id, size: r.party_size, name: r.name, day: dayOf(startsAt), time: hhmmInBrasilia(startsAt) };
+  }
+
+  async function askChange(c) {
+    await save(c, 'change', c.data, c.attempts || 0);
+    await reply('changeAsk', { dia: formatDayLabel(c.data.day, today), hora: formatTime(c.data.time), pessoas: c.data.size });
+    return 'change_asked';
+  }
+
+  async function offerChangeTimes(c, day, wantedTime = null) {
+    const data = c.data;
+    const dia = formatDayLabel(day, today);
+    const slots = await slotsFor(day, data.size, data.target);
+    const options = slots.map((s) => s.time);
+    if (wantedTime && options.includes(wantedTime)) {
+      await save(c, 'change_confirm', { ...data, newDay: day, newTime: wantedTime });
+      await reply('changeConfirm', { dia, hora: formatTime(wantedTime), pessoas: data.size, nomeReserva: data.name });
+      return 'change_confirm_asked';
+    }
+    if (options.length === 0) {
+      await save(c, 'change', data);
+      await reply('changeNoSlots', { dia, pessoas: data.size });
+      return 'change_no_slots';
+    }
+    await save(c, 'change_time', { ...data, newDay: day, options });
+    if (wantedTime) await reply('changeTimeUnavailable', { dia, hora: formatTime(wantedTime), pessoas: data.size, opcoes: formatOptions(options) });
+    else await reply('askTime', { dia, opcoes: formatOptions(options) });
+    return 'change_time_asked';
+  }
+
+  // Lê o que a pessoa mandou como pedido de mudança: dia, horário, os dois ou nenhum.
+  async function readChange(c, message) {
+    const day = parseDay(message, today);
+    const time = extractTime(message);
+    if (day && !dayOpen(day)) {
+      await save(c, 'change', c.data);
+      await reply('dayUnavailable', { dia: formatDayLabel(day, today) });
+      return 'day_unavailable';
+    }
+    if (day || time) return offerChangeTimes(c, day || c.data.day, time);
+    if (mentionsTimeWord(message)) return offerChangeTimes(c, c.data.day);
+    if (mentionsDayWord(message)) {
+      await save(c, 'change', c.data);
+      await reply('askDay');
+      return 'asked_day';
+    }
+    return null;
+  }
+
+  async function startChange(upcoming, message) {
+    if (upcoming.length > 1) {
+      const c = await start('change_pick', { targets: upcoming.map((r) => r.id) });
+      if (!c) return 'ignored';
+      const opcoes = upcoming.map((r, i) => `${i + 1}) ${reservationLabel(r, today)}`).join('  ');
+      await reply('changePick', { opcoes });
+      return 'change_pick_asked';
+    }
+    const c = await start('change', changeData(upcoming[0]));
+    if (!c) return 'ignored';
+    return (await readChange(c, message)) || askChange(c);
   }
 
   async function askSize(c) {
@@ -201,6 +276,11 @@ async function handleOne(
       if (upcoming.length > 0) return startCancel(upcoming);
       return 'ignored';
     }
+    if (isChangeCommand(text)) {
+      const upcoming = await d.upcomingReservations(q, { clientId, contactId, now: d.now });
+      if (upcoming.length > 0) return startChange(upcoming, text);
+      return 'ignored';
+    }
     if (settings.ad_fallback && fromAd && isNewContact) {
       const c = await start('ad_fallback');
       if (!c) return 'ignored';
@@ -221,6 +301,14 @@ async function handleOne(
       await reply('aborted');
       return 'aborted';
     }
+  }
+
+  // CANCELAR no meio da mudança: a pessoa desistiu da reserva, não só da mudança. Passa
+  // pro cancelamento, que pede SIM antes de cancelar.
+  if (CHANGE_STEPS.includes(conv.step) && isCancelCommand(text)) {
+    await finish(conv, 'done');
+    const upcoming = await d.upcomingReservations(q, { clientId, contactId, now: d.now });
+    return upcoming.length > 0 ? startCancel(upcoming) : 'ignored';
   }
 
   switch (conv.step) {
@@ -315,8 +403,16 @@ async function handleOne(
 
     case 'confirm': {
       if (!isYes(text)) {
+        // Nome completo mandado junto com o SIM do nome: corrige e confirma de novo.
+        const fullName = correctedName(text, data.name);
+        if (fullName) {
+          await save(conv, 'confirm', { ...data, name: fullName });
+          await reply('confirm', confirmVars({ ...data, name: fullName }));
+          return 'asked_confirm';
+        }
         // "não" no resumo: quase sempre o horário saiu errado; volta pra lista do dia.
-        if (/^n[aã]o\b/i.test(text.trim())) {
+        // "posso mudar o horário?" antes de confirmar é o mesmo caso.
+        if (/^n[aã]o\b/i.test(text.trim()) || isChangeCommand(text)) {
           const slots = await slotsFor(data.day, data.size);
           if (slots.length === 0) {
             await finish(conv, 'done');
@@ -378,6 +474,76 @@ async function handleOne(
       if (!cancelled) return 'ignored';
       await reply('cancelled');
       return 'cancelled';
+    }
+
+    case 'change_pick': {
+      const n = Number(text.trim().replace(/[).]$/, ''));
+      const targets = data.targets || [];
+      const upcoming = await d.upcomingReservations(q, { clientId, contactId, now: d.now });
+      if (!Number.isInteger(n) || n < 1 || n > targets.length) {
+        const listed = targets.map((id) => upcoming.find((r) => r.id === id)).filter(Boolean);
+        const opcoes = listed.map((r, i) => `${i + 1}) ${reservationLabel(r, today)}`).join('  ');
+        return retry(conv, 'changePick', { opcoes });
+      }
+      const target = upcoming.find((r) => r.id === targets[n - 1]);
+      if (!target) {
+        await finish(conv, 'done');
+        return 'ignored';
+      }
+      Object.assign(conv, { data: changeData(target), attempts: 0 });
+      return askChange(conv);
+    }
+
+    case 'change': {
+      const result = await readChange(conv, text);
+      if (result) return result;
+      return retry(conv, 'changeAsk', { dia: formatDayLabel(data.day, today), hora: formatTime(data.time), pessoas: data.size });
+    }
+
+    case 'change_time': {
+      // Mudou de ideia sobre o dia no meio da lista ("e domingo?").
+      const day = parseDay(text, today);
+      if (day && day !== data.newDay) return readChange(conv, text);
+      const time = parseTimeChoice(text, data.options || []);
+      if (!time) return retry(conv, 'askTimeAgain', { opcoes: formatOptions(data.options || []) });
+      return offerChangeTimes(conv, data.newDay, time);
+    }
+
+    case 'change_confirm': {
+      if (!isYes(text)) {
+        if (/^n[aã]o\b/i.test(text.trim())) {
+          const { newDay, newTime, options, ...rest } = data;
+          conv.data = rest;
+          return askChange(conv);
+        }
+        return retry(conv, 'changeConfirm', {
+          dia: formatDayLabel(data.newDay, today), hora: formatTime(data.newTime), pessoas: data.size, nomeReserva: data.name
+        });
+      }
+      // A equipe pode ter cancelado ou mudado a reserva enquanto a pessoa escolhia.
+      const upcoming = await d.upcomingReservations(q, { clientId, contactId, now: d.now });
+      if (!upcoming.some((r) => r.id === data.target)) {
+        await finish(conv, 'done');
+        return handoff(null);
+      }
+      try {
+        await d.updateReservation(q, { clientId, id: data.target, startsAt: toInstant(data.newDay, data.newTime) });
+      } catch (error) {
+        if (!(error instanceof SlotTakenError)) throw error;
+        const slots = await slotsFor(data.newDay, data.size, data.target);
+        if (slots.length === 0) {
+          await save(conv, 'change', data);
+          await reply('changeNoSlots', { dia: formatDayLabel(data.newDay, today), pessoas: data.size });
+          return 'change_no_slots';
+        }
+        const options = slots.map((s) => s.time);
+        await save(conv, 'change_time', { ...data, options });
+        await reply('slotTaken', { dia: formatDayLabel(data.newDay, today), opcoes: formatOptions(options) });
+        return 'slot_taken';
+      }
+      await finish(conv, 'done');
+      await reply('changed', { dia: formatDayLabel(data.newDay, today), hora: formatTime(data.newTime), pessoas: data.size, nomeReserva: data.name });
+      return 'changed';
     }
 
     default:

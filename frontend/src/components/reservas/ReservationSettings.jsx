@@ -26,7 +26,13 @@ const MESSAGE_LABELS = {
   cancelled: 'Cancelada pelo cliente',
   cancelledByStaff: 'Cancelada pela equipe',
   handoff: 'Passa pra equipe',
-  adFallbackAsk: 'Pergunta pra quem veio do anúncio sem código'
+  adFallbackAsk: 'Pergunta pra quem veio do anúncio sem código',
+  changeAsk: 'Mudar reserva: pergunta pra quando',
+  changePick: 'Mudar reserva: qual delas',
+  changeTimeUnavailable: 'Mudar reserva: horário sem mesa',
+  changeNoSlots: 'Mudar reserva: dia lotado',
+  changeConfirm: 'Mudar reserva: resumo pra confirmar',
+  changed: 'Reserva alterada'
 };
 
 function toForm(s) {

@@ -67,7 +67,7 @@ function setup({ settings = MALIBU, now = THURSDAY_3PM, reservations = [], pause
       for (const c of conversations) if (c.status === 'active') c.status = 'handed_off';
     },
     listReservations: async () => state.reservations.filter((r) => ['confirmed', 'arrived'].includes(r.status)),
-    upcomingReservations: async () => state.reservations.filter((r) => r.status === 'confirmed' && r.starts_at > state.now),
+    upcomingReservations: async (_db, { contactId }) => state.reservations.filter((r) => r.contact_id === contactId && r.status === 'confirmed' && r.starts_at > state.now),
     createReservation: async (_db, args) => {
       if (failOnce) {
         failOnce = false;
@@ -79,6 +79,13 @@ function setup({ settings = MALIBU, now = THURSDAY_3PM, reservations = [], pause
       }
       const r = { id: state.reservations.length + 1, status: 'confirmed', ...args, contact_id: args.contactId, starts_at: args.startsAt };
       state.reservations.push(r);
+      return r;
+    },
+    updateReservation: async (_db, { id, startsAt }) => {
+      const r = state.reservations.find((x) => x.id === id);
+      r.starts_at = startsAt;
+      r.ends_at = new Date(startsAt.getTime() + 7200e3);
+      state.updated = { id, startsAt };
       return r;
     },
     setReservationStatus: async (_db, { id, status }) => {
@@ -334,4 +341,129 @@ test('CANCELAR com 2 reservas: resposta errada repete a lista', async () => {
   await say('cancelar');
   assert.equal(await say('a de sábado'), 'asked_cancel_pick_again');
   assert.equal(last(), 'Qual reserva você quer cancelar? 1) sábado 24/10, 20h  2) domingo 25/10, 13h');
+});
+
+// Reserva da Ana (contato 3) no sábado 24/10 às 20h, 5 pessoas, numa mesa de 6.
+const ANA_SATURDAY = { table_seats: 6, party_size: 5, name: 'Ana Luiza', starts_at: toInstant('2026-10-24', '20:00'), ends_at: toInstant('2026-10-24', '22:00') };
+
+test('mudar o horário: "Posso mudar horário ?" → lista do mesmo dia → 12:30 → SIM', async () => {
+  const { say, last, state, sent } = setup({ reservations: [ANA_SATURDAY] });
+  assert.equal(await say('Posso mudar horário ?'), 'change_time_asked');
+  assert.match(last(), /^Pra sábado 24\/10 tenho: 1\) 12h  2\) 12h30/);
+  assert.equal(await say('12:30'), 'change_confirm_asked');
+  assert.equal(last(), 'Mudando sua reserva pra sábado 24/10, 12h30, 5 pessoas, em nome de Ana Luiza. Responda SIM pra confirmar.');
+  assert.equal(await say('Sim'), 'changed');
+  assert.match(last(), /^✅ Reserva alterada: sábado 24\/10, 12h30, 5 pessoas, em nome de Ana Luiza\./);
+  assert.equal(state.updated.id, 1);
+  assert.equal(state.updated.startsAt.toISOString(), toInstant('2026-10-24', '12:30').toISOString());
+  assert.ok(sent.every((m) => m.sentBy === 'bot_reserva'));
+});
+
+test('mudar com dia e horário na mesma frase vai direto pro resumo', async () => {
+  const { say, last } = setup({ reservations: [ANA_SATURDAY] });
+  assert.equal(await say('dá pra mudar pra domingo 13h?'), 'change_confirm_asked');
+  assert.match(last(), /^Mudando sua reserva pra domingo 25\/10, 13h, 5 pessoas/);
+});
+
+test('MUDAR → pergunta pra quando → sábado → 1 → SIM', async () => {
+  const { say, last, state } = setup({ reservations: [ANA_SATURDAY] });
+  assert.equal(await say('MUDAR'), 'change_asked');
+  assert.equal(last(), 'Claro! Sua reserva está pra sábado 24/10, 20h, 5 pessoas. Pra quando quer mudar? Pode mandar o dia, o horário ou os dois (ex: sábado 20h).');
+  assert.equal(await say('domingo'), 'change_time_asked');
+  assert.equal(await say('1'), 'change_confirm_asked');
+  assert.equal(await say('sim'), 'changed');
+  assert.equal(state.updated.startsAt.toISOString(), toInstant('2026-10-25', '12:00').toISOString());
+});
+
+test('"mudar a data" pergunta o dia', async () => {
+  const { say, last } = setup({ reservations: [ANA_SATURDAY] });
+  assert.equal(await say('quero mudar a data'), 'asked_day');
+  assert.equal(last(), 'Pra qual dia? (ex: hoje, amanhã, sábado, 25/10)');
+  assert.equal(await say('domingo'), 'change_time_asked');
+});
+
+test('a própria reserva não ocupa a mesa na mudança', async () => {
+  // Duas mesas de 6: uma é a da Ana, a outra está ocupada às 20h por outra pessoa.
+  const { say, last } = setup({ reservations: [
+    ANA_SATURDAY,
+    { table_seats: 6, party_size: 6, contact_id: 99, starts_at: toInstant('2026-10-24', '20:00'), ends_at: toInstant('2026-10-24', '22:00') }
+  ] });
+  assert.equal(await say('mudar pra 20h30'), 'change_confirm_asked');
+  assert.match(last(), /sábado 24\/10, 20h30/);
+});
+
+test('horário pedido sem mesa mostra os que têm', async () => {
+  const { say, last } = setup({ reservations: [ANA_SATURDAY] });
+  assert.equal(await say('mudar pra 16h'), 'change_time_asked');
+  assert.match(last(), /^Pra sábado 24\/10, 16h não tenho mesa pra 5 pessoas\. Tenho: 1\) 12h/);
+});
+
+test('mudar pra dia fechado pede outro dia', async () => {
+  const { say, last } = setup({ settings: { ...MALIBU, exceptions: [{ date: '2026-10-25', closed: true }] }, reservations: [ANA_SATURDAY] });
+  assert.equal(await say('mudar pra domingo'), 'day_unavailable');
+  assert.equal(last(), 'Pra domingo 25/10 não temos reserva. Pra qual outro dia?');
+});
+
+test('MUDAR sem reserva marcada é ignorado', async () => {
+  const { say, sent } = setup();
+  assert.equal(await say('MUDAR'), 'ignored');
+  assert.equal(sent.length, 0);
+});
+
+test('na mudança, 2 respostas não entendidas passam pra equipe', async () => {
+  const { say, last, paused } = setup({ reservations: [ANA_SATURDAY] });
+  await say('MUDAR');
+  assert.equal(await say('hmm'), 'asked_change_again');
+  assert.equal(await say('sei lá'), 'handoff');
+  assert.equal(last(), 'Só um instante, já te respondo 🙂');
+  assert.equal(paused.length, 1);
+});
+
+test('"não" no resumo da mudança volta a perguntar pra quando', async () => {
+  const { say } = setup({ reservations: [ANA_SATURDAY] });
+  await say('mudar pra 21h');
+  assert.equal(await say('não'), 'change_asked');
+});
+
+test('CANCELAR no meio da mudança vai pro cancelamento', async () => {
+  const { say, last } = setup({ reservations: [ANA_SATURDAY] });
+  await say('MUDAR');
+  assert.equal(await say('cancelar'), 'cancel_asked');
+  assert.equal(last(), 'Quer cancelar a reserva de sábado 24/10, 20h? Responda SIM.');
+});
+
+test('reserva cancelada pela equipe durante a mudança: passa pra equipe, não muda', async () => {
+  const { say, state } = setup({ reservations: [ANA_SATURDAY] });
+  await say('mudar pra 21h');
+  state.reservations[0].status = 'cancelled';
+  assert.equal(await say('sim'), 'handoff');
+  assert.equal(state.updated, undefined);
+});
+
+test('mudança com 2 reservas pergunta qual', async () => {
+  const { say, last } = setup({ reservations: [
+    ANA_SATURDAY,
+    { table_seats: 2, party_size: 2, name: 'Ana Luiza', starts_at: toInstant('2026-10-25', '13:00'), ends_at: toInstant('2026-10-25', '15:00') }
+  ] });
+  assert.equal(await say('MUDAR'), 'change_pick_asked');
+  assert.equal(last(), 'Qual reserva você quer mudar? 1) sábado 24/10, 20h  2) domingo 25/10, 13h');
+  assert.equal(await say('2'), 'change_asked');
+  assert.match(last(), /^Claro! Sua reserva está pra domingo 25\/10, 13h, 2 pessoas/);
+});
+
+test('nome completo mandado junto com o SIM corrige o nome no resumo', async () => {
+  const { say, last, state } = setup();
+  await say('RESERVA'); await say('5'); await say('amanhã'); await say('1');
+  assert.equal(await say('Sim'), 'asked_confirm');
+  assert.equal(await say('Ana Souza Pinheiro silva'), 'asked_confirm');
+  assert.match(last(), /em nome de Ana Souza Pinheiro silva\. Responda SIM/);
+  assert.equal(await say('Sim'), 'confirmed');
+  assert.equal(state.reservations.at(-1).name, 'Ana Souza Pinheiro silva');
+});
+
+test('o texto da reserva confirmada ensina a mudar', async () => {
+  const { say, last } = setup();
+  await say('RESERVA'); await say('2'); await say('amanhã'); await say('1'); await say('sim');
+  await say('sim');
+  assert.match(last(), /Pra mudar o dia ou o horário, responda MUDAR\. Pra cancelar, responda CANCELAR\.$/);
 });
