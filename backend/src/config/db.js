@@ -417,6 +417,11 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS bot_paused_until TIMESTAMPTZ`);
   // Quem enviou a mensagem de saída: 'staff' (Caixa) ou o robô ('bot_reserva').
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS sent_by TEXT`);
+  // Número de WhatsApp que só roda em anúncio: contato novo sem o cartão do anúncio conta
+  // como Meta Ads, sem campanha (tracking_method 'ads_number').
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_ads_only BOOLEAN DEFAULT false`);
+  // Cartão (externalAdReply) que veio na primeira mensagem mas não parece anúncio.
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_reply_unmatched_json JSONB`);
   await query(`
     CREATE TABLE IF NOT EXISTS reservation_settings (
       client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,

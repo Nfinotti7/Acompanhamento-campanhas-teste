@@ -79,7 +79,7 @@ export async function getContactTimeline(req, res) {
 }
 
 const ATTRIBUTION_SQL = `
-  SELECT wc.source, wc.tracking_method, wc.ad_id, wc.ad_headline, wc.ad_body, wc.ad_source_url,
+  SELECT wc.source, wc.tracking_method, wc.ad_id, wc.ad_headline, wc.ad_body, wc.ad_source_url, wc.ad_reply_unmatched_json,
          wc.first_seen_at, c.ad_name, c.adset_name, c.campaign_name, c.account_name,
          tl.name AS link_name, tc.utm_source, tc.utm_medium, tc.utm_campaign, tc.utm_content, tc.utm_term,
          tc.fbclid, tc.gclid, tc.created_at AS clicked_at,
@@ -124,6 +124,7 @@ export async function getContactAttribution(req, res) {
       adHeadline: r.ad_headline,
       adBody: r.ad_body,
       adSourceUrl: r.ad_source_url,
+      unmatchedAdReply: r.ad_reply_unmatched_json || null,
       initialMessage: r.initial_message,
       firstSeenAt: r.first_seen_at,
       link: r.link_name ? {

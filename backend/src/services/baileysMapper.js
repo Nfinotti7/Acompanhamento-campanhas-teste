@@ -104,15 +104,16 @@ function extractWaId(key) {
 // cartão do anúncio em contextInfo.externalAdReply (sourceId = id do anúncio, ctwaClid =
 // id do clique) -- o mesmo dado que a Cloud API manda em "referral". Pode vir em qualquer
 // tipo de mensagem (texto, imagem...), então procura em todas.
+// Devolve { referral, unmatched }: unmatched é um cartão que veio mas não parece anúncio
+// (guardado pra investigar conversa que devia ter sido rastreada e não foi).
 function extractAdReferral(message) {
+  let unmatched = null;
   for (const value of Object.values(message || {})) {
     const ad = value?.contextInfo?.externalAdReply;
     if (!ad) continue;
-    // Link de site compartilhado também gera externalAdReply; só conta se for anúncio.
-    if (ad.sourceType !== 'ad' && !ad.ctwaClid) continue;
     // Mesmo formato do referral da Cloud API, pra aba Origem e o resto tratarem igual.
-    return {
-      source_type: ad.sourceType || 'ad',
+    const card = {
+      source_type: ad.sourceType || null,
       source_id: ad.sourceId || null,
       source_url: ad.sourceUrl || null,
       headline: ad.title || null,
@@ -121,8 +122,11 @@ function extractAdReferral(message) {
       thumbnail_url: ad.thumbnailUrl || null,
       ctwa_clid: ad.ctwaClid || null
     };
+    // Link de site compartilhado também gera externalAdReply; só conta se for anúncio.
+    if (ad.sourceType === 'ad' || ad.ctwaClid) return { referral: { ...card, source_type: card.source_type || 'ad' }, unmatched: null };
+    unmatched = unmatched || card;
   }
-  return null;
+  return { referral: null, unmatched };
 }
 
 export function mapBaileysMessageToEvent(msg) {
@@ -131,7 +135,7 @@ export function mapBaileysMessageToEvent(msg) {
     : new Date().toISOString();
   const { content, viewOnce } = unwrap(msg.message);
   // Só a mensagem do lead traz o anúncio de onde ele veio.
-  const referral = msg.key?.fromMe ? null : extractAdReferral(content);
+  const { referral, unmatched } = msg.key?.fromMe ? {} : extractAdReferral(content);
   // Visualização única não chega pra aparelho conectado (o WhatsApp Web também mostra
   // "abra no celular"), então nem tenta baixar.
   const viewOnceCaption = content.imageMessage?.caption || content.videoMessage?.caption;
@@ -153,7 +157,8 @@ export function mapBaileysMessageToEvent(msg) {
     adHeadline: referral?.headline || null,
     adBody: referral?.body || null,
     adSourceUrl: referral?.source_url || null,
-    referral
+    referral: referral || null,
+    unmatchedAdReply: unmatched || null
   };
 }
 

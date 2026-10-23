@@ -12,6 +12,7 @@ const EMPTY_FORM = {
   dashboard_enabled: true,
   waitlist_enabled: false,
   reservations_enabled: false,
+  whatsapp_ads_only: false,
   data_start_date: '',
   clientUserEmail: '',
   clientUserPassword: ''
@@ -60,6 +61,7 @@ export default function ClientsPage() {
       dashboard_enabled: client.dashboard_enabled !== false,
       waitlist_enabled: Boolean(client.waitlist_enabled),
       reservations_enabled: Boolean(client.reservations_enabled),
+      whatsapp_ads_only: Boolean(client.whatsapp_ads_only),
       data_start_date: client.data_start_date || '',
       clientUserEmail: '',
       clientUserPassword: ''
@@ -340,6 +342,17 @@ export default function ClientsPage() {
                     onChange={(e) => setFormData({ ...formData, reservations_enabled: e.target.checked })} />
                   Reservas pelo WhatsApp
                 </label>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={formData.whatsapp_ads_only}
+                    onChange={(e) => setFormData({ ...formData, whatsapp_ads_only: e.target.checked })} />
+                  O WhatsApp deste cliente só roda em anúncio
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '12px' }}>
+                  Contato novo que chegar sem o cartão do anúncio (o lead fechou a prévia, por exemplo) conta como Meta Ads, sem campanha. Não vale pra quem já conversou antes.
+                </p>
               </div>
 
               {!editingClient && (

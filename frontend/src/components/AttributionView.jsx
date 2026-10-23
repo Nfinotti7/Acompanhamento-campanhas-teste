@@ -9,7 +9,8 @@ export const ORIGIN_META = {
 
 const METHOD_LABELS = {
   ctwa: 'Campanha de Mensagem do Meta Ads',
-  link: 'Link Rastreável'
+  link: 'Link Rastreável',
+  ads_number: 'Número exclusivo de anúncios'
 };
 
 function Row({ label, value }) {
@@ -62,6 +63,20 @@ export default function AttributionView({ data }) {
       )}
       <Row label="Mensagem inicial" value={data.initialMessage} />
       <Row label="Primeiro contato" value={firstSeen} />
+      {data.unmatchedAdReply && (
+        <Row
+          label="Cartão recebido (não reconhecido como anúncio)"
+          value={[data.unmatchedAdReply.headline, data.unmatchedAdReply.source_type && `tipo ${data.unmatchedAdReply.source_type}`, data.unmatchedAdReply.source_url]
+            .filter(Boolean).join(' · ') || 'sem detalhes'}
+        />
+      )}
+
+      {data.trackingMethod === 'ads_number' && (
+        <p style={{ marginTop: '14px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          O WhatsApp não mandou o cartão do anúncio nessa conversa, então não dá pra saber a campanha.
+          Ela conta como Meta Ads porque este número só roda em anúncio (chave no cadastro do cliente).
+        </p>
+      )}
 
       {data.origin === 'nao_rastreada' && (
         <p style={{ marginTop: '14px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>

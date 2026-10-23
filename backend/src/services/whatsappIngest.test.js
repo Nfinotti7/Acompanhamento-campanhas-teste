@@ -370,3 +370,55 @@ test('resposta do atendente depois de um tempo pausa', async () => {
     { db: autoReplyDb('2026-10-12T12:00:00.000Z'), broadcast: () => {}, pauseBot: async (_db, a) => paused.push(a) });
   assert.equal(paused.length, 1);
 });
+
+// Contato novo (inserted) num cliente com as chaves pedidas.
+function makeAdsDb(flags) {
+  const calls = [];
+  const db = {
+    query: async (sql, params = []) => {
+      calls.push({ sql, params });
+      if (/INSERT INTO whatsapp_contacts/.test(sql)) return { rows: [{ id: 7, inserted: true }] };
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ name: 'Malibu', dashboard_enabled: true, ...flags }] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  return { db, calls };
+}
+const presumeCall = (calls) => calls.find((c) => /^UPDATE whatsapp_contacts SET source = 'ad', tracking_method = 'ads_number'/.test(c.sql));
+
+test('número só de anúncios: contato novo sem cartão vira Meta Ads presumido', async () => {
+  const { db, calls } = makeAdsDb({ whatsapp_ads_only: true });
+  await ingestWhatsAppEvent(9, baseEvent({ waId: '556291896553' }), { db, broadcast: () => {}, notifyInbound: () => {} });
+  assert.ok(presumeCall(calls));
+  assert.deepEqual(presumeCall(calls).params, [7]);
+});
+
+test('número só de anúncios: contato com cartão de anúncio não é presumido', async () => {
+  const { db, calls } = makeAdsDb({ whatsapp_ads_only: true });
+  await ingestWhatsAppEvent(9, baseEvent({ adId: 'AD_1', ctwaClid: 'clid' }), { db, broadcast: () => {}, notifyInbound: () => {} });
+  assert.equal(presumeCall(calls), undefined);
+});
+
+test('sem a chave, contato novo sem cartão continua não rastreado', async () => {
+  const { db, calls } = makeAdsDb({ whatsapp_ads_only: false });
+  await ingestWhatsAppEvent(9, baseEvent(), { db, broadcast: () => {}, notifyInbound: () => {} });
+  assert.equal(presumeCall(calls), undefined);
+});
+
+test('número só de anúncios: mensagem de saída e grupo não presumem', async () => {
+  const out = makeAdsDb({ whatsapp_ads_only: true });
+  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound' }), { db: out.db, broadcast: () => {}, pauseBot: async () => {} });
+  assert.equal(presumeCall(out.calls), undefined);
+  const group = makeAdsDb({ whatsapp_ads_only: true });
+  await ingestWhatsAppEvent(9, baseEvent({ waId: '120363000000000000' }), { db: group.db, broadcast: () => {} });
+  assert.equal(presumeCall(group.calls), undefined);
+});
+
+test('cartão não reconhecido fica guardado no contato', async () => {
+  const { db, calls } = makeAdsDb({});
+  const card = { source_type: null, source_url: 'https://site.com', headline: 'Site' };
+  await ingestWhatsAppEvent(9, baseEvent({ unmatchedAdReply: card }), { db, broadcast: () => {}, notifyInbound: () => {} });
+  const insert = calls.find((c) => /INSERT INTO whatsapp_contacts/.test(c.sql));
+  assert.deepEqual(JSON.parse(insert.params[12]), card);
+});

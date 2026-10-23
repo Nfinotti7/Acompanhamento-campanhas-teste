@@ -70,8 +70,8 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   const fromAd = Boolean(event.ctwaClid || event.adId);
 
   const { rows: contactRows } = await dbImpl.query(
-    `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, ctwa_clid, ad_id, ad_headline, ad_body, source, last_message_at, ad_source_url, ad_referral_json, tracking_method)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO whatsapp_contacts (client_id, wa_id, profile_name, ctwa_clid, ad_id, ad_headline, ad_body, source, last_message_at, ad_source_url, ad_referral_json, tracking_method, ad_reply_unmatched_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (client_id, wa_id) DO UPDATE SET
        profile_name = COALESCE(excluded.profile_name, whatsapp_contacts.profile_name),
        ctwa_clid = COALESCE(whatsapp_contacts.ctwa_clid, excluded.ctwa_clid),
@@ -80,7 +80,10 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
        ad_body = COALESCE(whatsapp_contacts.ad_body, excluded.ad_body),
        ad_source_url = COALESCE(whatsapp_contacts.ad_source_url, excluded.ad_source_url),
        ad_referral_json = COALESCE(whatsapp_contacts.ad_referral_json, excluded.ad_referral_json),
-       tracking_method = COALESCE(whatsapp_contacts.tracking_method, excluded.tracking_method),
+       -- Presumido pelo número de anúncios e depois chega o cartão de verdade: vale o cartão.
+       tracking_method = CASE WHEN whatsapp_contacts.tracking_method = 'ads_number' AND excluded.tracking_method = 'ctwa'
+         THEN 'ctwa' ELSE COALESCE(whatsapp_contacts.tracking_method, excluded.tracking_method) END,
+       ad_reply_unmatched_json = COALESCE(whatsapp_contacts.ad_reply_unmatched_json, excluded.ad_reply_unmatched_json),
        source = CASE WHEN whatsapp_contacts.source = 'ad' THEN 'ad' ELSE excluded.source END,
        last_message_at = excluded.last_message_at
      RETURNING id, (xmax = 0) AS inserted`,
@@ -96,23 +99,46 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       event.sentAt,
       event.adSourceUrl || null,
       event.referral ? JSON.stringify(event.referral) : null,
-      fromAd ? 'ctwa' : null
+      fromAd ? 'ctwa' : null,
+      !fromAd && event.unmatchedAdReply ? JSON.stringify(event.unmatchedAdReply) : null
     ]
   );
   const contactId = contactRows[0].id;
+  const isNewContact = Boolean(contactRows[0].inserted);
 
   // Cliente só do Na Mesa (sem dashboard) não tem funil nem Link Rastreável.
   const { rows: flagRows } = await dbImpl.query(
-    `SELECT name, dashboard_enabled, waitlist_enabled, reservations_enabled FROM clients WHERE id = ?`,
+    `SELECT name, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only FROM clients WHERE id = ?`,
     [clientId]
   );
   const flags = flagRows[0] || {};
   const usesCrm = flags.dashboard_enabled !== false;
 
+  // Grupo/lista de transmissão não é cliente na porta: o id deles não é um telefone.
+  const isPhone = /^\d{8,15}$/.test(String(event.waId || ''));
+
   // Antes de entrar no funil: se veio pelo Link Rastreável, a origem já fica certa pro
   // evento Lead que a entrada no funil pode disparar.
+  let linkClickId = null;
   if (usesCrm && event.direction === 'inbound') {
-    await matchTrackingClick(dbImpl, { clientId, contactId, body: event.body });
+    linkClickId = await matchTrackingClick(dbImpl, { clientId, contactId, body: event.body });
+  }
+
+  // Contato novo que escreveu sem o cartão do anúncio. Fica no log pra investigar
+  // conversa "não rastreada" (o lead fechou a prévia do anúncio, link encaminhado...).
+  let presumedAd = false;
+  if (usesCrm && event.direction === 'inbound' && isPhone && isNewContact && !fromAd && !linkClickId) {
+    const card = event.unmatchedAdReply;
+    console.log(`WhatsApp [client ${clientId}]: contato novo ${contactId} sem cartão de anúncio`
+      + (card ? ` (veio um cartão não reconhecido: tipo ${card.source_type || '-'}, id ${card.source_id || '-'}, url ${card.source_url || '-'})` : ''));
+    // Número que só roda em anúncio: quem chega nele veio de anúncio, mesmo sem o cartão.
+    if (flags.whatsapp_ads_only) {
+      await dbImpl.query(
+        `UPDATE whatsapp_contacts SET source = 'ad', tracking_method = 'ads_number' WHERE id = ? AND tracking_method IS NULL`,
+        [contactId]
+      );
+      presumedAd = true;
+    }
   }
 
   // Contato novo entra no funil (etapa de "novo lead"). Quem já está numa etapa fica lá:
@@ -138,8 +164,6 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // Robô da fila (Na Mesa): só mensagem recebida e nova -- reenvio do WhatsApp
   // (ON CONFLICT não devolve linha) não pode gerar resposta duplicada. Em segundo
   // plano: um erro no robô não pode derrubar a gravação da mensagem.
-  // Grupo/lista de transmissão não é cliente na porta: o id deles não é um telefone.
-  const isPhone = /^\d{8,15}$/.test(String(event.waId || ''));
 
   // Notificação no Caixa instalado (mensagem nova de cliente; grupo não avisa). Teste
   // (db falso) não manda.
@@ -164,7 +188,7 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       .then(() => onReservation(
         {
           clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
-          fromAd, isNewContact: Boolean(contactRows[0].inserted), restaurantName: flags.name || ''
+          fromAd: fromAd || presumedAd, isNewContact, restaurantName: flags.name || ''
         },
         deps.db ? { db: dbImpl } : {}
       ))

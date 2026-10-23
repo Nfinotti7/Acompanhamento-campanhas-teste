@@ -214,6 +214,15 @@ test('preview de link comum (externalAdReply sem ser anuncio) nao conta como anu
   const event = mapBaileysMessageToEvent(msg);
   assert.equal(event.adId, null);
   assert.equal(event.referral, null);
+  // O cartão que não parece anúncio fica guardado pra investigar.
+  assert.equal(event.unmatchedAdReply.source_url, 'https://site.com');
+  assert.equal(event.unmatchedAdReply.headline, 'Site');
+  assert.equal(event.unmatchedAdReply.source_type, null);
+});
+
+test('mensagem sem cartão nenhum não tem unmatchedAdReply', () => {
+  const msg = { key: { remoteJid: '5511999998888@s.whatsapp.net', id: 'N1', fromMe: false }, message: { conversation: 'oi' } };
+  assert.equal(mapBaileysMessageToEvent(msg).unmatchedAdReply, null);
 });
 
 test('mensagem enviada por nos nunca carrega atribuicao de anuncio', () => {
