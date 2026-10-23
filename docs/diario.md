@@ -849,3 +849,26 @@ Visualização única não é baixada: o WhatsApp não manda pra aparelho conect
 **Causa provável:** QR da porta impresso com o número antigo. O usuário confirmou que a conversa do robô não estava no celular dele e que "agora está tudo certo".
 
 **Ideia oferecida (não feita):** mostrar na tela qual número está conectado (`sock.user.id`) e avisar quando ele for diferente do número da porta. O sistema hoje não guarda o número conectado.
+
+### 2026-10-23 — Reserva do Malibu sem origem (final 6553, diagnóstico)
+
+**Relato do usuário:** uma reserva pelo Balcão do Malibu, do telefone final 6553, ficou como "não rastreada". O número novo só roda em anúncio, e a frase "Quero fazer uma reserva (cód. RESERVA)" só existe no anúncio.
+
+**O que o banco mostra:**
+- Contato 962, Ana Luiza, `556291896553`, criado em 23/10 às 12:28 BRT, com `source = organic` e sem `ad_id`, `ctwa_clid` ou `ad_referral_json`.
+- A primeira mensagem foi "Quero fazer uma reserva (cód. RESERVA)", enviada de iPhone (id `3AC2…`). O robô fez a reserva (hoje 12h, 5 pessoas), e a equipe mudou pra 12:30 às 12:57.
+- Os outros 10 contatos novos do Malibu desde 22/10 vieram com o cartão (`ctwa`, com clid). Entre eles está o 977, que mandou a mesma frase da reserva, também de iPhone, às 15:26.
+
+**Conclusão:** a mensagem chegou **sem o cartão do anúncio** (`contextInfo.externalAdReply`). O código não perdeu nada, porque a origem é gravada a cada mensagem com o cartão. As causas prováveis, todas do lado do WhatsApp:
+- o lead fechou a prévia do anúncio antes de enviar;
+- ou a frase chegou por outro caminho (compartilhada, ou por um link `wa.me` com o mesmo texto).
+
+Não dá pra provar qual foi: a mensagem crua não é guardada, e um cartão recusado pelo filtro (`sourceType` diferente de `ad` e sem `ctwaClid`) não gera log.
+
+**Ideias oferecidas (não feitas):**
+- logar e guardar o `externalAdReply` recusado pelo filtro;
+- uma chave "número exclusivo de anúncios" que marque como Meta Ads (sem campanha) o contato novo sem cartão.
+
+**Achados à parte:**
+- "Posso mudar horário?" e "12:30", depois da reserva confirmada, ficaram 27 min sem resposta.
+- O nome completo que ela mandou junto com o SIM foi ignorado: a confirmação repetiu "Ana Luiza".
