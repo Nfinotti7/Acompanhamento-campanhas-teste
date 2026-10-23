@@ -839,3 +839,13 @@ Visualização única não é baixada: o WhatsApp não manda pra aparelho conect
   - reinstalar o Balcão no iPhone pelo `/balcao`, se quiser o nome novo;
   - abrir um app do Caixa já instalado, pra ver que continua no `/caixa`;
   - conferir no log do Hostinger linhas `tipo de mensagem não reconhecido`.
+
+**Mercearia, 22/10 à noite: clientes caindo no WhatsApp do usuário.** Os clientes que liam o QR da porta escreviam pro número pessoal do usuário. Conferido pelo banco:
+- a conexão da Mercearia não mudou desde a renovação do vigia às 20:01;
+- desde 18/10 não chega nenhuma mensagem de cliente;
+- o "WhatsApp do restaurante" (`waitlist_settings.whatsapp_number`) foi trocado às 20:55 pra **556281021536 ((62) 8102-1536)**;
+- as entradas de hoje foram todas manuais.
+
+**Causa provável:** QR da porta impresso com o número antigo. O usuário confirmou que a conversa do robô não estava no celular dele e que "agora está tudo certo".
+
+**Ideia oferecida (não feita):** mostrar na tela qual número está conectado (`sock.user.id`) e avisar quando ele for diferente do número da porta. O sistema hoje não guarda o número conectado.
