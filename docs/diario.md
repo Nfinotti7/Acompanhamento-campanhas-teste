@@ -44,6 +44,8 @@
 
 **No ar desde 22/10 19:40 (push `e27a6af`):** ponte entre processos pelo banco (qualquer processo envia; provável causa do antigo "standby depois de deploy"), tipos de mensagem do WhatsApp, bolinha + notificações push, sincronização de campanhas em segundo plano, lista do Balcão no celular e **Caixa → Balcão (`/balcao`)**. O deploy reconectou sozinho, sem restart. Ver Registro 2026-10-22. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
+**Branch `feat/reservas-mudar` (23/10, não enviada):** o robô muda dia e horário de uma reserva marcada (MUDAR) e corrige o nome completo mandado na hora do resumo. Também tem a chave "WhatsApp só roda em anúncio" no cadastro do cliente e guarda o cartão de anúncio não reconhecido. Falta o deploy e ligar a chave no Malibu. Ver Registro 2026-10-23.
+
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
@@ -872,3 +874,42 @@ Não dá pra provar qual foi: a mensagem crua não é guardada, e um cartão rec
 **Achados à parte:**
 - "Posso mudar horário?" e "12:30", depois da reserva confirmada, ficaram 27 min sem resposta.
 - O nome completo que ela mandou junto com o SIM foi ignorado: a confirmação repetiu "Ana Luiza".
+
+### 2026-10-23 (continuação) — Mudar reserva pelo WhatsApp + número só de anúncios (branch `feat/reservas-mudar`, não enviada)
+
+O usuário pediu as duas melhorias oferecidas no diagnóstico da Ana, mais uma ideia dele: o robô também atender quem quer mudar o horário ou a data. Pediu pra fazer direto, sem perguntas, então as decisões abaixo foram minhas.
+
+**Robô de reserva (`reservationBot.js`, `reservationText.js`, commits `2eecf86` e `eea8665`):**
+- **Quando age:** quem tem reserva confirmada futura e manda "MUDAR", "posso mudar o horário?", "trocar a data", "remarcar" ou "mudar pra sábado 20h" (`isChangeCommand`). Sem reserva marcada, a mensagem é ignorada.
+- **Etapas novas:** `change_pick` (escolhe qual, quando há mais de uma), `change`, `change_time` e `change_confirm`.
+  - Dia e horário na mesma frase vão direto pro resumo.
+  - Só o horário usa o mesmo dia. "mudar o horário" mostra a lista do mesmo dia, e "mudar a data" pergunta o dia.
+  - O horário escrito na frase é lido por `extractTime`, que exige "h" ou ":" ou "às": número sozinho pode ser item de lista.
+  - A própria reserva não ocupa a mesa ao calcular as vagas (`slotsFor(..., exceptId)`). Grava com `updateReservation`, que já existia (trava por cliente e checa vaga).
+- **Casos de borda:**
+  - Duas respostas não entendidas passam pra equipe (antes, no caso da Ana, ficou 27 min sem resposta).
+  - CANCELAR no meio da mudança vai pro cancelamento, que pede SIM.
+  - Se a reserva foi cancelada pela equipe no meio, passa pra equipe e não muda nada.
+  - "não" no resumo pergunta de novo pra quando.
+- O número de pessoas **não** muda pelo robô. Fica com a equipe.
+- **Nome no resumo:** um nome completo mandado na etapa do resumo corrige o nome da reserva (`correctedName`). Ele precisa ter só letras, de 2 a 6 palavras, e alguma palavra do nome atual: sem essa última regra, "tudo certo" viraria o nome.
+- O texto `confirmed` agora termina com "Pra mudar o dia ou o horário, responda MUDAR." O Malibu usa os textos padrão, então já recebe. São 6 textos novos, editáveis no Configurar.
+
+**Origem (commit `53b6425`):**
+- Chave **"O WhatsApp deste cliente só roda em anúncio"** no cadastro do cliente (`clients.whatsapp_ads_only`).
+  - Contato **novo**, recebido, de telefone, sem cartão e sem Link Rastreável passa a `source='ad'` com `tracking_method='ads_number'` (Meta Ads sem campanha), antes de entrar no funil.
+  - Se depois chegar o cartão de verdade, vira `ctwa`.
+  - A aba Origem explica que foi presumido. O contato fica fora da tabela por campanha do Dashboard WhatsApp, mas conta como Meta Ads.
+- **Cartão não reconhecido:** `baileysMapper` devolve `unmatchedAdReply` quando vem `externalAdReply` sem `sourceType='ad'` e sem `ctwaClid`. Ele fica em `whatsapp_contacts.ad_reply_unmatched_json` (primeiro toque) e aparece na aba Origem.
+- **Log:** todo contato novo sem cartão gera a linha `WhatsApp [client X]: contato novo N sem cartão de anúncio (...)`, com os dados do cartão não reconhecido quando houver.
+
+**Testado:**
+- Backend 406 testes, frontend 73, build ok.
+- Ingest rodado contra o Postgres de produção dentro de transação com ROLLBACK, com um cliente temporário sem CAPI. O contato sem cartão foi presumido, virou `ctwa` quando chegou o cartão, e o cartão não reconhecido ficou guardado. Nada ficou gravado (só os ids das sequências foram consumidos).
+
+**Não testado:** conversa real de mudança pelo WhatsApp e a tela do cadastro no navegador.
+
+**Pendente pro usuário:**
+- deploy, fora do horário de serviço do Malibu;
+- depois do deploy, ligar a chave no Malibu (Clientes → editar);
+- decidir se marca a Ana (contato 962) como Meta Ads presumido. A chave não age em contato antigo.
