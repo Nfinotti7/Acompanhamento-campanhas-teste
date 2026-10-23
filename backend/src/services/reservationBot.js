@@ -178,7 +178,7 @@ async function handleOne(
   // depois de escolhido, o novo dia e horário (newDay/newTime).
   function changeData(r) {
     const startsAt = new Date(r.starts_at);
-    return { target: r.id, size: r.party_size, name: r.name, day: dayOf(startsAt), time: hhmmInBrasilia(startsAt) };
+    return { target: r.id, size: r.party_size, name: r.name || profileName || '', day: dayOf(startsAt), time: hhmmInBrasilia(startsAt) };
   }
 
   async function askChange(c) {
