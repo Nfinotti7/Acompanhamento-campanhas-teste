@@ -7,6 +7,7 @@ import { broadcast } from './sseHub.js';
 import { sendToContact } from './whatsappSender.js';
 import { sendTyping } from './baileysClient.js';
 import { isBotPaused, pauseBot } from './botPause.js';
+import { detectInfoTopics } from './infoText.js';
 import { firstName, renderMessage, parsePartySize } from './waitlistText.js';
 import { isUniqueViolation } from './waitlistQueue.js';
 import {
@@ -150,7 +151,12 @@ async function handleOne(
   }
 
   // Não entendeu: repete a pergunta uma vez; na segunda, passa pra equipe.
+  // "Quero ver o cardápio" no meio da reserva não conta: a resposta automática responde
+  // (whatsappIngest.js chama infoBot quando o resultado é 'ignored') e a reserva continua.
   async function retry(c, key, vars = {}) {
+    if (settings.info?.enabled && detectInfoTopics(text).some((topic) => (settings.info[topic] || '').trim())) {
+      return 'ignored';
+    }
     if ((c.attempts || 0) + 1 >= MAX_ATTEMPTS) return handoff(c);
     await save(c, c.step, c.data, (c.attempts || 0) + 1);
     await reply(key, vars);

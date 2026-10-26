@@ -4,6 +4,7 @@
 import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
 import { DEFAULT_RESERVATION_SETTINGS, pickTableSize, tablesForDay, dayOf } from './reservationSlots.js';
+import { DEFAULT_INFO_SETTINGS } from './infoText.js';
 
 // Chave do pg_advisory_xact_lock: LOCK_BASE + client_id (longe de qualquer outra trava).
 export const LOCK_BASE = 900000;
@@ -31,7 +32,9 @@ export async function loadReservationSettings(dbImpl, clientId) {
   return {
     ...DEFAULT_RESERVATION_SETTINGS,
     ...config,
-    hours: { ...DEFAULT_RESERVATION_SETTINGS.hours, ...(config.hours || {}) }
+    hours: { ...DEFAULT_RESERVATION_SETTINGS.hours, ...(config.hours || {}) },
+    // Respostas automáticas do Balcão (infoBot.js) moram aqui, junto dos textos do robô.
+    info: { ...DEFAULT_INFO_SETTINGS, ...(config.info || {}) }
   };
 }
 
@@ -62,11 +65,21 @@ function validateSettings(s) {
   }
   if (s.slot_minutes < 5 || s.duration_minutes < 15) throw new ReservationSettingsError('Duração ou intervalo muito curtos.');
   if (s.max_party !== null && (!Number.isInteger(s.max_party) || s.max_party < 1)) throw new ReservationSettingsError('Limite de grupo inválido.');
+  if (typeof s.info.enabled !== 'boolean') throw new ReservationSettingsError('Respostas automáticas: valor inválido.');
+  for (const key of Object.keys(DEFAULT_INFO_SETTINGS).filter((k) => k !== 'enabled')) {
+    if (typeof s.info[key] !== 'string' || s.info[key].length > 2000) {
+      throw new ReservationSettingsError('Respostas automáticas: cada texto pode ter até 2000 caracteres.');
+    }
+  }
 }
 
 export async function saveReservationSettings(dbImpl, clientId, patch) {
   const current = await loadReservationSettings(dbImpl, clientId);
-  const next = { ...current, ...patch, hours: { ...current.hours, ...(patch.hours || {}) } };
+  const next = {
+    ...current, ...patch,
+    hours: { ...current.hours, ...(patch.hours || {}) },
+    info: { ...current.info, ...(patch.info || {}) }
+  };
   validateSettings(next);
   await dbImpl.query(
     `INSERT INTO reservation_settings (client_id, config, updated_at) VALUES (?, ?::jsonb, now())

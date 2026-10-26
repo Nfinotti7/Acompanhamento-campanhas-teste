@@ -5,6 +5,7 @@ import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
 import { handleInboundForWaitlist } from './waitlistBot.js';
 import { pauseBot } from './botPause.js';
 import { handleInboundForReservation } from './reservationBot.js';
+import { handleInboundForInfo } from './infoBot.js';
 import { notifyInboundMessage } from './pushNotify.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
@@ -181,18 +182,25 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       .catch((error) => console.error('Na Mesa: erro no robô da fila:', error.message));
   }
 
-  // Robô de reserva: mesmas regras do robô da fila (recebida, nova, de telefone).
+  // Robô de reserva: mesmas regras do robô da fila (recebida, nova, de telefone). O que
+  // ele não tratar vai pras respostas automáticas (cardápio, localização...), que moram
+  // na mesma configuração.
   if (event.direction === 'inbound' && isPhone && flags.reservations_enabled && messageRows.length > 0) {
     const onReservation = deps.onReservation || handleInboundForReservation;
+    const onInfo = deps.onInfo || handleInboundForInfo;
+    const args = {
+      clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
+      fromAd: fromAd || presumedAd, isNewContact, restaurantName: flags.name || ''
+    };
+    const botDeps = deps.db ? { db: dbImpl } : {};
     Promise.resolve()
-      .then(() => onReservation(
-        {
-          clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
-          fromAd: fromAd || presumedAd, isNewContact, restaurantName: flags.name || ''
-        },
-        deps.db ? { db: dbImpl } : {}
-      ))
-      .catch((error) => console.error('Reservas: erro no robô de reserva:', error.message));
+      .then(() => onReservation(args, botDeps))
+      .catch((error) => {
+        console.error('Reservas: erro no robô de reserva:', error.message);
+        return 'error';
+      })
+      .then((result) => (result === 'ignored' ? onInfo(args, botDeps) : null))
+      .catch((error) => console.error('Respostas automáticas: erro:', error.message));
   }
 
   // Alguém da equipe respondeu direto pelo celular (Baileys entrega essa mensagem

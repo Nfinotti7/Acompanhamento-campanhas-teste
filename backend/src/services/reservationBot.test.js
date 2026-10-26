@@ -467,3 +467,20 @@ test('o texto da reserva confirmada ensina a mudar', async () => {
   await say('sim');
   assert.match(last(), /Pra mudar o dia ou o horário, responda MUDAR\. Pra cancelar, responda CANCELAR\.$/);
 });
+
+test('"Quero ver cardápio" no meio da reserva fica pras respostas automáticas e a reserva continua', async () => {
+  const info = { enabled: true, menu: 'Cardápio: https://cardapio.example' };
+  const { say, sent, conversations } = setup({ settings: { ...MALIBU, info } });
+  await say('Quero fazer uma reserva (cód. RESERVA)');
+  assert.equal(await say('Quero ver cardápio'), 'ignored');
+  assert.equal(conversations[0].status, 'active');
+  assert.equal(conversations[0].attempts, 0);
+  assert.equal(sent.length, 1);
+  assert.equal(await say('2'), 'asked_day');
+});
+
+test('sem respostas automáticas, pergunta de cardápio no meio da reserva conta como não entendida', async () => {
+  const { say } = setup();
+  await say('RESERVA');
+  assert.equal(await say('Quero ver cardápio'), 'asked_size_again');
+});

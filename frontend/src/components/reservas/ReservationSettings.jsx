@@ -35,6 +35,17 @@ const MESSAGE_LABELS = {
   changed: 'Reserva alterada'
 };
 
+// Respostas automáticas (backend: services/infoBot.js). Assunto em branco não é respondido.
+const INFO_FIELDS = [
+  ['menu', 'Cardápio', '"Quero ver o cardápio", "tem menu?"'],
+  ['prices', 'Preços', '"Qual o valor do rodízio?", "Trabalham com rodízio?"'],
+  ['hours', 'Horário de funcionamento', '"Qual o horário?", "Vocês abrem hoje?"'],
+  ['location', 'Localização', '"Onde vocês ficam?", "Qual o endereço?"'],
+  ['other', '"Tenho outra dúvida"', 'Resposta na hora; o resto fica com a equipe'],
+  ['reserveHint', 'Convite pra reservar (vai no fim da resposta)', 'Só pra quem ainda não tem reserva']
+];
+const EMPTY_INFO = { enabled: false, menu: '', prices: '', hours: '', location: '', other: '', reserveHint: '' };
+
 function toForm(s) {
   return {
     tables: s.tables.map((t) => ({ seats: String(t.seats), count: String(t.count) })),
@@ -51,7 +62,8 @@ function toForm(s) {
     max_party: s.max_party ? String(s.max_party) : '',
     bot_enabled: s.bot_enabled !== false,
     ad_fallback: Boolean(s.ad_fallback),
-    messages: { ...(s.messages || {}) }
+    messages: { ...(s.messages || {}) },
+    info: { ...EMPTY_INFO, ...(s.info || {}) }
   };
 }
 
@@ -73,7 +85,8 @@ function fromForm(f) {
     max_party: f.max_party ? Number(f.max_party) : null,
     bot_enabled: f.bot_enabled,
     ad_fallback: f.ad_fallback,
-    messages
+    messages,
+    info: f.info
   };
 }
 
@@ -239,6 +252,24 @@ export default function ReservationSettings({ api, onBack }) {
           <span style={{ fontSize: '0.9rem' }}>Grupo maior que isso vai pra equipe</span>
           <input className="nm-input" type="number" min="1" value={form.max_party} placeholder="maior mesa" onChange={(e) => set({ max_party: e.target.value })} style={{ width: '120px' }} />
         </label>
+      </div>
+
+      <div className="nm-card" style={section}>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.info.enabled} onChange={(e) => set({ info: { ...form.info, enabled: e.target.checked } })} />
+          Respostas automáticas (cardápio, preços, horário, localização)
+        </label>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Responde na hora quem pergunta um desses assuntos. Para quando a equipe responde a conversa, e não repete o mesmo assunto pra mesma pessoa em 12h. No WhatsApp, *texto* sai em negrito.
+        </span>
+        {INFO_FIELDS.map(([key, label, hint]) => (
+          <label key={key} style={{ display: 'grid', gap: '4px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{label}</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{hint}</span>
+            <textarea className="nm-input" rows={key === 'prices' || key === 'hours' ? 6 : 3} value={form.info[key]}
+              onChange={(e) => set({ info: { ...form.info, [key]: e.target.value } })} />
+          </label>
+        ))}
       </div>
 
       <details className="nm-card" style={section}>

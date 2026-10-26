@@ -422,3 +422,18 @@ test('cartão não reconhecido fica guardado no contato', async () => {
   const insert = calls.find((c) => /INSERT INTO whatsapp_contacts/.test(c.sql));
   assert.deepEqual(JSON.parse(insert.params[12]), card);
 });
+
+test('respostas automáticas só rodam quando o robô de reserva não tratou a mensagem', async () => {
+  for (const [reservationResult, expectInfo] of [['ignored', true], ['paused', false], ['asked_size', false]]) {
+    const { db } = makeAdsDb({ reservations_enabled: true });
+    const infoCalls = [];
+    await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero ver o cardápio' }), {
+      db, broadcast: () => {}, notifyInbound: () => {},
+      onReservation: async () => reservationResult,
+      onInfo: async (args) => { infoCalls.push(args); return 'answered'; }
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(infoCalls.length, expectInfo ? 1 : 0, reservationResult);
+    if (expectInfo) assert.equal(infoCalls[0].body, 'Quero ver o cardápio');
+  }
+});

@@ -422,6 +422,18 @@ export async function initDb() {
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_ads_only BOOLEAN DEFAULT false`);
   // Cartão (externalAdReply) que veio na primeira mensagem mas não parece anúncio.
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_reply_unmatched_json JSONB`);
+  // Respostas automáticas já mandadas (services/infoBot.js): o mesmo assunto não se repete
+  // pro mesmo contato em 12h.
+  await query(`
+    CREATE TABLE IF NOT EXISTS info_replies (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      topic TEXT NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_info_replies_contact ON info_replies (contact_id, sent_at)`);
   await query(`
     CREATE TABLE IF NOT EXISTS reservation_settings (
       client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
