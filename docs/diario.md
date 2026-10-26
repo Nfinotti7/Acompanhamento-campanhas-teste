@@ -962,3 +962,21 @@ O usuário pediu as duas melhorias oferecidas no diagnóstico da Ana, mais uma i
 - **Malibu configurado** pelo `save-malibu-info.mjs`, com o usuário liberando: respostas automáticas ligadas com os textos de cardápio, preços, horário e localização, e a sexta com jantar a partir das 17h (hours[5] = 12:00–14:30 + 17:00–22:30).
 - **Ainda desligado:** a chave "só roda em anúncio" do Malibu.
 - **Lacuna oferecida (não feita):** "gostaria de fazer uma reserva" e "Quero reserva para 12h" não disparam o robô de reserva, que só começa com RESERVA ou com o código.
+
+### 2026-10-26 (continuação) — Pedido de reserva escrito (commit `23dac71`, enviado)
+
+- **`isReservationIntent`** (`reservationText.js`) reconhece pedidos como "gostaria de fazer uma reserva", "Quero reserva para 12h", "aceitam reserva?", "fazem reserva?", "dá pra reservar pra sábado?" e "como faço pra reservar?".
+  - Fica de fora quem fala de reserva que já existe ("já fiz a reserva", "tenho uma reserva", "minha reserva de sábado está..."), quem quer cancelar ou mudar, e mensagem de mais de 30 palavras.
+  - **Muda a decisão de 21/10**, que mandava "aceitam reserva?" pra equipe: agora essa frase inicia o robô, a pedido do usuário.
+- **`extractPartySize`** lê "mesa para dois", "4 pessoas", "somos 3", "pra 6" e "casal". Não vale número solto, hora ("para 12h", "pra 19:30") nem data ("pra 25/10"). Grupo com criança fica pra pergunta.
+- **Robô:** `startFromIntent` aproveita pessoas, dia e horário da frase e pergunta só o que falta.
+  - Quando pula a pergunta de pessoas, abre com o texto novo `greeting` ("Olá, {nome}! Vamos fazer sua reserva no {restaurante} 🙂").
+  - O dia e o horário ditos antes de saber as pessoas ficam em `wantedDay`/`wantedTime` até ser hora de usar.
+  - Na etapa do dia, "sábado às 20h" já escolhe o horário.
+  - Um segundo pedido escrito logo no começo não conta como "não entendi".
+  - Refatoração: `stepDay` e `chooseTime` saíram do switch.
+- **Testado:** backend 440 testes, frontend 73, build ok.
+  - Nas mensagens reais com "reserv": "Queremos uma reserva para 10 pessoas" vai pra equipe (maior que a maior mesa).
+  - "Gostaria de reservar tmb uma mesa para dois as 12:30" lê 2 pessoas e 12:30.
+  - Nenhum disparo indevido.
+- **Chave "só roda em anúncio" do Malibu:** a gravação no banco foi bloqueada pelo modo auto. O usuário liga pela tela (Clientes → editar Malibu).
