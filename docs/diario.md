@@ -980,3 +980,14 @@ O usuário pediu as duas melhorias oferecidas no diagnóstico da Ana, mais uma i
   - "Gostaria de reservar tmb uma mesa para dois as 12:30" lê 2 pessoas e 12:30.
   - Nenhum disparo indevido.
 - **Chave "só roda em anúncio" do Malibu:** a gravação no banco foi bloqueada pelo modo auto. O usuário liga pela tela (Clientes → editar Malibu).
+
+### 2026-10-26 (continuação) — Ajustes do fluxo pelas conversas reais (commit `6978a86`, não enviado)
+
+O usuário relatou o final 4326, e eu revisei as outras conversas do robô do dia.
+
+- **4326:** a pessoa respondeu "Para 3 pessoas hoje" e o robô perguntou o dia de novo. A etapa de pessoas agora aproveita o dia e o horário da mesma frase. Também passou a preferir `extractPartySize` ("dia 25, 2 pessoas" é 2, não 25).
+- **Perfil "📵":** saía "Olá, 📵!". `displayName` (`waitlistText.js`) tira do nome tudo o que não é letra, e `firstName` usa ele. O robô de reserva limpa o `profileName` na entrada. Sem nome, o robô diz "Olá!" e pergunta o nome.
+- **Ausência do WhatsApp Business:** "Agradecemos sua mensagem. Não estamos disponíveis..." saiu 1min46s depois e pausou o robô, como se fosse atendente. `isAutomaticReply` (`whatsappIngest.js`) reconhece esses textos e não pausa. Essa mensagem tem um link do **Agenda de Mesa** (agendademesa.com.br/malibu), que concorre com o robô. Sugeri ao usuário desligar a ausência no celular do Malibu.
+- **Gilmar ("Vou ver aqui e assim que definir, aviso"):** o robô insistia e passava pra equipe. `isDeferral` agora encerra com o texto novo `later` ("Combinado! Quando decidir...") e não pausa o robô.
+- Testado: backend 446 testes, frontend 73, build ok.
+- **Deploy:** esperando o ok do usuário, porque às 17h17 o Malibu já estava aberto.
