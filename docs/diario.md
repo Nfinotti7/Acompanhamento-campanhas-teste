@@ -991,3 +991,4 @@ O usuário relatou o final 4326, e eu revisei as outras conversas do robô do di
 - **Gilmar ("Vou ver aqui e assim que definir, aviso"):** o robô insistia e passava pra equipe. `isDeferral` agora encerra com o texto novo `later` ("Combinado! Quando decidir...") e não pausa o robô.
 - Testado: backend 446 testes, frontend 73, build ok.
 - **Deploy:** esperando o ok do usuário, porque às 17h17 o Malibu já estava aberto.
+- **Correção (usuário, 26/10):** a mensagem "Não estamos disponíveis..." com o link do Agenda de Mesa foi mandada **por uma pessoa**, porque só a Further tem o número. Então o certo é pausar o robô, e `isAutomaticReply` foi retirado antes do deploy (commit seguinte). O usuário vai treinar a equipe do Malibu nesta semana. Até lá, erros de uso da equipe ficam de lado, e melhoramos o que der pelo sistema.

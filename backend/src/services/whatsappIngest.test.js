@@ -437,27 +437,3 @@ test('respostas automáticas só rodam quando o robô de reserva não tratou a m
     if (expectInfo) assert.equal(infoCalls[0].body, 'Quero ver o cardápio');
   }
 });
-
-test('mensagem de ausência do WhatsApp Business não pausa o robô, mesmo minutos depois', async () => {
-  const calls = [];
-  let paused = 0;
-  const db = {
-    query: async (sql, params = []) => {
-      calls.push({ sql, params });
-      if (/INSERT INTO whatsapp_contacts/.test(sql)) return { rows: [{ id: 7, inserted: false }] };
-      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ name: 'Malibu', dashboard_enabled: true, reservations_enabled: true }] };
-      if (/SELECT sent_at FROM whatsapp_messages/.test(sql)) return { rows: [{ sent_at: '2026-10-26T18:12:14.000Z' }] };
-      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
-      return { rows: [] };
-    }
-  };
-  const away = 'Agradecemos sua mensagem. Não estamos disponíveis no momento, mas entraremos em contato assim que possível.';
-  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', body: away, sentAt: '2026-10-26T18:14:00.000Z' }), {
-    db, broadcast: () => {}, pauseBot: async () => { paused++; }
-  });
-  assert.equal(paused, 0);
-  await ingestWhatsAppEvent(9, baseEvent({ direction: 'outbound', waMessageId: 'X2', body: 'Para realizar sua reserva, me informe o nome', sentAt: '2026-10-26T18:14:50.000Z' }), {
-    db, broadcast: () => {}, pauseBot: async () => { paused++; }
-  });
-  assert.equal(paused, 1);
-});
