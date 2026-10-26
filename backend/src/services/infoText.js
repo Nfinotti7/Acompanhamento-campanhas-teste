@@ -16,18 +16,32 @@ export const DEFAULT_INFO_SETTINGS = {
   reserveHint: 'Quer garantir sua mesa? É só responder RESERVA que eu já faço a reserva pra você.'
 };
 
+// Cada assunto aceita as formas mais comuns de perguntar (ver infoText.test.js). O texto
+// chega sem acento, minúsculo e com as abreviações expandidas (ABBREVIATIONS).
 const PATTERNS = {
-  menu: /\b(cardapios?|menu)\b/,
-  prices: /\b(precos?|valor(es)?|quanto (custa|e|fica|sai|ta|esta)|rodizio|premium|happy hour)\b/,
-  hours: /\b(horarios?|funcionamento|que horas (voces )?(abre|abrem|fecha|fecham|funciona)|ate que horas|(abre|abrem|aberto|abertos|funciona|funcionam) (hoje|amanha|domingo|segunda|terca|quarta|quinta|sexta|sabado|feriado))\b/,
-  location: /\b(endereco|localizacao|localiza|onde (voces )?(fica|ficam|e|estao|esta)|como (chego|chegar|faco pra chegar)|qual o local|mapa|maps)\b/
+  menu: /\b(cardapios?|menus?|pratos|o que (voces )?(servem|tem)|opcoes do rodizio|o que vem no rodizio)\b/,
+  // "quanto tempo de espera?" não é preço.
+  prices: /\b(precos?|valor(es)?|quanto(?! tempo)|rodizio|premium|happy hour|promocao|promocoes|promo|desconto|por pessoa|crianca paga|criancas pagam|bariatric\w*)\b/,
+  hours: /\b(horarios?|funcionamento|expediente|que horas|ate que hora|abre|abrem|aberto|abertos|funciona|funcionam|funcionando|fecha|fecham)\b/,
+  location: /\b(endereco|localizacao|localizados?|local|onde|qual (o )?bairro|que bairro|qual bairro|qual (a )?rua|que rua|como (chego|chegar|faco (pra|para) chegar)|chegar ai|ponto de referencia|mapa|maps|waze|pin)\b/
+};
+
+// Como os leads escrevem no WhatsApp.
+const ABBREVIATIONS = {
+  vcs: 'voces', vc: 'voce', q: 'que', oq: 'o que', qto: 'quanto', qnto: 'quanto', qnt: 'quanto', qt: 'quanto',
+  hr: 'horario', hrs: 'horario', loc: 'localizacao', end: 'endereco', tb: 'tambem', tbm: 'tambem', pf: 'por favor', pfv: 'por favor'
 };
 
 // Pergunta longa tem outra coisa junto ("tem opção vegana no cardápio?"): fica com a equipe.
 const MAX_WORDS = 15;
 
 function clean(text) {
-  return normalize(text).replace(/[!?.,;]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return normalize(text)
+    .replace(/[!?.,;:()]+/g, ' ')
+    .split(/\s+/)
+    .map((word) => ABBREVIATIONS[word] || word)
+    .join(' ')
+    .trim();
 }
 
 export function detectInfoTopics(text) {
