@@ -951,3 +951,14 @@ O usuário pediu as duas melhorias oferecidas no diagnóstico da Ana, mais uma i
 **Bloqueado:** gravar os textos do Malibu e mudar a sexta (hours[5] = 12:00–14:30 + 17:00–22:30). O modo auto barrou a escrita no banco de produção. O script está pronto no scratchpad desta sessão (`save-malibu-info.mjs`, tem `--dry`). A alternativa é colar os textos no Configurar depois do deploy e trocar a sexta lá mesmo (a tela de horários já está no ar).
 
 **Não testado:** envio real pelo WhatsApp. O link do Maps (`/maps/place/MALIBU+SUSHIBAR/@-16.7118064,-49.2735557,17z`) não pôde ser conferido daqui.
+
+### 2026-10-26 (continuação) — No ar: mudar reserva, número só de anúncios, respostas automáticas e variações
+
+- **Deploy 1:** o usuário fez o push de `4f222e3` (o meu foi bloqueado pelo modo auto). O bundle novo confirmou, e Malibu e Mercearia ficaram `connected` sem QR. A tabela `info_replies` foi criada.
+- **Variações** (commit `b38138b`, push meu, liberado pelo usuário):
+  - `infoText.js` expande as abreviações (vcs, qto, qnt, hr, loc...) e reconhece muitas formas de perguntar ("onde?", "fica onde?", "manda a loc", "que horas abre?", "tá aberto?", "quanto?", "tem promoção?", "quais os pratos?"). A lista fica nos testes.
+  - "quanto tempo" não conta como preço.
+  - Rodado nas 54 mensagens distintas já recebidas pelo Malibu: 19 responderiam, nenhuma por engano.
+- **Malibu configurado** pelo `save-malibu-info.mjs`, com o usuário liberando: respostas automáticas ligadas com os textos de cardápio, preços, horário e localização, e a sexta com jantar a partir das 17h (hours[5] = 12:00–14:30 + 17:00–22:30).
+- **Ainda desligado:** a chave "só roda em anúncio" do Malibu.
+- **Lacuna oferecida (não feita):** "gostaria de fazer uma reserva" e "Quero reserva para 12h" não disparam o robô de reserva, que só começa com RESERVA ou com o código.
