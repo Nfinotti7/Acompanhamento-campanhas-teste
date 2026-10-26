@@ -44,7 +44,7 @@
 
 **No ar desde 22/10 19:40 (push `e27a6af`):** ponte entre processos pelo banco (qualquer processo envia; provável causa do antigo "standby depois de deploy"), tipos de mensagem do WhatsApp, bolinha + notificações push, sincronização de campanhas em segundo plano, lista do Balcão no celular e **Caixa → Balcão (`/balcao`)**. O deploy reconectou sozinho, sem restart. Ver Registro 2026-10-22. Já aconteceu 3 vezes (14/10, 16/10, 18/10): o processo antigo continua dono da sessão e o novo fica em `standby` até alguém reiniciar o app no hPanel. Ver Registro 2026-10-18 (continuação).
 
-**Branch `feat/reservas-mudar` (23/10, não enviada):** o robô muda dia e horário de uma reserva marcada (MUDAR) e corrige o nome completo mandado na hora do resumo. Também tem a chave "WhatsApp só roda em anúncio" no cadastro do cliente e guarda o cartão de anúncio não reconhecido. Falta o deploy e ligar a chave no Malibu. Ver Registro 2026-10-23.
+**Branch `feat/reservas-mudar` (23/10, não enviada):** o robô muda dia e horário de uma reserva marcada (MUDAR) e corrige o nome completo mandado na hora do resumo. Também tem a chave "WhatsApp só roda em anúncio" no cadastro do cliente e guarda o cartão de anúncio não reconhecido. Falta o deploy e ligar a chave no Malibu. Ver Registro 2026-10-23. Desde 26/10 a branch também tem as **respostas automáticas do Balcão** (cardápio, preços, horário, localização). Falta gravar os textos do Malibu e mudar a sexta pra jantar às 17h (`save-malibu-info.mjs`, foi bloqueado pelo modo auto). Ver Registro 2026-10-26.
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
@@ -913,3 +913,41 @@ O usuário pediu as duas melhorias oferecidas no diagnóstico da Ana, mais uma i
 - deploy, fora do horário de serviço do Malibu;
 - depois do deploy, ligar a chave no Malibu (Clientes → editar);
 - decidir se marca a Ana (contato 962) como Meta Ads presumido. A chave não age em contato antigo.
+
+### 2026-10-26 — Respostas automáticas do Balcão (branch `feat/reservas-mudar`, commit `9f7cecf`, não enviada)
+
+**Pedido do usuário:** antes de subir, o robô também deve responder localização e cardápio, de um jeito mais humano que a atendente. Ele mandou prints de duas respostas.
+
+**O que as conversas do Malibu mostravam (21 a 26/10):**
+- quem perguntava "Onde vocês ficam?" esperou até 14h;
+- o cardápio ia como "cardapio rodizio" + link, de 15 min a 2h depois;
+- quem perguntou o horário recebeu o bloco de preços;
+- o `**negrito**` aparecia com os asteriscos, porque no WhatsApp o negrito é um asterisco só;
+- uma promoção vencida em 30/09 foi mandada em 23/10;
+- a localização foi um link enorme do Maps.
+
+**Decisões do usuário (AskUserQuestion):**
+- reservas continuam até 22h30, e o "reservas até 19h30" da equipe não vale;
+- sexta tem almoço e jantar a partir das 17h;
+- o almoço vai das 12h às 15h30;
+- os preços da equipe valem, sem promoção.
+
+**Como ficou:**
+- **`infoText.js`:** `detectInfoTopics` reconhece cardápio, preços, horário e localização, e só em mensagem de até 15 palavras (pergunta longa fica com a equipe). `isOtherQuestion` reconhece "Tenho outra dúvida". Os textos padrão ficam em `DEFAULT_INFO_SETTINGS`.
+- **`infoBot.js`:**
+  - Usa os textos de `reservation_settings.config.info` e manda uma resposta por assunto, com `sentBy='bot_info'` e "digitando".
+  - O convite pra reservar (`reserveHint`) vai no fim, só pra quem não tem reserva nem está no meio de uma.
+  - Não repete o mesmo assunto pro mesmo contato em 12h (tabela `info_replies`, gravada antes do envio) e trata uma mensagem por vez por contato.
+  - Para quando a equipe responde (`isBotPaused`).
+  - "Tenho outra dúvida" responde "Claro, pode mandar sua dúvida 🙂" e o resto fica com a equipe.
+- **Ingest:** o infoBot roda depois do robô de reserva, só quando ele devolve `ignored`. Por enquanto só existe pra cliente com reservas ligadas, porque a configuração mora lá.
+- **Robô de reserva:** pergunta de cardápio, preço etc. no meio da reserva não conta como "não entendi". Ele devolve `ignored`, a resposta automática responde e a reserva continua no mesmo passo (era o caso do contato 951).
+- **Balcão → Reservas → Configurar:** seção "Respostas automáticas", com chave e um texto por assunto. Assunto em branco não é respondido.
+
+**Testado:**
+- Backend 423 testes, frontend 73, build ok.
+- infoBot rodado contra o Postgres de produção numa transação com ROLLBACK: respondeu, não repetiu, e respondeu só o assunto que tinha texto.
+
+**Bloqueado:** gravar os textos do Malibu e mudar a sexta (hours[5] = 12:00–14:30 + 17:00–22:30). O modo auto barrou a escrita no banco de produção. O script está pronto no scratchpad desta sessão (`save-malibu-info.mjs`, tem `--dry`). A alternativa é colar os textos no Configurar depois do deploy e trocar a sexta lá mesmo (a tela de horários já está no ar).
+
+**Não testado:** envio real pelo WhatsApp. O link do Maps (`/maps/place/MALIBU+SUSHIBAR/@-16.7118064,-49.2735557,17z`) não pôde ser conferido daqui.
