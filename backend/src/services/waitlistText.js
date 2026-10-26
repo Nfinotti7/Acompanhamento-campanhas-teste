@@ -86,8 +86,17 @@ export function phoneVariants(waId) {
   return [d];
 }
 
+// Nome do perfil do WhatsApp sem o que não é nome: "📵" vira "", "🍀 Ana Souza" vira
+// "Ana Souza". Sem isso o robô mandaria "Olá, 📵!".
+export function displayName(name) {
+  return String(name || '').trim().split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{M}'’-]/gu, ''))
+    .filter((w) => /\p{L}/u.test(w))
+    .join(' ');
+}
+
 export function firstName(name) {
-  return String(name || '').trim().split(/\s+/)[0] || '';
+  return displayName(name).split(' ')[0] || '';
 }
 
 export function formatGroupsAhead(n) {

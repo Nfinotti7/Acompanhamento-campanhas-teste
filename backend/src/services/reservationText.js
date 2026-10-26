@@ -25,6 +25,7 @@ export const DEFAULT_RESERVATION_MESSAGES = {
   cancelled: 'Reserva cancelada. Se quiser marcar de novo, é só mandar RESERVA.',
   cancelledByStaff: 'Sua reserva de {dia}, {hora} foi cancelada. Qualquer dúvida, é só responder aqui.',
   handoff: 'Só um instante, já te respondo 🙂',
+  later: 'Combinado! Quando decidir, é só me mandar o dia e o número de pessoas que eu faço a reserva 🙂',
   adFallbackAsk: 'Quer fazer uma reserva? Responda 1 pra reservar ou 2 pra falar com a gente.',
   changeAsk: 'Claro! Sua reserva está pra {dia}, {hora}, {pessoas} pessoas. Pra quando quer mudar? Pode mandar o dia, o horário ou os dois (ex: sábado 20h).',
   changePick: 'Qual reserva você quer mudar? {opcoes}',
@@ -63,6 +64,13 @@ export function isReservationIntent(text) {
   if (/\b(minha|nossa) reserva (de|do|da|para|pra|esta|ta|foi|e|ficou|confirmada)\b/.test(t)) return false;
   if (/\b(cancel\w*|desmarc\w*)\b/.test(t)) return false;
   return !isChangeCommand(text);
+}
+
+// "Vou ver aqui e assim que definir, aviso": a pessoa ainda não decidiu. O robô encerra
+// com gentileza em vez de insistir na pergunta.
+export function isDeferral(text) {
+  const t = clean(text);
+  return /\b(vou ver|vou verificar|vou confirmar|vou combinar|vou falar com|ainda nao sei|nao sei ainda|assim que (eu )?(definir|decidir|souber|confirmar)|quando (eu )?(definir|decidir|souber)|depois (eu )?(te )?(aviso|falo|vejo|retorno|confirmo|chamo)|te (aviso|falo|retorno|chamo)|aviso (depois|voces|vcs|vc|voce|aqui))\b/.test(t);
 }
 
 // Número de pessoas dentro da frase do pedido ("mesa para dois", "4 pessoas", "somos 3").

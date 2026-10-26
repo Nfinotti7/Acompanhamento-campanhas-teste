@@ -8,7 +8,7 @@ import { sendToContact } from './whatsappSender.js';
 import { sendTyping } from './baileysClient.js';
 import { isBotPaused, pauseBot } from './botPause.js';
 import { detectInfoTopics } from './infoText.js';
-import { firstName, renderMessage, parsePartySize } from './waitlistText.js';
+import { firstName, displayName, renderMessage, parsePartySize } from './waitlistText.js';
 import { isUniqueViolation } from './waitlistQueue.js';
 import {
   availableSlots, slotsForDay, tablesForDay, maxParty, toInstant, dayOf, addDays
@@ -17,7 +17,7 @@ import {
   DEFAULT_RESERVATION_MESSAGES, isReservationCommand, isCancelCommand, isYes, parseDay, parseTimeChoice,
   formatDayLabel, formatTime, formatOptions, mentionsWeekday,
   isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName,
-  isReservationIntent, extractPartySize
+  isReservationIntent, extractPartySize, isDeferral
 } from './reservationText.js';
 import {
   loadReservationSettings, createReservation, updateReservation, listReservations, upcomingReservationsForContact,
@@ -76,6 +76,8 @@ async function handleOne(
   const d = resolveDeps(deps);
   const q = d.db;
   const text = body || '';
+  // Perfil só com emoji ("📵") é como perfil sem nome: o robô pergunta o nome.
+  profileName = displayName(profileName) || null;
   const today = dayOf(d.now);
 
   const settings = await d.loadSettings(q, clientId);
@@ -388,6 +390,12 @@ async function handleOne(
       await reply('aborted');
       return 'aborted';
     }
+    // Ainda não decidiu: encerra sem passar pra equipe (não é algo que ela precise resolver).
+    if (conv.step !== 'ad_fallback' && isDeferral(text) && !extractPartySize(text) && !parseDay(text, today)) {
+      await finish(conv, 'done');
+      await reply('later');
+      return 'later';
+    }
   }
 
   // CANCELAR no meio da mudança: a pessoa desistiu da reserva, não só da mudança. Passa
@@ -407,11 +415,16 @@ async function handleOne(
     }
 
     case 'size': {
-      const size = parsePartySize(text);
+      // "dia 25, 2 pessoas": o número de pessoas dito por extenso vale mais que o
+      // primeiro número da frase.
+      const size = extractPartySize(text) || parsePartySize(text);
       if (!size) return retry(conv, 'askSizeAgain');
       if (size > maxParty(settings)) return handoff(conv);
-      await save(conv, 'day', { size, wantedTime: data.wantedTime || null });
-      if (data.wantedDay) return stepDay(conv, '', data.wantedTime, data.wantedDay);
+      // "Para 3 pessoas hoje": o dia (e o horário) que vierem junto já valem.
+      const day = data.wantedDay || parseDay(text, today);
+      const time = data.wantedTime || extractTime(text);
+      await save(conv, 'day', { size, wantedTime: time || null });
+      if (day) return stepDay(conv, text, time, day);
       await reply('askDay');
       return 'asked_day';
     }

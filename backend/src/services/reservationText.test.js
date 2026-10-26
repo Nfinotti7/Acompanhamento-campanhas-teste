@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_RESERVATION_MESSAGES, RESERVATION_MESSAGE_KEYS, isReservationCommand, isCancelCommand, isYes,
   parseDay, parseTimeChoice, formatDayLabel, formatTime, formatOptions, mentionsWeekday,
-  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName, isReservationIntent, extractPartySize
+  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName, isReservationIntent, extractPartySize, isDeferral
 } from './reservationText.js';
 
 test('isChangeCommand', () => {
@@ -164,4 +164,10 @@ test('extractPartySize: só número que é de pessoas', () => {
   assert.equal(extractPartySize('para 19:30'), null);
   assert.equal(extractPartySize('2 adultos e uma criança'), null);
   assert.equal(extractPartySize('gostaria de fazer uma reserva'), null);
+});
+
+test('isDeferral', () => {
+  for (const t of ['Vou ver aqui e assim que definir, aviso. Obrigado', 'Ok, Assim que decidir o dia , te aviso. Obrigado',
+    'ainda não sei', 'depois te falo', 'vou confirmar com meu marido']) assert.ok(isDeferral(t), t);
+  for (const t of ['4', 'sábado', 'sim', 'quero reservar']) assert.ok(!isDeferral(t), t);
 });

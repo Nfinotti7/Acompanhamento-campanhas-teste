@@ -27,6 +27,7 @@ const MESSAGE_LABELS = {
   cancelled: 'Cancelada pelo cliente',
   cancelledByStaff: 'Cancelada pela equipe',
   handoff: 'Passa pra equipe',
+  later: 'Cliente ainda vai decidir ("vou ver e te aviso")',
   adFallbackAsk: 'Pergunta pra quem veio do anúncio sem código',
   changeAsk: 'Mudar reserva: pergunta pra quando',
   changePick: 'Mudar reserva: qual delas',

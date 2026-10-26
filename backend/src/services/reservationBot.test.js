@@ -178,7 +178,7 @@ test('atendente responde durante o "digitando" → não envia', async () => {
 test('2 respostas não entendidas → handoff e pausa', async () => {
   const { say, last, paused, events, conversations } = setup();
   await say('RESERVA');
-  assert.equal(await say('não sei ainda'), 'asked_size_again');
+  assert.equal(await say('tanto faz'), 'asked_size_again');
   assert.equal(last(), 'Me manda só o número de pessoas, por exemplo: 4');
   assert.equal(await say('hmm'), 'handoff');
   assert.equal(last(), 'Só um instante, já te respondo 🙂');
@@ -551,4 +551,37 @@ test('na etapa do dia, "sábado às 20h" já escolhe o horário', async () => {
   const { say } = setup();
   await say('RESERVA'); await say('2');
   assert.equal(await say('sábado às 20h'), 'asked_name');
+});
+
+// Conversas reais do Malibu em 26/10.
+test('final 4326: "Para 3 pessoas hoje" já usa o dia; perfil "📵" não vira nome', async () => {
+  const { say, last } = setup({ now: toInstant('2026-10-26', '15:10') });
+  await say('Quero fazer uma reserva (cód. RESERVA)', { profileName: '📵' });
+  assert.equal(last(), 'Olá! Quer fazer uma reserva no Malibu? Pra quantas pessoas?');
+  assert.equal(await say('Para 3 pessoas hoje', { profileName: '📵' }), 'asked_time');
+  assert.match(last(), /^Pra hoje \(26\/10\) tenho: 1\) 17h/);
+  assert.equal(await say('19h', { profileName: '📵' }), 'asked_name');
+  assert.equal(last(), 'Em nome de quem fica a reserva?');
+});
+
+test('na etapa de pessoas, "somos 2 sábado às 20h" vai direto pro nome', async () => {
+  const { say } = setup();
+  await say('RESERVA');
+  assert.equal(await say('somos 2 sábado às 20h'), 'asked_name');
+});
+
+test('"dia 25, 2 pessoas" na etapa de pessoas lê 2 (não 25)', async () => {
+  const { say, conversations } = setup();
+  await say('RESERVA');
+  assert.equal(await say('dia 25, 2 pessoas'), 'asked_time');
+  assert.equal(conversations[0].data.size, 2);
+});
+
+test('Gilmar: "Vou ver aqui e assim que definir, aviso" encerra com gentileza, sem chamar a equipe', async () => {
+  const { say, last, paused, conversations } = setup();
+  await say('Quero fazer uma reserva (cód. RESERVA)', { profileName: 'Gilmar Leite Rosa' });
+  assert.equal(await say('Vou ver aqui e assim que definir, aviso.\nObrigado'), 'later');
+  assert.equal(last(), 'Combinado! Quando decidir, é só me mandar o dia e o número de pessoas que eu faço a reserva 🙂');
+  assert.equal(paused.length, 0);
+  assert.equal(conversations[0].status, 'done');
 });

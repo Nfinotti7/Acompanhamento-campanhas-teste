@@ -16,6 +16,13 @@ export const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
 // (saudação/ausência do WhatsApp Business), não atendente: não pausa o robô de reserva.
 export const AUTO_REPLY_WINDOW_MS = 10 * 1000;
 
+// Texto de ausência/saudação do WhatsApp Business, que às vezes sai minutos depois
+// (26/10, Malibu: 1min46s): também não é atendente assumindo.
+export function isAutomaticReply(body) {
+  const t = String(body || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return /nao estamos disponiveis|agradecemos (a |sua |seu |o seu |pelo |pela )?(mensagem|contato)|entraremos em contato|retornaremos (em breve|assim que|o mais)|responderemos (em breve|assim que|o mais)|fora do (nosso )?(horario|expediente)|no momento nao (podemos|estamos)/.test(t);
+}
+
 async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
   let data;
   try {
@@ -222,7 +229,9 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
         [contactId]
       );
       const sinceInbound = lastIn[0] ? new Date(event.sentAt).getTime() - new Date(lastIn[0].sent_at).getTime() : Infinity;
-      if (sinceInbound >= AUTO_REPLY_WINDOW_MS) await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
+      if (sinceInbound >= AUTO_REPLY_WINDOW_MS && !isAutomaticReply(event.body)) {
+        await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
+      }
     } catch (error) {
       console.error('Reservas: erro ao pausar o robô:', error.message);
     }
