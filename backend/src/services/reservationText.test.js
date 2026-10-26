@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_RESERVATION_MESSAGES, RESERVATION_MESSAGE_KEYS, isReservationCommand, isCancelCommand, isYes,
   parseDay, parseTimeChoice, formatDayLabel, formatTime, formatOptions, mentionsWeekday,
-  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName
+  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName, isReservationIntent, extractPartySize
 } from './reservationText.js';
 
 test('isChangeCommand', () => {
@@ -139,4 +139,29 @@ test('mentionsWeekday', () => {
   assert.ok(mentionsWeekday('pode ser sábado'));
   assert.ok(!mentionsWeekday('hoje'));
   assert.ok(!mentionsWeekday('25/10'));
+});
+
+test('isReservationIntent: jeitos comuns de pedir reserva', () => {
+  for (const t of [
+    'gostaria de fazer uma reserva', 'Quero reserva para 12h', 'quero reservar uma mesa', 'Vocês aceitam reserva?',
+    'fazem reserva?', 'dá pra reservar pra sábado?', 'Bom dia, quero fazer uma reserva para 4 pessoas', 'reservas',
+    'Gostaria de reservar tmb uma mesa para dois as 12:30 aproximadamente', 'como faço pra reservar?'
+  ]) assert.ok(isReservationIntent(t), t);
+  for (const t of [
+    'já fiz a reserva', 'tenho uma reserva hoje às 20h', 'reservei pra sábado', 'quero cancelar minha reserva',
+    'minha reserva de sábado está confirmada?', 'quero mudar a reserva', 'boa noite', 'Quero ver o cardápio'
+  ]) assert.ok(!isReservationIntent(t), t);
+});
+
+test('extractPartySize: só número que é de pessoas', () => {
+  assert.equal(extractPartySize('mesa para dois as 12:30'), 2);
+  assert.equal(extractPartySize('reserva para 4 pessoas'), 4);
+  assert.equal(extractPartySize('somos 3'), 3);
+  assert.equal(extractPartySize('pra 6'), 6);
+  assert.equal(extractPartySize('um casal'), 2);
+  assert.equal(extractPartySize('Quero reserva para 12h'), null);
+  assert.equal(extractPartySize('reserva pra 25/10'), null);
+  assert.equal(extractPartySize('para 19:30'), null);
+  assert.equal(extractPartySize('2 adultos e uma criança'), null);
+  assert.equal(extractPartySize('gostaria de fazer uma reserva'), null);
 });

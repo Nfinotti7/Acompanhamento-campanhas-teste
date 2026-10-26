@@ -140,7 +140,7 @@ test('sem nome de perfil, pergunta o nome', async () => {
 
 test('mensagem comum sem conversa é ignorada', async () => {
   const { say, sent } = setup();
-  assert.equal(await say('vocês aceitam reserva pra sábado?'), 'ignored');
+  assert.equal(await say('vocês têm estacionamento?'), 'ignored');
   assert.equal(sent.length, 0);
 });
 
@@ -483,4 +483,72 @@ test('sem respostas automáticas, pergunta de cardápio no meio da reserva conta
   const { say } = setup();
   await say('RESERVA');
   assert.equal(await say('Quero ver cardápio'), 'asked_size_again');
+});
+
+test('pedido escrito sem detalhes começa pela pergunta de pessoas', async () => {
+  const { say, last } = setup();
+  assert.equal(await say('gostaria de fazer uma reserva'), 'asked_size');
+  assert.equal(last(), 'Olá, Ana! Quer fazer uma reserva no Malibu? Pra quantas pessoas?');
+  assert.equal(await say('vocês aceitam reserva?'), 'ignored'); // já está na conversa: não recomeça
+});
+
+test('pedido com pessoas e horário mas sem dia: cumprimenta e pergunta o dia', async () => {
+  const { say, last, conversations } = setup();
+  assert.equal(await say('Gostaria de reservar tmb uma mesa para dois as 12:30 aproximadamente'), 'asked_day');
+  assert.equal(last(), 'Olá, Ana! Vamos fazer sua reserva no Malibu 🙂\nPra qual dia? (ex: hoje, amanhã, sábado, 25/10)');
+  assert.equal(conversations[0].data.size, 2);
+});
+
+test('pedido completo ("mesa pra 4 sábado às 20h") vai direto pro nome', async () => {
+  const { say, last, conversations, sent } = setup();
+  assert.equal(await say('quero reservar uma mesa pra 4 pessoas sábado às 20h'), 'asked_name');
+  assert.equal(sent.length, 1);
+  assert.equal(last(), 'Olá, Ana! Vamos fazer sua reserva no Malibu 🙂\nA reserva fica em nome de Ana? Responda SIM ou mande outro nome.');
+  assert.deepEqual([conversations[0].data.size, conversations[0].data.day, conversations[0].data.time], [4, '2026-10-24', '20:00']);
+});
+
+test('pedido com pessoas e dia, sem horário: mostra a lista do dia', async () => {
+  const { say, last } = setup();
+  assert.equal(await say('Quero reserva pra amanhã, somos 3'), 'asked_time');
+  assert.match(last(), /^Olá, Ana! Vamos fazer sua reserva no Malibu 🙂\nPra amanhã \(23\/10\) tenho: 1\) 12h/);
+});
+
+test('pedido com horário sem vaga mostra a lista', async () => {
+  const { say, last } = setup();
+  assert.equal(await say('reserva pra 2 pessoas sábado às 16h'), 'asked_time');
+  assert.match(last(), /Pra sábado 24\/10 tenho:/);
+});
+
+test('pedido de grupo grande vai pra equipe', async () => {
+  const { say, last } = setup();
+  assert.equal(await say('quero fazer reserva para 15 pessoas'), 'handoff');
+  assert.match(last(), /Só um instante, já te respondo 🙂$/);
+});
+
+test('falar de reserva que já existe não começa outra', async () => {
+  const { say, sent } = setup();
+  assert.equal(await say('já fiz a reserva pra sábado'), 'ignored');
+  assert.equal(await say('minha reserva de sábado está confirmada?'), 'ignored');
+  assert.equal(sent.length, 0);
+});
+
+test('"Quero reserva para 12h" guarda o horário até saber pessoas e dia', async () => {
+  const { say, conversations } = setup();
+  assert.equal(await say('Quero reserva para 12h'), 'asked_size');
+  assert.equal(await say('2'), 'asked_day');
+  assert.equal(await say('sábado'), 'asked_name');
+  assert.deepEqual([conversations[0].data.day, conversations[0].data.time], ['2026-10-24', '12:00']);
+});
+
+test('"reserva pra sábado" guarda o dia: depois das pessoas já mostra os horários', async () => {
+  const { say, last } = setup();
+  assert.equal(await say('queria fazer uma reserva pra sábado'), 'asked_size');
+  assert.equal(await say('4'), 'asked_time');
+  assert.match(last(), /^Pra sábado 24\/10 tenho: 1\) 12h/);
+});
+
+test('na etapa do dia, "sábado às 20h" já escolhe o horário', async () => {
+  const { say } = setup();
+  await say('RESERVA'); await say('2');
+  assert.equal(await say('sábado às 20h'), 'asked_name');
 });

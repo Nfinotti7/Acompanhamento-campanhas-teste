@@ -16,7 +16,8 @@ import {
 import {
   DEFAULT_RESERVATION_MESSAGES, isReservationCommand, isCancelCommand, isYes, parseDay, parseTimeChoice,
   formatDayLabel, formatTime, formatOptions, mentionsWeekday,
-  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName
+  isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName,
+  isReservationIntent, extractPartySize
 } from './reservationText.js';
 import {
   loadReservationSettings, createReservation, updateReservation, listReservations, upcomingReservationsForContact,
@@ -93,22 +94,18 @@ async function handleOne(
 
   // Confere a pausa de novo depois do "digitando": se o atendente respondeu nesse
   // meio-tempo, o robô não fala. Falha de envio só vai pro log.
+  // greetNext: a próxima resposta abre com o "Olá" (pedido escrito que pulou a pergunta
+  // de pessoas, que é a que normalmente cumprimenta).
+  let greetNext = false;
   async function reply(key, vars = {}) {
     try {
       await d.typing(clientId, waId);
       if (await d.isBotPaused(q, { contactId, now: d.now })) return;
-      const template = settings.messages?.[key] || DEFAULT_RESERVATION_MESSAGES[key];
-      await d.send({
-        clientId,
-        contactId,
-        sentBy: 'bot_reserva',
-        body: renderMessage(template, {
-          nome: firstName(profileName),
-          restaurante: restaurantName,
-          tolerancia: settings.hold_minutes,
-          ...vars
-        })
-      });
+      const allVars = { nome: firstName(profileName), restaurante: restaurantName, tolerancia: settings.hold_minutes, ...vars };
+      const render = (k) => renderMessage(settings.messages?.[k] || DEFAULT_RESERVATION_MESSAGES[k], allVars);
+      const body = greetNext ? `${render('greeting')}\n${render(key)}` : render(key);
+      greetNext = false;
+      await d.send({ clientId, contactId, sentBy: 'bot_reserva', body });
     } catch (error) {
       console.error(`Reservas: falha ao responder "${key}" pro contato ${contactId}:`, error.message);
     }
@@ -266,8 +263,90 @@ async function handleOne(
     return 'cancel_asked';
   }
 
+  // Dia escolhido: oferece os horários. wantedTime (horário já dito no pedido, "sábado
+  // 20h") pula a lista quando tem vaga nele.
+  async function stepDay(c, message, wantedTime = null, knownDay = null) {
+    const base = c.data || {};
+    const day = knownDay || parseDay(message, today);
+    if (!day) return retry(c, 'askDayAgain');
+    const dia = formatDayLabel(day, today);
+    const open = day >= today && day <= addDays(today, settings.max_advance_days)
+      && slotsForDay(settings, day).length > 0 && tablesForDay(settings, day).length > 0;
+    if (!open) {
+      await reply('dayUnavailable', { dia });
+      return 'day_unavailable';
+    }
+    const slots = await slotsFor(day, base.size);
+    if (slots.length > 0) {
+      const options = slots.map((s) => s.time);
+      if (wantedTime && options.includes(wantedTime)) return chooseTime(c, { ...base, day, options }, wantedTime);
+      await save(c, 'time', { ...base, day, options });
+      await reply('askTime', { dia, opcoes: formatOptions(options) });
+      return 'asked_time';
+    }
+    // "sábado" dito num sábado sem horário restante: é o próximo sábado.
+    if (day === today && mentionsWeekday(message)) {
+      const nextWeek = addDays(today, 7);
+      const weekSlots = await slotsFor(nextWeek, base.size);
+      if (weekSlots.length > 0) {
+        const options = weekSlots.map((s) => s.time);
+        if (wantedTime && options.includes(wantedTime)) return chooseTime(c, { ...base, day: nextWeek, options }, wantedTime);
+        await save(c, 'time', { ...base, day: nextWeek, options });
+        await reply('askTime', { dia: formatDayLabel(nextWeek, today), opcoes: formatOptions(options) });
+        return 'asked_time';
+      }
+    }
+    for (let i = 1; i <= SUGGEST_DAYS; i++) {
+      const next = addDays(day, i);
+      const nextSlots = await slotsFor(next, base.size);
+      if (nextSlots.length > 0) {
+        const options = nextSlots.map((s) => s.time);
+        await save(c, 'time', { ...base, day: next, options });
+        await reply('noSlotsSuggest', { dia, pessoas: base.size, proximoDia: formatDayLabel(next, today), opcoes: formatOptions(options) });
+        return 'asked_time';
+      }
+    }
+    await reply('noSlots', { dia, pessoas: base.size });
+    return handoff(c);
+  }
+
+  async function chooseTime(c, base, time) {
+    if (profileName) {
+      await save(c, 'name', { ...base, time, candidate: profileName });
+      await reply('askName');
+    } else {
+      await save(c, 'name', { ...base, time });
+      await reply('askNameEmpty');
+    }
+    return 'asked_name';
+  }
+
+  // Pedido escrito ("mesa pra 2 sábado às 20h"): aproveita o que já veio na frase e
+  // pergunta só o que falta, começando com um "Olá" (a pergunta de pessoas já tem o seu).
+  // Dia e horário que vieram no pedido ficam guardados (wantedDay/wantedTime) até a
+  // pergunta de pessoas ser respondida: "Quero reserva para 12h" → "2" → "sábado" já cai
+  // no 12h.
+  async function startFromIntent(c, message) {
+    const size = extractPartySize(message);
+    const wantedDay = parseDay(message, today);
+    const wantedTime = extractTime(message);
+    if (!size) {
+      await save(c, 'size', { wantedDay, wantedTime });
+      return askSize(null);
+    }
+    greetNext = true;
+    if (size > maxParty(settings)) return handoff(c);
+    await save(c, 'day', { size, wantedTime });
+    if (!wantedDay) {
+      await reply('askDay');
+      return 'asked_day';
+    }
+    return stepDay(c, message, wantedTime, wantedDay);
+  }
+
   if (!conv) {
-    if (isReservationCommand(text)) {
+    const command = isReservationCommand(text);
+    if (command || isReservationIntent(text)) {
       const c = await start('size');
       if (!c) return 'ignored';
       // A equipe pode ter pausado entre a checagem de entrada e a criação da conversa.
@@ -275,7 +354,7 @@ async function handleOne(
         await finish(c, 'handed_off');
         return 'paused';
       }
-      return askSize(null);
+      return command ? askSize(null) : startFromIntent(c, text);
     }
     if (isCancelCommand(text)) {
       const upcoming = await d.upcomingReservations(q, { clientId, contactId, now: d.now });
@@ -301,6 +380,8 @@ async function handleOne(
   if (RESERVATION_STEPS.includes(conv.step)) {
     // Código repetido logo no começo (tocou enviar duas vezes): a pergunta já foi feita.
     if (isReservationCommand(text) && conv.step === 'size' && !conv.attempts) return 'ignored';
+    // Mesma coisa com o pedido escrito ("oi" + "quero fazer uma reserva" em duas mensagens).
+    if (conv.step === 'size' && !conv.attempts && isReservationIntent(text) && !parsePartySize(text)) return 'ignored';
     if (isReservationCommand(text) && conv.step !== 'ad_fallback') return askSize(conv);
     if (isCancelCommand(text)) {
       await finish(conv, 'done');
@@ -329,64 +410,20 @@ async function handleOne(
       const size = parsePartySize(text);
       if (!size) return retry(conv, 'askSizeAgain');
       if (size > maxParty(settings)) return handoff(conv);
-      await save(conv, 'day', { size });
+      await save(conv, 'day', { size, wantedTime: data.wantedTime || null });
+      if (data.wantedDay) return stepDay(conv, '', data.wantedTime, data.wantedDay);
       await reply('askDay');
       return 'asked_day';
     }
 
-    case 'day': {
-      const day = parseDay(text, today);
-      if (!day) return retry(conv, 'askDayAgain');
-      const dia = formatDayLabel(day, today);
-      const open = day >= today && day <= addDays(today, settings.max_advance_days)
-        && slotsForDay(settings, day).length > 0 && tablesForDay(settings, day).length > 0;
-      if (!open) {
-        await reply('dayUnavailable', { dia });
-        return 'day_unavailable';
-      }
-      const slots = await slotsFor(day, data.size);
-      if (slots.length > 0) {
-        const options = slots.map((s) => s.time);
-        await save(conv, 'time', { ...data, day, options });
-        await reply('askTime', { dia, opcoes: formatOptions(options) });
-        return 'asked_time';
-      }
-      // "sábado" dito num sábado sem horário restante: é o próximo sábado.
-      if (day === today && mentionsWeekday(text)) {
-        const nextWeek = addDays(today, 7);
-        const weekSlots = await slotsFor(nextWeek, data.size);
-        if (weekSlots.length > 0) {
-          const options = weekSlots.map((s) => s.time);
-          await save(conv, 'time', { ...data, day: nextWeek, options });
-          await reply('askTime', { dia: formatDayLabel(nextWeek, today), opcoes: formatOptions(options) });
-          return 'asked_time';
-        }
-      }
-      for (let i = 1; i <= SUGGEST_DAYS; i++) {
-        const next = addDays(day, i);
-        const nextSlots = await slotsFor(next, data.size);
-        if (nextSlots.length > 0) {
-          const options = nextSlots.map((s) => s.time);
-          await save(conv, 'time', { ...data, day: next, options });
-          await reply('noSlotsSuggest', { dia, pessoas: data.size, proximoDia: formatDayLabel(next, today), opcoes: formatOptions(options) });
-          return 'asked_time';
-        }
-      }
-      await reply('noSlots', { dia, pessoas: data.size });
-      return handoff(conv);
-    }
+    case 'day':
+      // "sábado às 20h" na resposta do dia também já escolhe o horário.
+      return stepDay(conv, text, extractTime(text) || data.wantedTime || null);
 
     case 'time': {
       const time = parseTimeChoice(text, data.options || []);
       if (!time) return retry(conv, 'askTimeAgain', { opcoes: formatOptions(data.options || []) });
-      if (profileName) {
-        await save(conv, 'name', { ...data, time, candidate: profileName });
-        await reply('askName');
-      } else {
-        await save(conv, 'name', { ...data, time });
-        await reply('askNameEmpty');
-      }
-      return 'asked_name';
+      return chooseTime(conv, data, time);
     }
 
     case 'name': {

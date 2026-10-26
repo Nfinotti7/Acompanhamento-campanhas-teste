@@ -1,10 +1,11 @@
 // Textos e leitura das mensagens do robô de reserva. Tudo puro, sem banco.
 // Nenhum texto diz que é robô: quem escreve não precisa saber (decisão do usuário).
-import { normalize } from './waitlistText.js';
+import { normalize, NUMBER_WORDS } from './waitlistText.js';
 import { addDays, weekdayOf } from './reservationSlots.js';
 
 export const DEFAULT_RESERVATION_MESSAGES = {
   askSize: 'Olá, {nome}! Quer fazer uma reserva no {restaurante}? Pra quantas pessoas?',
+  greeting: 'Olá, {nome}! Vamos fazer sua reserva no {restaurante} 🙂',
   askSizeAgain: 'Me manda só o número de pessoas, por exemplo: 4',
   askDay: 'Pra qual dia? (ex: hoje, amanhã, sábado, 25/10)',
   askDayAgain: 'Não consegui entender o dia 😅 Pode mandar assim: amanhã, sábado ou 25/10',
@@ -48,6 +49,37 @@ export function isReservationCommand(text) {
 
 export function isCancelCommand(text) {
   return /^(cancelar|cancela)( a| minha)?( reserva)?$/.test(clean(text));
+}
+
+// Pedido de reserva escrito do jeito do lead: "gostaria de fazer uma reserva", "quero
+// reservar uma mesa pra sábado", "Quero reserva para 12h", "aceitam reserva?". Quem fala
+// de uma reserva que já existe ("já fiz a reserva", "minha reserva de sábado") ou quer
+// cancelar/mudar fica de fora.
+export function isReservationIntent(text) {
+  const t = clean(text);
+  if (!t || t.split(/\s+/).length > 30) return false;
+  if (!/\breserv(a|as|ar|o|amos)\b/.test(t)) return false;
+  if (/\b(ja (fiz|tenho|tinha|reservei|fizemos)|fiz (uma |a )?reserva|tenho (uma )?reserva|reservei|reservamos)\b/.test(t)) return false;
+  if (/\b(minha|nossa) reserva (de|do|da|para|pra|esta|ta|foi|e|ficou|confirmada)\b/.test(t)) return false;
+  if (/\b(cancel\w*|desmarc\w*)\b/.test(t)) return false;
+  return !isChangeCommand(text);
+}
+
+// Número de pessoas dentro da frase do pedido ("mesa para dois", "4 pessoas", "somos 3").
+// Número solto não vale (pode ser hora ou dia), e grupo com criança fica pra pergunta,
+// porque a conta muda (criança de colo não ocupa lugar).
+export function extractPartySize(text) {
+  const t = normalize(text);
+  if (/\b(crianca|criancas|bebe|bebes|filho|filhos|filha|filhas)\b/.test(t)) return null;
+  const m = t.match(/\b(\d{1,2}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)\s*(pessoas?|lugares|adultos|pax)\b/)
+    || t.match(/\b(?:para|pra)\s+(\d{1,2}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)\b(?!\s*(?:h\b|hs\b|horas|:|\/))/)
+    || t.match(/\bsomos\s+(\d{1,2}|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)\b/);
+  if (m) {
+    const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
+    return n >= 1 && n <= 30 ? n : null;
+  }
+  if (/\bcasal\b/.test(t)) return 2;
+  return null;
 }
 
 // Pedido de mudança de quem já tem reserva: "MUDAR", "posso mudar o horário?", "trocar a

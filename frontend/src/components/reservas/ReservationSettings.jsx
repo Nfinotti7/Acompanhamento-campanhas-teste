@@ -7,6 +7,7 @@ const WEEKDAYS = [[1, 'Segunda'], [2, 'Terça'], [3, 'Quarta'], [4, 'Quinta'], [
 
 const MESSAGE_LABELS = {
   askSize: 'Primeira resposta (pergunta quantas pessoas)',
+  greeting: 'Cumprimento quando o pedido já diz quantas pessoas',
   askSizeAgain: 'Não entendeu o número de pessoas',
   askDay: 'Pergunta o dia',
   askDayAgain: 'Não entendeu o dia',
