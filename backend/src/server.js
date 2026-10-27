@@ -9,6 +9,7 @@ import { login, getMe } from './controllers/authController.js';
 import { listClients, createClient, updateClient, deleteClient } from './controllers/clientController.js';
 import { getCredentials, saveCredentials } from './controllers/credentialsController.js';
 import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns, getSyncJob } from './controllers/campaignController.js';
+import { importGoogleCsv } from './controllers/campaignImportController.js';
 import { captureLead, listLeads, exportRemarketingCSV } from './controllers/leadsController.js';
 import { trackEvent, getAttributionReport } from './controllers/attributionController.js';
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
@@ -199,6 +200,8 @@ app.get('/api/campaigns', getCampaigns);
 app.get('/api/campaigns/:id/daily', getCampaignDaily);
 app.post('/api/campaigns/sync', syncCampaigns);
 app.get('/api/campaigns/sync/:jobId', getSyncJob);
+// CSV do Google Ads enviado como text/plain (o parser JSON global limita em 100kb).
+app.post('/api/campaigns/import-google', requireAdmin, express.text({ type: '*/*', limit: '5mb' }), importGoogleCsv);
 
 // Leads & Remarketing
 app.get('/api/leads', listLeads);

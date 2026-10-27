@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { KeyRound, CheckCircle2, AlertCircle, Save, ShieldAlert, Info, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleCsvImport from '../components/GoogleCsvImport';
 
 export default function CredentialsPage({ selectedClient }) {
   const { user } = useAuth();
@@ -537,6 +538,8 @@ export default function CredentialsPage({ selectedClient }) {
           </button>
         </div>
       </form>
+
+      {activePlatform === 'google' && user?.role === 'admin' && <GoogleCsvImport clientId={targetClientId} />}
     </div>
   );
 }

@@ -179,7 +179,7 @@ async function upsertDailyMetric(tx, { campaignInternalId, clientId, platform, d
   );
 }
 
-async function storeRows(clientId, platform, rows) {
+export async function storeRows(clientId, platform, rows) {
   const byCampaign = new Map();
   for (const r of rows) {
     if (!byCampaign.has(r.campaignId)) {
@@ -216,6 +216,31 @@ async function storeRows(clientId, platform, rows) {
   });
 
   return { campaigns: byCampaign.size, rows: rows.length };
+}
+
+// Campanhas importadas por CSV (campaign_id "csv:<nome>") passam pra campanha real da API
+// quando o sync do Google começa a funcionar: o histórico que só existe no CSV é mantido,
+// e nos dias que a API também trouxe vale o dado da API. Nada fica duplicado.
+export async function adoptCsvCampaigns(clientId, platform, deps = {}) {
+  const withTransaction = deps.withTransaction || db.withTransaction;
+  const match = `r.client_id = c.client_id AND r.platform = c.platform
+        AND r.campaign_name = c.campaign_name AND r.campaign_id NOT LIKE 'csv:%'`;
+  return withTransaction(async (tx) => {
+    const { rowCount: moved } = await tx.query(
+      `UPDATE daily_metrics dm SET campaign_id = r.id
+       FROM campaigns c JOIN campaigns r ON ${match}
+       WHERE dm.campaign_id = c.id AND c.client_id = ? AND c.platform = ?
+         AND c.campaign_id LIKE 'csv:%'
+         AND NOT EXISTS (SELECT 1 FROM daily_metrics x WHERE x.campaign_id = r.id AND x.date = dm.date)`,
+      [clientId, platform]
+    );
+    const { rowCount: removed } = await tx.query(
+      `DELETE FROM campaigns c USING campaigns r
+       WHERE ${match} AND c.client_id = ? AND c.platform = ? AND c.campaign_id LIKE 'csv:%'`,
+      [clientId, platform]
+    );
+    return { moved: moved || 0, removed: removed || 0 };
+  });
 }
 
 async function clearStaleOwnership(tx, platform, campaignId, targetClientId) {
@@ -320,6 +345,9 @@ async function syncPlatformForClient(clientId, platform, startDate, endDate, dep
     const clientStart = await getDataStartDateImpl(clientId);
     const rows = dropRowsBeforeStart(await fetchGoogleAdsData(config, { startDate, endDate }), () => clientStart);
     const { campaigns, rows: rowCount } = await storeRows(clientId, platform, rows);
+    // Falha ao juntar o histórico do CSV não invalida o sync que já gravou.
+    await (deps.adoptCsvCampaigns || adoptCsvCampaigns)(clientId, platform)
+      .catch((err) => console.error(`Sync [client ${clientId}]: não juntou campanhas importadas por CSV:`, err.message));
     return { status: 'ok', campaigns, rows: rowCount };
   } catch (err) {
     return { status: 'error', error: err.message };
