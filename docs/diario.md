@@ -46,7 +46,7 @@
 
 **Branch `feat/reservas-mudar` (23/10, não enviada):** o robô muda dia e horário de uma reserva marcada (MUDAR) e corrige o nome completo mandado na hora do resumo. Também tem a chave "WhatsApp só roda em anúncio" no cadastro do cliente e guarda o cartão de anúncio não reconhecido. Falta o deploy e ligar a chave no Malibu. Ver Registro 2026-10-23. Desde 26/10 a branch também tem as **respostas automáticas do Balcão** (cardápio, preços, horário, localização). Falta gravar os textos do Malibu e mudar a sexta pra jantar às 17h (`save-malibu-info.mjs`, foi bloqueado pelo modo auto). Ver Registro 2026-10-26.
 
-**Branch `feat/balcao-anexos` (31/10, não enviada):** anexar arquivos (cardápio, fotos, PDF) na conversa do Balcão. Falta o deploy e o teste real. Ver Registro 2026-10-31.
+**Anexos no Balcão: no ar desde 31/10 14:03** (push `b14d84a`): anexar arquivos (cardápio, fotos, PDF) na conversa. Falta o teste real, incluindo um arquivo de ~5 MB pra ver o limite do proxy do Hostinger. Ver Registro 2026-10-31.
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
@@ -1022,3 +1022,4 @@ Contexto: o Google Ads do Malibu e da Giulí está travado por verificação da 
 - **Testado:** backend 460 testes, frontend 73, build ok. O caminho HTTP (JSON global + `express.raw`, cabeçalhos com acento e emoji, 3 MB) foi conferido num Express local.
 - **Não testado:** envio real pelo Baileys e a tela no navegador. Não rodei o Balcão local contra o banco de produção, porque o envio iria pela ponte pro WhatsApp de verdade. **Também não sei o limite de corpo do proxy do Hostinger.** Se arquivo grande der erro (413/502) e pequeno passar, é o proxy, e aí a saída é reduzir a imagem no navegador antes de enviar.
 - **Ideia oferecida (não feita):** guardar os arquivos fixos (cardápio, mapa) num lugar do Balcão pra mandar com um clique, sem procurar no computador toda vez.
+- **Deploy (31/10, 14:02, sábado):** a pedido do usuário, `feat/balcao-anexos` foi juntada na `main` (fast-forward) e enviada (push `c80baf1..b14d84a`). O bundle novo confirmou às 14:03, e a rota nova responde 401 sem token. Não consegui ver o status do WhatsApp depois do deploy: a leitura do banco de produção foi barrada pelo modo auto. Pedi pro usuário conferir se está "Conectado" (se aparecer `standby`, reiniciar o app no hPanel).
