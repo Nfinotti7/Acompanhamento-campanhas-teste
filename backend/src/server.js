@@ -15,7 +15,7 @@ import { trackEvent, getAttributionReport } from './controllers/attributionContr
 import { getWhatsappSettings, saveWhatsappSettings } from './controllers/whatsappSettingsController.js';
 import { listRestaurants, staffLogin } from './controllers/staffAuthController.js';
 import { verifyWebhook, receiveWebhook } from './controllers/whatsappWebhookController.js';
-import { listConversations, getMessages, replyToConversation, markConversationRead } from './controllers/whatsappConversationsController.js';
+import { listConversations, getMessages, replyToConversation, sendAttachment, markConversationRead } from './controllers/whatsappConversationsController.js';
 import { searchContacts, createConversion, updateConversion, deleteConversion, getRoi } from './controllers/realConversionsController.js';
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controllers/whatsappBaileysController.js';
@@ -104,6 +104,8 @@ app.post('/api/whatsapp/settings', requireAdmin, saveWhatsappSettings);
 app.get('/api/whatsapp/conversations', listConversations);
 app.get('/api/whatsapp/conversations/:contactId/messages', getMessages);
 app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
+// Corpo = o arquivo. 16 MB pra o limite de 15 MB do serviço dar a mensagem legível.
+app.post('/api/whatsapp/conversations/:contactId/attachment', express.raw({ type: () => true, limit: '16mb' }), sendAttachment);
 app.post('/api/whatsapp/conversations/:contactId/read', markConversationRead);
 
 // Real Conversions & ROI

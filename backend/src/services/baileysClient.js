@@ -518,7 +518,7 @@ const RELAY_PURGE_EVERY = 1200; // ~10 min
 let relayWorker = null;
 
 const relayHandlers = {
-  send: async (clientId, p) => ({ id: await sendViaBaileys(clientId, p.waId, p.body, { messageId: p.messageId, viaRelay: true }) }),
+  send: async (clientId, p) => ({ id: await sendViaBaileys(clientId, p.waId, p.body, { messageId: p.messageId, media: p.media || null, viaRelay: true }) }),
   reset: async (clientId) => { await resetClient(clientId, { viaRelay: true }); return {}; },
   pairing: async (clientId, p) => ({ code: await requestPairingCode(clientId, p.phone, { viaRelay: true }) }),
   connect: async (clientId) => { await connectClient(clientId); return {}; }
@@ -587,12 +587,23 @@ async function waitForConnection(clientId, deps) {
   return state;
 }
 
-export async function sendViaBaileys(clientId, waId, body, { messageId, viaRelay = false } = {}) {
+// Conteúdo do sendMessage do Baileys pra um anexo. Áudio não tem legenda no WhatsApp.
+export function buildMediaContent({ mediaType, mimeType, filename }, data, caption) {
+  const withCaption = caption ? { caption } : {};
+  if (mediaType === 'image') return { image: data, mimetype: mimeType, ...withCaption };
+  if (mediaType === 'video') return { video: data, mimetype: mimeType, ...withCaption };
+  if (mediaType === 'audio') return { audio: data, mimetype: mimeType };
+  return { document: data, mimetype: mimeType, fileName: filename || 'arquivo', ...withCaption };
+}
+
+// media: { mediaId, mediaType, mimeType, filename } de um arquivo já gravado em
+// whatsapp_media -- pela ponte entre processos só viaja o id, e o dono lê os bytes do banco.
+export async function sendViaBaileys(clientId, waId, body, { messageId, media = null, viaRelay = false } = {}) {
   let state = connections.get(normalizeClientId(clientId));
   if (!isConnected(state)) {
     const deps = state?.deps || {};
     if (!viaRelay && !deps.baileys && !isOwner()) {
-      const { id } = await requestFromOwner('send', clientId, { waId, body, messageId: messageId || null });
+      const { id } = await requestFromOwner('send', clientId, { waId, body, messageId: messageId || null, media });
       return id || null;
     }
     state = await waitForConnection(clientId, deps);
@@ -601,7 +612,16 @@ export async function sendViaBaileys(clientId, waId, body, { messageId, viaRelay
     }
   }
   const jid = await resolveJid(clientId, state.sock, waId);
-  const sent = await state.sock.sendMessage(jid, { text: body }, messageId ? { messageId } : undefined);
+  let content = { text: body };
+  if (media) {
+    const { rows } = await (state.deps?.db || db).query(
+      `SELECT data FROM whatsapp_media WHERE id = ? AND client_id = ?`,
+      [media.mediaId, clientId]
+    );
+    if (!rows[0]) throw new Error('Arquivo do anexo não encontrado.');
+    content = buildMediaContent(media, rows[0].data, body);
+  }
+  const sent = await state.sock.sendMessage(jid, content, messageId ? { messageId } : undefined);
   // O id é o que liga os avisos de entregue/lida (messages.update) a esta mensagem.
   const id = sent?.key?.id || null;
   if (id) state.pendingAcks.set(id, (state.deps?.now || Date.now)());

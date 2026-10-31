@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconnectAllBaileysClients, connectClient, getConnectionState, getSharedConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections, sendTyping } from './baileysClient.js';
+import { reconnectAllBaileysClients, connectClient, getConnectionState, getSharedConnectionState, sendViaBaileys, decideOwnership, resetClient, requestPairingCode, connectionHealth, checkConnections, sendTyping, buildMediaContent } from './baileysClient.js';
 
 function makeFakeBaileysModule() {
   let makeWASocketCalls = 0;
@@ -556,4 +556,35 @@ test('o dono publica o status a cada mudança (conectando, QR, conectado, queda)
   await fake.handlers[0]({ connection: 'open' });
   await fake.handlers[0]({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 503 } } } });
   assert.deepEqual(statuses, ['connecting', 'qr', 'connected', 'disconnected']);
+});
+
+test('sendViaBaileys manda anexo lendo o arquivo do banco', async () => {
+  let handler = null;
+  const sent = [];
+  const queries = [];
+  const fakeBaileys = {
+    default: () => ({
+      ev: { on: (event, h) => { if (event === 'connection.update') handler = h; } },
+      sendMessage: async (jid, msg, opts) => { sent.push(msg); return { key: { id: opts?.messageId || 'auto' } }; }
+    }),
+    useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+    DisconnectReason: { loggedOut: 401 }
+  };
+  const fakeDb = { query: async (sql, params) => { queries.push(params); return { rows: [{ data: Buffer.from('PDF') }] }; } };
+  await connectClient('test-anexo', { baileys: fakeBaileys, db: fakeDb });
+  await handler({ connection: 'open' });
+  await sendViaBaileys('test-anexo', '5511999998888', 'Cardápio', {
+    messageId: '3EB0DOC',
+    media: { mediaId: 42, mediaType: 'document', mimeType: 'application/pdf', filename: 'cardapio.pdf' }
+  });
+  assert.deepEqual(queries[queries.length - 1], [42, 'test-anexo']);
+  assert.deepEqual(sent[0], { document: Buffer.from('PDF'), mimetype: 'application/pdf', fileName: 'cardapio.pdf', caption: 'Cardápio' });
+});
+
+test('buildMediaContent monta foto, vídeo, áudio (sem legenda) e documento', () => {
+  const data = Buffer.from('x');
+  assert.deepEqual(buildMediaContent({ mediaType: 'image', mimeType: 'image/jpeg' }, data, 'Oi'), { image: data, mimetype: 'image/jpeg', caption: 'Oi' });
+  assert.deepEqual(buildMediaContent({ mediaType: 'video', mimeType: 'video/mp4' }, data, ''), { video: data, mimetype: 'video/mp4' });
+  assert.deepEqual(buildMediaContent({ mediaType: 'audio', mimeType: 'audio/ogg' }, data, 'Oi'), { audio: data, mimetype: 'audio/ogg' });
+  assert.deepEqual(buildMediaContent({ mediaType: 'document', mimeType: 'image/webp' }, data, ''), { document: data, mimetype: 'image/webp', fileName: 'arquivo' });
 });

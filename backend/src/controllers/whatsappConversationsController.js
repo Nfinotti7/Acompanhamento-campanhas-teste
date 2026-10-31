@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { sendToContact, SendError } from '../services/whatsappSender.js';
+import { sendToContact, sendMediaToContact, SendError } from '../services/whatsappSender.js';
 import { pauseBot } from '../services/botPause.js';
 import { RelayError } from '../services/processRelay.js';
 
@@ -101,18 +101,57 @@ export async function replyToConversation(req, res) {
     }
 
     await sendToContact({ clientId, contactId, body, sentBy: 'staff' });
-    // Atendente assumiu a conversa: o robô de reserva para (na Cloud API não há eco da
-    // mensagem enviada, então o ingest não veria). Só onde reserva está ligada.
-    const { rows } = await db.query(`SELECT reservations_enabled FROM clients WHERE id = ?`, [clientId]);
-    if (rows[0]?.reservations_enabled) await pauseBot(db, { clientId, contactId });
+    await pauseBotAfterStaffReply(clientId, contactId);
     return res.json({ message: 'Mensagem enviada.' });
   } catch (error) {
-    if (error instanceof SendError) {
-      return res.status(error.httpStatus).json({ error: error.message });
+    return sendErrorResponse(res, error, 'Reply to conversation error:', 'Erro ao enviar mensagem.');
+  }
+}
+
+// Atendente assumiu a conversa: o robô de reserva para (na Cloud API não há eco da
+// mensagem enviada, então o ingest não veria). Só onde reserva está ligada.
+async function pauseBotAfterStaffReply(clientId, contactId) {
+  const { rows } = await db.query(`SELECT reservations_enabled FROM clients WHERE id = ?`, [clientId]);
+  if (rows[0]?.reservations_enabled) await pauseBot(db, { clientId, contactId });
+}
+
+function sendErrorResponse(res, error, logLabel, fallbackMessage) {
+  if (error instanceof SendError) {
+    return res.status(error.httpStatus).json({ error: error.message });
+  }
+  console.error(logLabel, error);
+  // Veio do processo dono pela ponte: a mensagem já é legível (ex: "confira se saiu").
+  if (error instanceof RelayError) return res.status(503).json({ error: error.message });
+  return res.status(500).json({ error: fallbackMessage });
+}
+
+// Anexo da equipe: o corpo da requisição é o próprio arquivo (express.raw na rota). Nome,
+// tipo e legenda vêm nos cabeçalhos X-File-Name, X-File-Type e X-Caption (codificados
+// com encodeURIComponent, porque cabeçalho não aceita acento).
+export async function sendAttachment(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    const { contactId } = req.params;
+    const decode = (value) => {
+      try { return value ? decodeURIComponent(value) : ''; } catch { return ''; }
+    };
+    const data = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!data || data.length === 0) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
     }
-    console.error('Reply to conversation error:', error);
-    // Veio do processo dono pela ponte: a mensagem já é legível (ex: "confira se saiu").
-    if (error instanceof RelayError) return res.status(503).json({ error: error.message });
-    return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
+
+    await sendMediaToContact({
+      clientId,
+      contactId,
+      data,
+      mimeType: decode(req.get('X-File-Type')) || 'application/octet-stream',
+      filename: decode(req.get('X-File-Name')).slice(0, 200) || null,
+      caption: decode(req.get('X-Caption')),
+      sentBy: 'staff'
+    });
+    await pauseBotAfterStaffReply(clientId, contactId);
+    return res.json({ message: 'Arquivo enviado.' });
+  } catch (error) {
+    return sendErrorResponse(res, error, 'Send attachment error:', 'Erro ao enviar arquivo.');
   }
 }

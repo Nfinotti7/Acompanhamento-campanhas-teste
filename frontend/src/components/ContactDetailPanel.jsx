@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Trash2, Check } from 'lucide-react';
+import { Send, DollarSign, CalendarPlus, ArrowLeft, CheckCircle2, X, Pencil, Trash2, Check, Paperclip, FileText } from 'lucide-react';
 import { Avatar, MessageMedia, ImageLightbox, isPlaceholderBody } from './whatsappMedia';
 import AttributionView from './AttributionView';
 import { formatTime, dayLabel, isSameDay, StatusTicks } from './chatFormat';
@@ -28,6 +28,43 @@ const primaryBtn = {
   cursor: 'pointer',
   width: '100%'
 };
+
+// Mesmo limite do backend (MAX_ATTACHMENT_BYTES em whatsappSender.js).
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
+// Anexo esperando o envio: miniatura pra imagem, nome pro resto, X pra tirar.
+function AttachmentChip({ file, disabled, onRemove }) {
+  const isImage = (file.type || '').startsWith('image/');
+  const [previewUrl, setPreviewUrl] = useState(null);
+  useEffect(() => {
+    if (!isImage) return undefined;
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, isImage]);
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '6px', padding: isImage ? '3px' : '6px 28px 6px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', maxWidth: '200px' }}>
+      {isImage && previewUrl ? (
+        <img src={previewUrl} alt={file.name} style={{ display: 'block', width: 56, height: 56, objectFit: 'cover', borderRadius: '6px' }} />
+      ) : (
+        <>
+          <FileText size={16} style={{ flexShrink: 0, color: 'var(--text-secondary)' }} />
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        aria-label={`Tirar ${file.name}`}
+        style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'var(--overlay)', color: 'var(--on-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+      >
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
 
 function formatEventDate(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -60,6 +97,8 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = useRef(null);
 
   const [timeline, setTimeline] = useState([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
@@ -156,12 +195,56 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
     }
   };
 
+  const addAttachments = (fileList) => {
+    const files = Array.from(fileList || []);
+    const tooBig = files.filter((f) => f.size > MAX_ATTACHMENT_BYTES);
+    if (tooBig.length) alert(`Arquivo grande demais (máximo 15 MB): ${tooBig.map((f) => f.name).join(', ')}`);
+    const ok = files.filter((f) => f.size > 0 && f.size <= MAX_ATTACHMENT_BYTES);
+    if (ok.length) setAttachments((prev) => [...prev, ...ok]);
+  };
+
+  // Imagem copiada (print, foto do cardápio) e colada com Ctrl+V no campo vira anexo.
+  const handlePaste = (e) => {
+    if (e.clipboardData?.files?.length) {
+      e.preventDefault();
+      addAttachments(e.clipboardData.files);
+    }
+  };
+
+  // O corpo é o próprio arquivo; nome, tipo e legenda vão nos cabeçalhos (ver
+  // sendAttachment no backend). A legenda vai só no primeiro arquivo. Se um falhar, os
+  // que faltam continuam na prévia pra tentar de novo.
+  const sendAttachments = async () => {
+    const queue = [...attachments];
+    let caption = replyText.trim();
+    while (queue.length) {
+      const file = queue[0];
+      await apiClient.post(`/api/whatsapp/conversations/${contact.id}/attachment`, file, {
+        params: clientId ? { clientId } : undefined,
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-File-Name': encodeURIComponent(file.name || 'arquivo'),
+          'X-File-Type': encodeURIComponent(file.type || 'application/octet-stream'),
+          'X-Caption': encodeURIComponent(caption)
+        }
+      });
+      caption = '';
+      queue.shift();
+      setAttachments([...queue]);
+      setReplyText('');
+    }
+  };
+
   const handleSendReply = async (e) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!replyText.trim() && attachments.length === 0) return;
     setSending(true);
     try {
-      await apiClient.post(`/api/whatsapp/conversations/${contact.id}/reply`, { body: replyText, clientId });
+      if (attachments.length) {
+        await sendAttachments();
+      } else {
+        await apiClient.post(`/api/whatsapp/conversations/${contact.id}/reply`, { body: replyText, clientId });
+      }
       setReplyText('');
       stickToBottomRef.current = true; // quem acabou de responder quer ver a própria mensagem
       fetchMessages();
@@ -439,17 +522,53 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                   })
                 )}
               </div>
-              <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px', position: 'sticky', bottom: 0, paddingTop: '8px', paddingBottom: 'env(safe-area-inset-bottom)', background: 'var(--bg-dark)' }}>
-                <input
-                  type="text"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Digite uma resposta..."
-                  style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}
-                />
-                <button type="submit" disabled={sending} style={{ padding: '0 16px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)', cursor: 'pointer' }}>
-                  <Send size={16} />
-                </button>
+              <form onSubmit={handleSendReply} style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'sticky', bottom: 0, paddingTop: '8px', paddingBottom: 'env(safe-area-inset-bottom)', background: 'var(--bg-dark)' }}>
+                {attachments.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+                    {attachments.map((file, i) => (
+                      <AttachmentChip
+                        key={`${file.name}-${file.size}-${i}`}
+                        file={file}
+                        disabled={sending}
+                        onRemove={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+                    onChange={(e) => { addAttachments(e.target.files); e.target.value = ''; }}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending}
+                    title="Anexar arquivo (cardápio, foto, PDF...)"
+                    aria-label="Anexar arquivo"
+                    style={{ padding: '0 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                  >
+                    <Paperclip size={16} />
+                  </button>
+                  <input
+                    type="text"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onPaste={handlePaste}
+                    placeholder={attachments.length ? 'Legenda (opcional)...' : 'Digite uma resposta...'}
+                    style={{ ...fieldStyle, marginBottom: 0, flex: 1, minWidth: 0 }}
+                  />
+                  <button type="submit" disabled={sending} aria-label="Enviar" style={{ padding: '0 16px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'var(--on-accent)', cursor: 'pointer', opacity: sending ? 0.6 : 1 }}>
+                    <Send size={16} />
+                  </button>
+                </div>
+                {sending && attachments.length > 0 && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Enviando arquivo...</span>
+                )}
               </form>
             </>
           )}
