@@ -46,6 +46,8 @@
 
 **Branch `feat/reservas-mudar` (23/10, não enviada):** o robô muda dia e horário de uma reserva marcada (MUDAR) e corrige o nome completo mandado na hora do resumo. Também tem a chave "WhatsApp só roda em anúncio" no cadastro do cliente e guarda o cartão de anúncio não reconhecido. Falta o deploy e ligar a chave no Malibu. Ver Registro 2026-10-23. Desde 26/10 a branch também tem as **respostas automáticas do Balcão** (cardápio, preços, horário, localização). Falta gravar os textos do Malibu e mudar a sexta pra jantar às 17h (`save-malibu-info.mjs`, foi bloqueado pelo modo auto). Ver Registro 2026-10-26.
 
+**Branch `feat/balcao-anexos` (31/10, não enviada):** anexar arquivos (cardápio, fotos, PDF) na conversa do Balcão. Falta o deploy e o teste real. Ver Registro 2026-10-31.
+
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
@@ -1005,3 +1007,18 @@ Contexto: o Google Ads do Malibu e da Giulí está travado por verificação da 
 - **Testado:** 6 testes novos (parser, datas, números, junção) e os do sync passam; build do frontend ok. A junção foi testada no Postgres de produção dentro de uma transação desfeita (dia só do CSV foi movido, dia dos dois ficou com o da API). O endpoint foi chamado em `dryRun` com o Malibu (descartou o dia anterior a 05/10). **Não testado:** a tela no navegador logado como admin e uma importação de verdade com CSV baixado do Google Ads.
 - **Observação:** o sync do Google normal (`googleAdsSync`) passa `conversions` fracionário e a coluna é INTEGER; pode dar erro no Postgres se uma campanha tiver conversão quebrada (0,5). Não aconteceu até agora (Alma e Recreio). Se acontecer, arredondar em `fetchGoogleAdsData`.
 - **Pendente (usuário):** exportar e importar o CSV do Malibu e da Giulí; depois de ~03/11, tentar de novo o vínculo com a MCC e cadastrar o customer ID (sem `login_customer_id` se for acesso direto, como no Alma).
+
+### 2026-10-31 — Anexos no Balcão (branch `feat/balcao-anexos`, commit `0a8093f`, não enviada)
+
+**Pedido do usuário:** os atendentes precisam mandar arquivos pelo Balcão (imagens do cardápio e outras coisas).
+
+**Como ficou:**
+- **Tela (`ContactDetailPanel`, vale pro Balcão e pro modal do admin):** clipe à esquerda do campo de resposta. Aceita vários arquivos de uma vez, mostra a prévia (miniatura pra imagem, nome pro resto, X pra tirar) e também pega imagem colada com Ctrl+V. O texto digitado vira a legenda do **primeiro** arquivo. Se um falhar no meio, os que faltam ficam na prévia.
+- **Rota:** `POST /api/whatsapp/conversations/:id/attachment` com `express.raw` (16 MB) só nela. O corpo é o arquivo (`application/octet-stream`), e nome, tipo e legenda vão em `X-File-Name`, `X-File-Type` e `X-Caption` (com `encodeURIComponent`). Staff e admin. Pausa o robô de reserva igual à resposta de texto.
+- **`sendMediaToContact` (`whatsappSender.js`):** grava o arquivo em `whatsapp_media` (limite 15 MB, igual à mídia recebida) e a mensagem com `media_id`/`media_type`/`media_filename`. O corpo é a legenda ou o mesmo rótulo da mídia recebida (`📷 Imagem`, `📎 nome.pdf`), que a tela esconde.
+  - **Tipo:** só JPEG/PNG vão como foto e só MP4/3GP como vídeo. O resto (PDF, WEBP, HEIC...) vai como documento. Áudio não tem legenda no WhatsApp, então a legenda sai numa mensagem de texto depois.
+  - **Baileys:** a linha é gravada **antes** com id próprio (como o robô), pro eco cair no `ON CONFLICT` e não baixar o arquivo de novo. `sendViaBaileys(..., { media })` lê os bytes do banco, então pela ponte entre processos só viaja o `mediaId`.
+  - **Cloud API:** `uploadCloudMedia` (`/{phone}/media`) + `sendWhatsAppMedia` por id (`metaWhatsAppApi.js`).
+- **Testado:** backend 460 testes, frontend 73, build ok. O caminho HTTP (JSON global + `express.raw`, cabeçalhos com acento e emoji, 3 MB) foi conferido num Express local.
+- **Não testado:** envio real pelo Baileys e a tela no navegador. Não rodei o Balcão local contra o banco de produção, porque o envio iria pela ponte pro WhatsApp de verdade. **Também não sei o limite de corpo do proxy do Hostinger.** Se arquivo grande der erro (413/502) e pequeno passar, é o proxy, e aí a saída é reduzir a imagem no navegador antes de enviar.
+- **Ideia oferecida (não feita):** guardar os arquivos fixos (cardápio, mapa) num lugar do Balcão pra mandar com um clique, sem procurar no computador toda vez.
