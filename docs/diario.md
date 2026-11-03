@@ -54,7 +54,7 @@
 
 **No ar desde 03/11 14:11 (push `59c7211`):** lembrete, avaliação pós-visita, resumo do dono, ranking de criativos, tempo de resposta, alertas de campanha, lista de espera de vaga e arquivos salvos do Balcão. Tudo desligado por padrão onde é automático; o usuário liga em Balcão → Reservas → Configurar.
 
-**Terceira leva (03/11, commitada, não enviada):** painel do dono (+ relatório mensal imprimível), valor da comanda → venda → ROAS, conversão offline do Google, fora do horário, perguntas frequentes, implantação, unidades, sazonalidade e o clube de fidelidade (**desligado**, a combinar com o cliente). Ver Registro 2026-11-03 (terceira leva).
+**Terceira leva (03/11, no ar, push `d414af8`; SQL verificado no Postgres real em transação desfeita; guia de onde achar cada coisa em `docs/novidades-2026-11-03.md`):** painel do dono (+ relatório mensal imprimível), valor da comanda → venda → ROAS, conversão offline do Google, fora do horário, perguntas frequentes, implantação, unidades, sazonalidade e o clube de fidelidade (**desligado**, a combinar com o cliente). Ver Registro 2026-11-03 (terceira leva).
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
@@ -1105,3 +1105,4 @@ Pedido do usuário: fazer o resto da lista (menos Google Meu Negócio e delivery
 - Envio real pelo WhatsApp, telas no navegador, impressão em PDF, conversão do Google.
 - Tabelas/colunas novas são criadas na subida do servidor (`initDb`).
 
+**Deploy da terceira leva (03/11):** push `59c7211..d414af8`, bundle novo confirmado e APIs novas respondendo 401 (as tabelas novas foram criadas na subida). SQL verificado antes no Postgres real (resumo, unidades, implantação, comanda→venda, fidelidade, fora do horário, Google desligado): tudo ok. Não consegui ver o status do WhatsApp do Malibu/Mercearia depois do deploy (precisa de login): conferir se está "Conectado".
