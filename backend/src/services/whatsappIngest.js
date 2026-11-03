@@ -6,6 +6,7 @@ import { handleInboundForWaitlist } from './waitlistBot.js';
 import { pauseBot } from './botPause.js';
 import { handleInboundForReservation } from './reservationBot.js';
 import { handleInboundForInfo } from './infoBot.js';
+import { handleInboundForFollowup } from './followupBot.js';
 import { notifyInboundMessage } from './pushNotify.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
@@ -186,6 +187,7 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // na mesma configuração.
   if (event.direction === 'inbound' && isPhone && flags.reservations_enabled && messageRows.length > 0) {
     const onReservation = deps.onReservation || handleInboundForReservation;
+    const onFollowup = deps.onFollowup || handleInboundForFollowup;
     const onInfo = deps.onInfo || handleInboundForInfo;
     const args = {
       clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
@@ -198,6 +200,13 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
         console.error('Reservas: erro no robô de reserva:', error.message);
         return 'error';
       })
+      // Resposta ao lembrete (SIM) ou à pergunta de nota, antes das respostas automáticas.
+      .then((result) => (result === 'ignored'
+        ? Promise.resolve().then(() => onFollowup(args, botDeps)).catch((error) => {
+          console.error('Lembrete/avaliação: erro:', error.message);
+          return 'ignored';
+        })
+        : result))
       .then((result) => (result === 'ignored' ? onInfo(args, botDeps) : null))
       .catch((error) => console.error('Respostas automáticas: erro:', error.message));
   }

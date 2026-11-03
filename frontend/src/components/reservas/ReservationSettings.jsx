@@ -46,6 +46,19 @@ const INFO_FIELDS = [
   ['other', '"Tenho outra dúvida"', 'Resposta na hora; o resto fica com a equipe'],
   ['reserveHint', 'Convite pra reservar (vai no fim da resposta)', 'Só pra quem ainda não tem reserva']
 ];
+// Lembrete, avaliação pós-visita e resumo do dono (backend: followupBot.js, ownerReport.js).
+const FOLLOWUP_LABELS = {
+  reminder: 'Lembrete da reserva (pede SIM pra confirmar)',
+  reminderThanks: 'Agradece a confirmação de presença',
+  reviewAsk: 'Pergunta a nota depois da visita',
+  reviewHigh: 'Nota 4 ou 5 (com o link do Google)',
+  reviewHighNoLink: 'Nota 4 ou 5 (sem link do Google)',
+  reviewLow: 'Nota 1 a 3 (chama a equipe)'
+};
+const EMPTY_FOLLOWUP = {
+  reminder_enabled: false, reminder_hours_before: '3', review_enabled: false, google_review_url: '',
+  report_enabled: false, owner_phones: '', messages: {}
+};
 const EMPTY_INFO = { enabled: false, menu: '', prices: '', hours: '', location: '', other: '', reserveHint: '' };
 
 function toForm(s) {
@@ -65,7 +78,12 @@ function toForm(s) {
     bot_enabled: s.bot_enabled !== false,
     ad_fallback: Boolean(s.ad_fallback),
     messages: { ...(s.messages || {}) },
-    info: { ...EMPTY_INFO, ...(s.info || {}) }
+    info: { ...EMPTY_INFO, ...(s.info || {}) },
+    followup: {
+      ...EMPTY_FOLLOWUP, ...(s.followup || {}),
+      reminder_hours_before: String(s.followup?.reminder_hours_before ?? 3),
+      messages: { ...(s.followup?.messages || {}) }
+    }
   };
 }
 
@@ -88,7 +106,13 @@ function fromForm(f) {
     bot_enabled: f.bot_enabled,
     ad_fallback: f.ad_fallback,
     messages,
-    info: f.info
+    info: f.info,
+    followup: {
+      ...f.followup,
+      reminder_hours_before: Number(f.followup.reminder_hours_before),
+      google_review_url: f.followup.google_review_url.trim(),
+      messages: Object.fromEntries(Object.entries(f.followup.messages).filter(([, v]) => v && v.trim()))
+    }
   };
 }
 
@@ -119,6 +143,8 @@ const section = { padding: '14px', display: 'grid', gap: '10px' };
 export default function ReservationSettings({ api, onBack }) {
   const [form, setForm] = useState(null);
   const [defaults, setDefaults] = useState({});
+  const [followupDefaults, setFollowupDefaults] = useState({});
+  const [reportState, setReportState] = useState('');
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -127,7 +153,7 @@ export default function ReservationSettings({ api, onBack }) {
   const load = useCallback(() => {
     setLoadError('');
     api.get('/api/reservations/settings')
-      .then((res) => { setForm(toForm(res.data.settings)); setDefaults(res.data.defaultMessages || {}); })
+      .then((res) => { setForm(toForm(res.data.settings)); setDefaults(res.data.defaultMessages || {}); setFollowupDefaults(res.data.followupDefaultMessages || {}); })
       .catch((err) => setLoadError(err.response?.data?.error || 'Não foi possível carregar a configuração.'));
   }, [api]);
 
@@ -161,6 +187,18 @@ export default function ReservationSettings({ api, onBack }) {
       setError(err.response?.data?.error || 'Não foi possível salvar.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const setFollowup = (patch) => set({ followup: { ...form.followup, ...patch } });
+
+  const sendReportNow = async () => {
+    setReportState('Enviando...');
+    try {
+      const res = await api.post('/api/reservations/followup/report');
+      setReportState(`Resumo enviado pra ${res.data.delivered} ${res.data.delivered === 1 ? 'telefone' : 'telefones'}.`);
+    } catch (err) {
+      setReportState(err.response?.data?.error || 'Não foi possível enviar o resumo.');
     }
   };
 
@@ -272,6 +310,65 @@ export default function ReservationSettings({ api, onBack }) {
               onChange={(e) => set({ info: { ...form.info, [key]: e.target.value } })} />
           </label>
         ))}
+      </div>
+
+      <div className="nm-card" style={section}>
+        <strong>Lembrete, avaliação e resumo do dono</strong>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Só escreve pra quem já fez reserva com o restaurante, uma vez por reserva, e só em horário comercial. Funciona com o WhatsApp conectado por QR code.
+        </span>
+
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.reminder_enabled} onChange={(e) => setFollowup({ reminder_enabled: e.target.checked })} />
+          Lembrete antes da reserva (a pessoa responde SIM pra confirmar)
+        </label>
+        <label style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>Mandar o lembrete</span>
+          <input className="nm-input" type="number" min="1" max="24" value={form.followup.reminder_hours_before}
+            onChange={(e) => setFollowup({ reminder_hours_before: e.target.value })} style={{ width: '80px' }} />
+          <span>horas antes (nunca antes das 8h)</span>
+        </label>
+
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.review_enabled} onChange={(e) => setFollowup({ review_enabled: e.target.checked })} />
+          Pedir nota depois da visita (de 1 a 5)
+        </label>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Vai pra quem a equipe marcou "Chegou" (ou confirmou presença no lembrete). Nota 4 ou 5 recebe o link do Google; nota baixa chama a equipe antes de virar avaliação ruim.
+        </span>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Link pra avaliar no Google</span>
+          <input className="nm-input" type="url" placeholder="https://g.page/r/..." value={form.followup.google_review_url}
+            onChange={(e) => setFollowup({ google_review_url: e.target.value })} />
+        </label>
+
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.report_enabled} onChange={(e) => setFollowup({ report_enabled: e.target.checked })} />
+          Resumo da semana no WhatsApp do dono (toda segunda, 9h)
+        </label>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>WhatsApp de quem recebe (separe vários por vírgula)</span>
+          <input className="nm-input" placeholder="(62) 99999-0000" value={form.followup.owner_phones}
+            onChange={(e) => setFollowup({ owner_phones: e.target.value })} />
+        </label>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className="nm-btn nm-btn-muted" onClick={sendReportNow}>Enviar o resumo agora (salve antes)</button>
+          {reportState && <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{reportState}</span>}
+        </div>
+
+        <details>
+          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Textos do lembrete e da avaliação</summary>
+          <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Em branco usa o texto padrão. Variáveis: {'{nome}'}, {'{restaurante}'}, {'{dia}'}, {'{hora}'}, {'{pessoas}'}, {'{link}'}.</span>
+            {Object.keys(FOLLOWUP_LABELS).map((key) => (
+              <label key={key} style={{ display: 'grid', gap: '4px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{FOLLOWUP_LABELS[key]}</span>
+                <textarea className="nm-input" rows={3} value={form.followup.messages[key] || ''} placeholder={followupDefaults[key] || ''}
+                  onChange={(e) => setFollowup({ messages: { ...form.followup.messages, [key]: e.target.value } })} />
+              </label>
+            ))}
+          </div>
+        </details>
       </div>
 
       <details className="nm-card" style={section}>

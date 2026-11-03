@@ -7,6 +7,8 @@ import { findOrCreateContactByPhone } from '../services/waitlistQueue.js';
 import { normalizePhone, renderMessage } from '../services/waitlistText.js';
 import { availableSlots, occupancyForDay, toInstant, dayOf } from '../services/reservationSlots.js';
 import { DEFAULT_RESERVATION_MESSAGES, RESERVATION_MESSAGE_KEYS, formatDayLabel, formatTime } from '../services/reservationText.js';
+import { DEFAULT_FOLLOWUP_MESSAGES, FOLLOWUP_MESSAGE_KEYS } from '../services/followupText.js';
+import { sendReportNow } from '../services/ownerReport.js';
 import {
   loadReservationSettings, saveReservationSettings, listReservations, createReservation, updateReservation,
   setReservationStatus, SlotTakenError, ReservationSettingsError
@@ -40,6 +42,7 @@ export function createReservationHandlers(overrides = {}) {
     send: sendToContact,
     pauseBot,
     resumeBot,
+    sendReportNow,
     ...overrides
   };
 
@@ -98,7 +101,9 @@ export function createReservationHandlers(overrides = {}) {
         enabled: Boolean(flags.reservations_enabled),
         settings,
         defaultMessages: DEFAULT_RESERVATION_MESSAGES,
-        messageKeys: RESERVATION_MESSAGE_KEYS
+        messageKeys: RESERVATION_MESSAGE_KEYS,
+        followupDefaultMessages: DEFAULT_FOLLOWUP_MESSAGES,
+        followupMessageKeys: FOLLOWUP_MESSAGE_KEYS
       });
     }, 'Erro ao carregar a configuração de reservas', { requireEnabled: false }),
 
@@ -112,6 +117,14 @@ export function createReservationHandlers(overrides = {}) {
         throw error;
       }
     }, 'Erro ao salvar a configuração de reservas'),
+
+    // Botão "enviar resumo agora": manda o resumo da última semana pros telefones salvos.
+    sendReport: handler(async (req, res, clientId, flags) => {
+      const result = await d.sendReportNow(clientId, flags.name || 'Restaurante');
+      if (result.error) return res.status(400).json({ error: result.error });
+      if (result.delivered === 0) return res.status(502).json({ error: 'Não consegui enviar. Confira se o WhatsApp do restaurante está conectado.' });
+      return res.json({ delivered: result.delivered });
+    }, 'Erro ao enviar o resumo'),
 
     getDay: handler(async (req, res, clientId) => {
       const day = DAY.test(req.query.day || '') ? req.query.day : dayOf(d.now());

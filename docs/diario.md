@@ -48,6 +48,8 @@
 
 **Anexos no Balcão: no ar desde 31/10 14:03** (push `b14d84a`): anexar arquivos (cardápio, fotos, PDF) na conversa. Falta o teste real, incluindo um arquivo de ~5 MB pra ver o limite do proxy do Hostinger. Ver Registro 2026-10-31.
 
+**Lembrete, avaliação pós-visita e resumo do dono (03/11, commit local, não enviado):** tudo pelo Baileys, desligado por padrão (liga em Balcão → Reservas → Configurar). Falta o deploy, ligar no Malibu e cadastrar o link do Google e o WhatsApp do dono. Ver Registro 2026-11-03.
+
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
@@ -1023,3 +1025,34 @@ Contexto: o Google Ads do Malibu e da Giulí está travado por verificação da 
 - **Não testado:** envio real pelo Baileys e a tela no navegador. Não rodei o Balcão local contra o banco de produção, porque o envio iria pela ponte pro WhatsApp de verdade. **Também não sei o limite de corpo do proxy do Hostinger.** Se arquivo grande der erro (413/502) e pequeno passar, é o proxy, e aí a saída é reduzir a imagem no navegador antes de enviar.
 - **Ideia oferecida (não feita):** guardar os arquivos fixos (cardápio, mapa) num lugar do Balcão pra mandar com um clique, sem procurar no computador toda vez.
 - **Deploy (31/10, 14:02, sábado):** a pedido do usuário, `feat/balcao-anexos` foi juntada na `main` (fast-forward) e enviada (push `c80baf1..b14d84a`). O bundle novo confirmou às 14:03, e a rota nova responde 401 sem token. Não consegui ver o status do WhatsApp depois do deploy: a leitura do banco de produção foi barrada pelo modo auto. Pedi pro usuário conferir se está "Conectado" (se aparecer `standby`, reiniciar o app no hPanel).
+
+### 2026-11-03 — Lembrete de reserva, avaliação pós-visita e resumo semanal do dono (não enviado)
+
+**Pedido do usuário:** depois de uma lista de ideias inspirada nos concorrentes (Tintim, Kommo, Anota AI, Goomer...), mandou implementar o que der **só com o Baileys** (API oficial só depois de reunião com os donos; Evolution API + n8n + VPS só depois do dia 15). Total autorização.
+
+**Decisões minhas:**
+- Só o que **responde a quem já falou com o restaurante** (lembrete e avaliação vão pra quem fez reserva, uma vez por reserva, em horário comercial). **Reativação em massa e disparo frio ficaram de fora de propósito:** é o uso que derruba número de Baileys; fica pra API oficial.
+- Tudo **desligado por padrão** e por cliente, no mesmo `reservation_settings.config` (chave `followup`).
+- Só clientes com `reservations_enabled` e `connection_type = 'baileys'`.
+
+**Como ficou:**
+- `followupText.js` (puro, testado): textos padrão, `isReminderDue` (N horas antes, nunca antes das 8h nem nos últimos 45 min; reserva feita depois do ponto de envio não recebe), `isReviewDue` (depois do fim da reserva, 9h–22h, até 20h depois), `isConfirmReply` (SIM/confirmo...), `parseRating` (1 a 5, "nota 4", estrelas), `parseOwnerPhones`.
+- `followupBot.js`: `runReminders` e `runReviewRequests` reservam a linha (`reminder_sent_at`, `review_requested_at`) **antes** de enviar, então dois processos não mandam em dobro; falha no envio libera a reserva. `handleInboundForFollowup` trata o SIM (grava `client_confirmed_at` e agradece) e a nota (grava `rating`; 4–5 manda o link do Google, 1–3 pede desculpa, **pausa o robô e chama a equipe** com o aviso "Precisa de atendimento").
+  - Avaliação vai pra quem a equipe marcou **Chegou**, ou pra quem confirmou presença no lembrete. Quem está pausado (equipe conversando) não recebe.
+  - No ingest, a ordem é: robô de reserva → (se `ignored`) acompanhamento → (se `ignored`) respostas automáticas.
+- `ownerReport.js`: resumo da semana anterior (segunda a domingo), toda **segunda depois das 9h**, uma vez por cliente (`owner_reports`, PK cliente+tipo+semana, reservada antes de enviar). Conversas novas (e quantas de anúncio), reservas e pessoas, compareceram / não vieram / sem marcação / canceladas, % de comparecimento, confirmaram pelo lembrete, investimento e custo por reserva, nota média, campanha que mais trouxe reservas. Envia direto pelo Baileys pro(s) telefone(s) do dono (`sendViaBaileys`), sem criar contato no Balcão.
+- `followupScheduler.js`: tick de 5 min (1º tick 60 s após subir), ligado em `server.js` junto com `BAILEYS_AUTOCONNECT` (o backend local com `BAILEYS_AUTOCONNECT=false` **não envia nada**).
+- Banco (aditivo): `reservations.reminder_sent_at`, `client_confirmed_at`, `review_requested_at`, `rating`, `rated_at` e tabela `owner_reports`.
+- Rota `POST /api/reservations/followup/report` (botão "Enviar o resumo agora" no Configurar; usa os telefones **já salvos**).
+- Balcão: seção nova no Configurar (liga/desliga, horas antes, link do Google, telefones, textos) e selos na lista de reservas ("Lembrete enviado", "Confirmou presença", "Nota N").
+
+**Testado:** backend 485 testes (25 novos), frontend 73, build ok. O SQL (listas de lembrete/avaliação e as estatísticas do resumo) foi rodado contra o **Postgres de produção dentro de uma transação desfeita** (colunas criadas e revertidas, envio falso, nada gravado). Resumo de exemplo do Malibu (26/10 a 01/11): 37 conversas, 35 de anúncio, 2 reservas, R$ 637 investidos.
+
+**Não testado:** envio real pelo Baileys e a tela do Configurar no navegador.
+
+**Observação importante:** na semana de 26/10 as 2 reservas ficaram "sem marcação" no Balcão: a equipe quase não clica em **Chegou / Não veio**. Isso enfraquece o comparecimento no resumo e a avaliação (que depende de "Chegou" ou do SIM no lembrete). Vale combinar com o Malibu de marcar.
+
+**Pra colocar no ar:** deploy fora do horário de serviço do Malibu (se aparecer `standby`, reiniciar o app no hPanel) → Balcão do Malibu → Reservas → Configurar → ligar lembrete (3 h antes) e avaliação (link do Google do restaurante), cadastrar o WhatsApp do dono e ligar o resumo; usar "Enviar o resumo agora" pra conferir.
+
+**Ideias ainda não feitas (todas viáveis no Baileys):** alertas proativos de campanha (CPL subindo, anúncio sem entrega), ranking de criativos por reserva, no-show por campanha no Dashboard WhatsApp, lista de espera que oferece a vaga de cancelamento, tempo médio de resposta (SLA) no Balcão, arquivos fixos (cardápio, mapa) com um clique. **Só com API oficial:** reativação de clientes inativos, aniversário, campanhas de disparo.
+

@@ -20,6 +20,7 @@ import { searchContacts, createConversion, updateConversion, deleteConversion, g
 import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanbanController.js';
 import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
+import { startFollowupScheduler } from './services/followupScheduler.js';
 import { setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
@@ -179,6 +180,7 @@ app.post('/api/waitlist/:id/restore', restoreEntry);
 // Reservas pelo WhatsApp -- equipe do restaurante (staff, no Caixa) e admin.
 app.get('/api/reservations/settings', reservationHandlers.getSettings);
 app.put('/api/reservations/settings', reservationHandlers.saveSettings);
+app.post('/api/reservations/followup/report', reservationHandlers.sendReport);
 app.get('/api/reservations/availability', reservationHandlers.availability);
 app.get('/api/reservations', reservationHandlers.getDay);
 app.post('/api/reservations', reservationHandlers.create);
@@ -264,6 +266,10 @@ initDb()
       .catch((err) => console.error('Erro ao apagar entradas antigas da fila:', err));
     purgeWaitlist();
     setInterval(purgeWaitlist, 6 * 60 * 60 * 1000).unref();
+
+    // Lembrete de reserva, avaliação pós-visita e relatório do dono. Desligado junto com
+    // o BAILEYS_AUTOCONNECT=false, pra o backend local não mandar mensagem de verdade.
+    if (process.env.BAILEYS_AUTOCONNECT !== 'false') startFollowupScheduler();
 
     if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
       reconnectAllBaileysClients().catch((err) => {

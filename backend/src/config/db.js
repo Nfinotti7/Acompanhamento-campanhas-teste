@@ -461,6 +461,22 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_reservations_client_start ON reservations (client_id, starts_at)`);
+  // Lembrete, confirmação de presença e avaliação pós-visita (followupBot.js).
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS client_confirmed_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS rating INTEGER`);
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ`);
+  // Um relatório por cliente e período: a linha é reservada antes de enviar (ownerReport.js).
+  await query(`
+    CREATE TABLE IF NOT EXISTS owner_reports (
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      sent_at TIMESTAMPTZ DEFAULT now(),
+      PRIMARY KEY (client_id, kind, period_key)
+    )
+  `);
   // Conversa do robô em andamento (passo, respostas já dadas). Uma ativa por contato.
   await query(`
     CREATE TABLE IF NOT EXISTS reservation_conversations (

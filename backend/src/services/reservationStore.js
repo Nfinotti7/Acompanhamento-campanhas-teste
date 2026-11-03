@@ -5,6 +5,7 @@ import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
 import { DEFAULT_RESERVATION_SETTINGS, pickTableSize, tablesForDay, dayOf } from './reservationSlots.js';
 import { DEFAULT_INFO_SETTINGS } from './infoText.js';
+import { DEFAULT_FOLLOWUP_SETTINGS, FOLLOWUP_MESSAGE_KEYS } from './followupText.js';
 
 // Chave do pg_advisory_xact_lock: LOCK_BASE + client_id (longe de qualquer outra trava).
 export const LOCK_BASE = 900000;
@@ -34,7 +35,9 @@ export async function loadReservationSettings(dbImpl, clientId) {
     ...config,
     hours: { ...DEFAULT_RESERVATION_SETTINGS.hours, ...(config.hours || {}) },
     // Respostas automáticas do Balcão (infoBot.js) moram aqui, junto dos textos do robô.
-    info: { ...DEFAULT_INFO_SETTINGS, ...(config.info || {}) }
+    info: { ...DEFAULT_INFO_SETTINGS, ...(config.info || {}) },
+    // Lembrete, avaliação pós-visita e relatório do dono (followupBot.js, ownerReport.js).
+    followup: { ...DEFAULT_FOLLOWUP_SETTINGS, ...(config.followup || {}) }
   };
 }
 
@@ -71,6 +74,28 @@ function validateSettings(s) {
       throw new ReservationSettingsError('Respostas automáticas: cada texto pode ter até 2000 caracteres.');
     }
   }
+  validateFollowup(s.followup);
+}
+
+function validateFollowup(f) {
+  for (const key of ['reminder_enabled', 'review_enabled', 'report_enabled']) {
+    if (typeof f[key] !== 'boolean') throw new ReservationSettingsError('Lembrete e avaliação: valor inválido.');
+  }
+  if (!Number.isInteger(f.reminder_hours_before) || f.reminder_hours_before < 1 || f.reminder_hours_before > 24) {
+    throw new ReservationSettingsError('O lembrete pode sair de 1 a 24 horas antes da reserva.');
+  }
+  if (typeof f.google_review_url !== 'string' || f.google_review_url.length > 500
+      || (f.google_review_url && !/^https?:\/\//i.test(f.google_review_url.trim()))) {
+    throw new ReservationSettingsError('O link de avaliação do Google precisa começar com http:// ou https://.');
+  }
+  if (typeof f.owner_phones !== 'string' || f.owner_phones.length > 300) {
+    throw new ReservationSettingsError('Telefones do relatório: use até 300 caracteres.');
+  }
+  for (const [key, value] of Object.entries(f.messages || {})) {
+    if (!FOLLOWUP_MESSAGE_KEYS.includes(key) || typeof value !== 'string' || value.length > 1500) {
+      throw new ReservationSettingsError('Mensagem de lembrete/avaliação inválida (até 1500 caracteres).');
+    }
+  }
 }
 
 export async function saveReservationSettings(dbImpl, clientId, patch) {
@@ -78,7 +103,8 @@ export async function saveReservationSettings(dbImpl, clientId, patch) {
   const next = {
     ...current, ...patch,
     hours: { ...current.hours, ...(patch.hours || {}) },
-    info: { ...current.info, ...(patch.info || {}) }
+    info: { ...current.info, ...(patch.info || {}) },
+    followup: { ...current.followup, ...(patch.followup || {}) }
   };
   validateSettings(next);
   await dbImpl.query(

@@ -131,10 +131,19 @@ export default function ReservationsView({ api, lastEvent }) {
           </button>
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: STATUS_COLOR[r.status], whiteSpace: 'nowrap' }}>{statusLabel(r.status)}</span>
         </div>
-        {(origin || r.over_limit) && (
+        {(origin || r.over_limit || r.client_confirmed_at || r.rating || (r.reminder_sent_at && r.status === 'confirmed')) && (
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {origin && (
               <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'var(--surface-subtle)', color: 'var(--text-secondary)' }}>{origin}</span>
+            )}
+            {r.client_confirmed_at && r.status !== 'cancelled' && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: 'var(--accent-success)', border: '1px solid var(--accent-success)' }}>Confirmou presença</span>
+            )}
+            {!r.client_confirmed_at && r.reminder_sent_at && r.status === 'confirmed' && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'var(--surface-subtle)', color: 'var(--text-secondary)' }}>Lembrete enviado</span>
+            )}
+            {r.rating && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: r.rating >= 4 ? 'var(--accent-success)' : 'var(--accent-danger)', border: `1px solid ${r.rating >= 4 ? 'var(--accent-success)' : 'var(--accent-danger)'}` }}>Nota {r.rating}</span>
             )}
             {r.over_limit && (
               <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: 'var(--accent-warning)', border: '1px solid var(--accent-warning)' }}>Acima do limite</span>
