@@ -1072,7 +1072,7 @@ O usuário mandou fazer as ideias que ainda cabiam no Baileys. Seis entregas:
 **Testado:** backend 503 testes (18 novos: ranking, SLA, alertas, envio de alertas, lista de espera completa, fluxo AVISAR no robô), frontend 73, build ok.
 
 **Não testado / pendente:**
-- **O SQL novo não foi rodado no Postgres real** (ranking, tempo de resposta, dados dos alertas, `reservation_waiters`, `quick_files`): o modo auto barrou a leitura de produção. Só os testes com banco falso cobrem. O script de verificação (transação desfeita) está em `scratchpad/check_sql2.mjs` desta sessão; rodar com autorização do usuário antes ou logo depois do deploy e olhar o log do servidor.
+- **SQL novo verificado no Postgres real** (com autorização do usuário, transação desfeita, envio falso, nada gravado): ranking, tempo de resposta, dados dos alertas, `reservation_waiters` (inclusive a oferta de vaga e o upsert), `quick_files` e o resumo semanal com tempo de resposta, tudo sem erro. Resultados com o Malibu: 68 conversas nos últimos 30 dias, mediana da 1ª resposta menos de 1 min (o robô responde na hora), 64% em até 5 min, 4 sem resposta; o alerta de "sem entrega" disparou em 1 campanha.
 - Envio real pelo Baileys, telas no navegador.
 - Os alertas e a lista de espera ficam em Reservas → Configurar, então só aparecem pra cliente com reservas ligadas (hoje, o Malibu). Alertas pros outros clientes pediriam uma tela própria.
 - Reativação de cliente inativo, aniversário e disparos continuam só com a API oficial.
