@@ -375,16 +375,6 @@ export default function ReportModal({
                 </div>
 
                 <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ROAS (Retorno)</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-6)' }}>
-                    {summary?.roas?.toFixed(2)}x
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Retorno sobre verba de anúncios
-                  </div>
-                </div>
-
-                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Cliques em Anúncios</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-2)' }}>
                     {summary?.clicks?.toLocaleString('pt-BR')}
@@ -541,7 +531,6 @@ export default function ReportModal({
                     <th style={{ padding: '8px', textAlign: 'right' }}>CTR</th>
                     <th style={{ padding: '8px', textAlign: 'right' }}>Conversões</th>
                     <th style={{ padding: '8px', textAlign: 'right' }}>CPA</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>ROAS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -576,9 +565,6 @@ export default function ReportModal({
                         </td>
                         <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--accent-warning)' }}>
                           R$ {c.cpa.toFixed(2)}
-                        </td>
-                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--chart-6)' }}>
-                          {c.roas}x
                         </td>
                       </tr>
                     ))

@@ -50,26 +50,25 @@ export default function UnitsPage() {
       {!data && !error && <p style={{ color: 'var(--text-muted)' }}>Carregando...</p>}
 
       {[...groups.entries()].map(([group, units]) => {
-        const best = Math.max(...units.map((u) => u.reservations));
+        const best = Math.max(...units.map((u) => u.conversations));
         return (
           <div key={group} className="glass-card" style={{ padding: '20px', marginBottom: 16 }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>{group}</h3>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                 <thead><tr style={{ color: 'var(--text-muted)' }}>
-                  {['Unidade', 'Conversas', 'Reservas', 'Comparecimento', 'Investimento', 'Custo/reserva', 'Vendas lançadas', 'Retorno'].map((h) => <th key={h} style={th}>{h}</th>)}
+                  {['Unidade', 'Conversas', 'Anúncios vistos', 'Cliques', 'Investimento', 'Custo/conversa', 'Reservas'].map((h) => <th key={h} style={th}>{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {units.map((u) => (
                     <tr key={u.clientId} style={{ color: 'var(--text-primary)' }}>
-                      <td style={{ ...td, fontWeight: 700 }}>{u.name}{u.reservations > 0 && u.reservations === best && units.length > 1 ? ' 🏆' : ''}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{u.name}{u.conversations > 0 && u.conversations === best && units.length > 1 ? ' 🏆' : ''}</td>
                       <td style={td}>{u.conversations}</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{u.reservations}</td>
-                      <td style={td}>{pct(u.attendance)}</td>
+                      <td style={td}>{u.impressions > 0 ? u.impressions.toLocaleString('pt-BR') : '—'}</td>
+                      <td style={td}>{u.clicks > 0 ? u.clicks.toLocaleString('pt-BR') : '—'}</td>
                       <td style={td}>{u.spend > 0 ? brl(u.spend) : '—'}</td>
-                      <td style={td}>{u.costPerReservation === null ? '—' : brl(u.costPerReservation)}</td>
-                      <td style={td}>{u.revenue > 0 ? brl(u.revenue) : '—'}</td>
-                      <td style={td}>{u.roas === null ? '—' : `${u.roas.toFixed(1).replace('.', ',')}x`}</td>
+                      <td style={td}>{u.costPerConversation === null ? '—' : brl(u.costPerConversation)}</td>
+                      <td style={td}>{u.reservations > 0 ? u.reservations : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

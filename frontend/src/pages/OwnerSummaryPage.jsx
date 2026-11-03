@@ -66,6 +66,10 @@ export default function OwnerSummaryPage({ selectedClient }) {
 
   const { current: c, previous: p, headline } = data;
   const name = data.client?.company || data.client?.name || 'Restaurante';
+  const topics = [['menu', 'Cardápio'], ['location', 'Localização'], ['prices', 'Preços'], ['hours', 'Horário'], ['questions', 'Outras dúvidas']]
+    .map(([key, label]) => [key, label, c.topics?.[key] || 0])
+    .filter((t) => t[2] > 0)
+    .sort((x, y) => y[2] - x[2]);
 
   return (
     <div className="animate-fade-in" style={{ opacity: loading ? 0.6 : 1 }}>
@@ -74,7 +78,7 @@ export default function OwnerSummaryPage({ selectedClient }) {
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Gauge size={28} color="var(--accent-primary)" /> Resumo do dono
           </h1>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Os números que importam, em linguagem simples.</p>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>O que os anúncios trouxeram: conversas, visualizações e o que as pessoas buscaram.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {PERIODS.map(([key, label]) => (
@@ -95,25 +99,46 @@ export default function OwnerSummaryPage({ selectedClient }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-          <Big label="Conversas novas" value={c.conversations} sub={c.fromAds ? `${c.fromAds} vindas de anúncio` : null}>
+          <Big label="Conversas novas no WhatsApp" value={c.conversations} sub={c.fromAds ? `${c.fromAds} vindas de anúncio` : null}>
             <Delta now={c.conversations} before={p.conversations} />
           </Big>
-          <Big label="Reservas" value={c.reservations} sub={c.people ? `${c.people} pessoas` : null}>
-            <Delta now={c.reservations} before={p.reservations} />
+          <Big label="Anúncios vistos" value={c.impressions > 0 ? c.impressions.toLocaleString('pt-BR') : '—'} sub="vezes que o anúncio apareceu">
+            <Delta now={c.impressions} before={p.impressions} />
           </Big>
-          <Big label="Comparecimento" value={pct(c.attendance)} sub={c.attendance === null && c.unmarked ? `${c.unmarked} sem marcação no Balcão` : `${c.arrived} vieram, ${c.noShow} não vieram`} />
+          <Big label="Cliques nos anúncios" value={c.clicks > 0 ? c.clicks.toLocaleString('pt-BR') : '—'} sub={c.ctr !== null ? `${(c.ctr * 100).toFixed(1).replace('.', ',')}% de quem viu clicou` : null}>
+            <Delta now={c.clicks} before={p.clicks} />
+          </Big>
           <Big label="Investido em anúncios" value={brl(c.spend)}>
             <Delta now={c.spend} before={p.spend} lowerIsBetter />
           </Big>
-          <Big label="Custo por reserva" value={c.costPerReservation === null ? '—' : brl(c.costPerReservation)}>
-            <Delta now={c.costPerReservation} before={p.costPerReservation} lowerIsBetter />
+          <Big label="Custo por conversa" value={c.costPerConversation === null ? '—' : brl(c.costPerConversation)} sub="quanto custou cada pessoa que chamou">
+            <Delta now={c.costPerConversation} before={p.costPerConversation} lowerIsBetter />
           </Big>
-          {c.revenue > 0 && (
-            <Big label="Vendas lançadas" value={brl(c.revenue)} sub={c.roas ? `${c.roas.toFixed(1).replace('.', ',')}x o investimento` : null}>
-              <Delta now={c.revenue} before={p.revenue} />
+          {c.reservations > 0 && (
+            <Big label="Reservas" value={c.reservations} sub={`${c.people} pessoas${c.attendance !== null ? ` · ${pct(c.attendance)} compareceram` : ''}`}>
+              <Delta now={c.reservations} before={p.reservations} />
             </Big>
           )}
         </div>
+
+        {topics.length > 0 && (
+          <div className="glass-card" style={{ padding: '18px' }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>O que as pessoas procuraram</h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 12px' }}>Pessoas diferentes que pediram cada assunto no WhatsApp.</p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {topics.map(([key, label, value]) => (
+                <div key={key}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                    <span>{label}</span><strong>{value}</strong>
+                  </div>
+                  <div style={{ height: 8, background: 'var(--border-color)', borderRadius: 6 }}>
+                    <div style={{ width: `${Math.max(4, (value / topics[0][2]) * 100)}%`, height: '100%', background: 'var(--accent-primary)', borderRadius: 6 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="glass-card" style={{ padding: '18px' }}>
           <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>Em resumo</h3>

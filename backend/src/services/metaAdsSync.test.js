@@ -39,3 +39,36 @@ test('normalizeAccountId remove espacos nas pontas antes de comparar', () => {
 test('normalizeAccountId nao lanca erro quando o valor nao e string', () => {
   assert.equal(normalizeAccountId(123456), 'act_123456');
 });
+
+import { resolveCampaignStatus, fetchCampaignStatuses } from './metaAdsSync.js';
+import { updateCampaignStatuses } from './syncService.js';
+
+test('campanha ativa com todos os conjuntos parados conta como pausada', () => {
+  assert.equal(resolveCampaignStatus('ACTIVE', { total: 3, active: 0 }), 'PAUSED');
+  assert.equal(resolveCampaignStatus('ACTIVE', { total: 3, active: 1 }), 'ACTIVE');
+  assert.equal(resolveCampaignStatus('ACTIVE', undefined), 'ACTIVE');
+  assert.equal(resolveCampaignStatus('ACTIVE', { total: 0, active: 0 }), 'ACTIVE');
+  assert.equal(resolveCampaignStatus('PAUSED', { total: 2, active: 2 }), 'PAUSED');
+});
+
+test('status de todas as campanhas da conta, com e sem o detalhe dos conjuntos', async () => {
+  const campaigns = new Map([['1', { status: 'ACTIVE' }], ['2', { status: 'PAUSED' }], ['3', { status: 'ACTIVE' }]]);
+  const withAdsets = await fetchCampaignStatuses('act_1', 't', {
+    fetchCampaignMeta: async () => campaigns,
+    fetchAdsetActivity: async () => new Map([['1', { total: 2, active: 0 }], ['3', { total: 1, active: 1 }]])
+  });
+  assert.deepEqual([...withAdsets], [['1', 'PAUSED'], ['2', 'PAUSED'], ['3', 'ACTIVE']]);
+  const noAdsets = await fetchCampaignStatuses('act_1', 't', {
+    fetchCampaignMeta: async () => campaigns,
+    fetchAdsetActivity: async () => { throw new Error('sem permissão'); }
+  });
+  assert.equal(noAdsets.get('1'), 'ACTIVE');
+});
+
+test('atualiza só o que mudou', async () => {
+  const calls = [];
+  const db = { query: async (sql, params) => { calls.push(params); return { rowCount: params[0] === 'PAUSED' ? 1 : 0 }; } };
+  const changed = await updateCampaignStatuses(new Map([['1', 'PAUSED'], ['2', 'ACTIVE'], ['3', null]]), db);
+  assert.equal(changed, 1);
+  assert.equal(calls.length, 2); // o status vazio é ignorado
+});

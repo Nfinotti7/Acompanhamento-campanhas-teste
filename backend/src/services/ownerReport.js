@@ -1,6 +1,7 @@
-// Resumo semanal no WhatsApp do dono: conversas, reservas, comparecimento, investimento e
-// avaliação, toda segunda de manhã. É o relatório que mostra o resultado em reais sem o
-// dono precisar abrir o painel.
+// Resumo semanal no WhatsApp do dono, toda segunda de manhã: conversas, visualizações e
+// cliques dos anúncios, custo por conversa, o que as pessoas procuraram (cardápio,
+// localização...) e, quando há, reservas. Não é só de reserva: o anúncio também traz gente
+// pra ver cardápio, localização e passar no restaurante.
 import db from '../config/db.js';
 import { sendViaBaileys } from './baileysClient.js';
 import { loadReservationSettings } from './reservationStore.js';
@@ -51,8 +52,9 @@ export async function collectStats(dbImpl, clientId, { from, to }, now = new Dat
      WHERE client_id = ? AND ${localDayTz('starts_at')} BETWEEN ?::date AND ?::date`,
     [now, clientId, from, to]
   );
-  const { rows: [spend] } = await dbImpl.query(
-    `SELECT COALESCE(SUM(spend), 0) AS total FROM daily_metrics WHERE client_id = ? AND date BETWEEN ? AND ?`,
+  const { rows: [ads] } = await dbImpl.query(
+    `SELECT COALESCE(SUM(spend), 0) AS spend, COALESCE(SUM(impressions), 0) AS impressions, COALESCE(SUM(clicks), 0) AS clicks
+     FROM daily_metrics WHERE client_id = ? AND date BETWEEN ? AND ?`,
     [clientId, from, to]
   );
   const { rows: top } = await dbImpl.query(
@@ -65,20 +67,38 @@ export async function collectStats(dbImpl, clientId, { from, to }, now = new Dat
      GROUP BY c.campaign_name ORDER BY count DESC, c.campaign_name LIMIT 1`,
     [clientId, from, to]
   );
-  const { rows: [sales] } = await dbImpl.query(
-    `SELECT COUNT(*) AS count, COALESCE(SUM(amount_spent), 0) AS revenue
-     FROM real_conversions WHERE client_id = ? AND ${localDay('created_at')} BETWEEN ?::date AND ?::date`,
+  // O que as pessoas procuraram: cada assunto conta uma vez por pessoa (respostas automáticas).
+  const { rows: topicRows } = await dbImpl.query(
+    `SELECT topic, COUNT(DISTINCT contact_id) AS count FROM info_replies
+     WHERE client_id = ? AND topic <> 'after_hours' AND ${localDayTz('sent_at')} BETWEEN ?::date AND ?::date
+     GROUP BY topic`,
+    [clientId, from, to]
+  );
+  const { rows: topConv } = await dbImpl.query(
+    `SELECT c.campaign_name, COUNT(*) AS count
+     FROM whatsapp_contacts wc
+     JOIN meta_ad_cache c ON c.ad_id = wc.ad_id
+     WHERE wc.client_id = ? AND c.campaign_name IS NOT NULL
+       AND ${localDay('wc.first_seen_at')} BETWEEN ?::date AND ?::date
+     GROUP BY c.campaign_name ORDER BY count DESC, c.campaign_name LIMIT 1`,
     [clientId, from, to]
   );
   const response = await loadResponseTimes(dbImpl, clientId, from, to, now);
   const n = (v) => Number(v) || 0;
+  const topics = { menu: 0, prices: 0, hours: 0, location: 0, questions: 0 };
+  for (const r of topicRows) {
+    if (['menu', 'prices', 'hours', 'location'].includes(r.topic)) topics[r.topic] += n(r.count);
+    else topics.questions += n(r.count); // 'other' e as perguntas frequentes do restaurante
+  }
   return {
-    response, sales: n(sales?.count), revenue: n(sales?.revenue),
+    response, topics,
+    impressions: n(ads?.impressions), clicks: n(ads?.clicks),
+    topCampaignConversations: topConv[0] ? { name: topConv[0].campaign_name, count: n(topConv[0].count) } : null,
     conversations: n(contacts?.total), fromAds: n(contacts?.from_ads),
     reservations: n(res?.total), people: n(res?.people), arrived: n(res?.arrived), noShow: n(res?.no_show),
     cancelled: n(res?.cancelled), unmarked: n(res?.unmarked), confirmedByClient: n(res?.confirmed_by_client),
     ratings: n(res?.ratings), avgRating: res?.avg_rating === null || res?.avg_rating === undefined ? null : Number(res.avg_rating),
-    spend: n(spend?.total),
+    spend: n(ads?.spend),
     topCampaign: top[0] ? { name: top[0].campaign_name, count: n(top[0].count) } : null
   };
 }
@@ -92,20 +112,39 @@ export function formatMinutes(m) {
   return min ? `${h}h${String(min).padStart(2, '0')}` : `${h}h`;
 }
 
+export const TOPIC_LABELS = [['menu', 'cardápio'], ['location', 'localização'], ['prices', 'preços'], ['hours', 'horário'], ['questions', 'outras dúvidas']];
+
+// "cardápio (12), localização (8)", do mais procurado pro menos.
+export function topicsText(topics = {}) {
+  return TOPIC_LABELS
+    .filter(([key]) => topics[key] > 0)
+    .sort((x, y) => topics[y[0]] - topics[x[0]])
+    .map(([key, label]) => `${label} (${topics[key]})`)
+    .join(', ');
+}
+
+const int = new Intl.NumberFormat('pt-BR');
+
 export function buildOwnerReport({ restaurant, range, stats: s }) {
   const lines = [`📊 *Resumo da semana — ${restaurant}*`, `${ddmm(range.from)} a ${ddmm(range.to)}`, ''];
   lines.push(`💬 Conversas novas: *${s.conversations}*${s.fromAds ? ` (${s.fromAds} vindas de anúncio)` : ''}`);
+  if (s.impressions > 0) {
+    lines.push(`👀 Anúncios vistos *${int.format(s.impressions)}* vezes, com *${int.format(s.clicks)}* cliques`);
+  }
+  if (s.spend > 0) {
+    const perConversation = s.conversations > 0 ? ` → *${brl.format(s.spend / s.conversations)}* por conversa` : '';
+    lines.push(`💰 Investido em anúncios: ${brl.format(s.spend)}${perConversation}`);
+  }
+  const wanted = topicsText(s.topics);
+  if (wanted) lines.push(`🔎 O que mais procuraram: ${wanted}`);
   if (s.reservations > 0 || s.cancelled > 0) {
     lines.push(`📅 Reservas: *${s.reservations}*${s.people ? ` (${s.people} pessoas)` : ''}`);
     const marked = s.arrived + s.noShow;
     if (s.arrived) lines.push(`   ✅ Compareceram: ${s.arrived}`);
     if (s.noShow) lines.push(`   ❌ Não vieram: ${s.noShow}`);
-    if (s.unmarked) lines.push(`   ❔ Sem marcação no Balcão: ${s.unmarked}`);
     if (s.cancelled) lines.push(`   🚫 Canceladas: ${s.cancelled}`);
     if (marked >= 3) lines.push(`   Comparecimento: *${Math.round((s.arrived / marked) * 100)}%*`);
     if (s.confirmedByClient) lines.push(`   📲 Confirmaram presença pelo lembrete: ${s.confirmedByClient}`);
-  } else {
-    lines.push('📅 Reservas: nenhuma na semana');
   }
   if (s.response?.answered > 0 && s.response.medianMinutes !== null) {
     const fast = s.response.within5Pct !== null ? `, ${Math.round(s.response.within5Pct * 100)}% em até 5 min` : '';
@@ -114,18 +153,10 @@ export function buildOwnerReport({ restaurant, range, stats: s }) {
   if (s.response?.unanswered > 0) {
     lines.push(`   ⚠️ ${s.response.unanswered} ${s.response.unanswered === 1 ? 'conversa ficou' : 'conversas ficaram'} sem resposta`);
   }
-  if (s.spend > 0) {
-    const perReservation = s.reservations > 0 ? ` → *${brl.format(s.spend / s.reservations)}* por reserva` : '';
-    lines.push(`💰 Investido em anúncios: ${brl.format(s.spend)}${perReservation}`);
-  }
-  if (s.revenue > 0) {
-    const roas = s.spend > 0 ? ` (retorno de *${dec1.format(s.revenue / s.spend)}x* o investimento)` : '';
-    lines.push(`💵 Faturamento das vendas lançadas: *${brl.format(s.revenue)}*${roas}`);
-  }
   if (s.ratings > 0 && s.avgRating !== null) {
     lines.push(`⭐ Avaliação média pós-visita: *${dec1.format(s.avgRating)}* (${s.ratings} ${s.ratings === 1 ? 'resposta' : 'respostas'})`);
   }
-  if (s.topCampaign) lines.push(`🏆 Campanha que mais trouxe reservas: ${s.topCampaign.name} (${s.topCampaign.count})`);
+  if (s.topCampaignConversations) lines.push(`🏆 Campanha que mais trouxe conversas: ${s.topCampaignConversations.name} (${s.topCampaignConversations.count})`);
   lines.push('', 'Qualquer dúvida sobre os números, é só chamar a Further 🙂');
   return lines.join('\n');
 }

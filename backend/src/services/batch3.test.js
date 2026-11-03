@@ -186,24 +186,29 @@ test('períodos', () => {
 });
 
 const STATS = {
-  conversations: 84, people: 96, reservations: 31, arrived: 24, noShow: 4, cancelled: 5, unmarked: 0, spend: 1240, revenue: 6200,
+  conversations: 84, people: 96, reservations: 31, arrived: 24, noShow: 4, cancelled: 5, unmarked: 0, spend: 1260,
+  impressions: 48200, clicks: 910, topics: { menu: 22, prices: 0, hours: 0, location: 15, questions: 0 },
   response: { unanswered: 2 }
 };
 
-test('frases do painel do dono', () => {
-  const lines = buildHeadline(STATS, { ...STATS, conversations: 60, reservations: 31 });
+test('frases do painel do dono: conversa, alcance e assuntos antes de reserva', () => {
+  const lines = buildHeadline(STATS, { ...STATS, conversations: 60, impressions: 40000 });
   assert.match(lines[0], /84 pessoas chamaram.*\+40%/);
-  assert.match(lines[1], /31 reservas \(96 pessoas\) \(igual ao período anterior\)/);
+  assert.match(lines[1], /vistos 48\.200 vezes.*\+21%.*910 cliques \(1,9% de quem viu clicou\)/);
+  assert.ok(lines.some((l) => /Cada conversa custou R\$\s15,00/.test(l)));
+  assert.ok(lines.some((l) => /O que mais procuraram: cardápio \(22\), localização \(15\)/.test(l)));
+  assert.ok(lines.some((l) => /31 reservas \(96 pessoas\)/.test(l)));
   assert.ok(lines.some((l) => /86% de quem tinha reserva compareceu/.test(l)));
-  assert.ok(lines.some((l) => /R\$\s40,00 em anúncio/.test(l)));
-  assert.ok(lines.some((l) => /5,0x/.test(l)));
   assert.ok(lines.some((l) => /2 conversas ficaram sem resposta/.test(l)));
-  assert.equal(derive(STATS).costPerReservation, 40);
+  assert.ok(lines.every((l) => !/ROAS|investid[oa]\.?$/.test(l)));
+  const d = derive(STATS);
+  assert.equal(d.costPerConversation, 15);
+  assert.equal(d.roas, undefined);
 });
 
-test('sem marcação no Balcão vira orientação', () => {
-  const lines = buildHeadline({ ...STATS, arrived: 0, noShow: 0, unmarked: 5, revenue: 0, response: {} }, STATS);
-  assert.ok(lines.some((l) => /5 reservas estão sem marcação/.test(l)));
+test('sem reservas, o resumo do dono não cobra reserva nem marcação', () => {
+  const lines = buildHeadline({ ...STATS, reservations: 0, people: 0, arrived: 0, noShow: 0, unmarked: 5 }, STATS);
+  assert.ok(lines.every((l) => !/reserva|marcação/i.test(l)));
 });
 
 test('implantação: só o obrigatório conta pro progresso', () => {

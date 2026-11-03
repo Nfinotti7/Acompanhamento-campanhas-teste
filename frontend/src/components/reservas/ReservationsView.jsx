@@ -255,7 +255,7 @@ export default function ReservationsView({ api, lastEvent }) {
   );
 }
 
-// Valor da comanda: vira venda e entra no retorno do investimento (ROAS) da campanha.
+// Valor da comanda (opcional): vira uma venda lançada. Não é usado nos resumos por enquanto.
 function SpendField({ r, api, onSaved }) {
   const [value, setValue] = useState(r.amount_spent ? String(r.amount_spent) : '');
   const [saving, setSaving] = useState(false);

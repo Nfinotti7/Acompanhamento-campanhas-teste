@@ -15,8 +15,7 @@ const CAMPAIGN_COLUMNS = [
   { key: 'sales', label: 'Vendas' },
   { key: 'revenue', label: 'Faturamento', render: (c) => <span style={{ color: 'var(--accent-success)' }}>{brl(c.revenue)}</span> },
   { key: 'spend', label: 'Investimento', render: (c) => brl(c.spend) },
-  { key: 'cpc', label: 'Custo/conversa', render: (c) => (c.costPerConversation === null ? '—' : brl(c.costPerConversation)) },
-  { key: 'roas', label: 'ROAS', render: (c) => <strong>{c.roas === null ? '—' : `${c.roas.toFixed(2).replace('.', ',')}x`}</strong> }
+  { key: 'cpc', label: 'Custo/conversa', render: (c) => (c.costPerConversation === null ? '—' : brl(c.costPerConversation)) }
 ];
 
 const ORIGIN_KEYS = ['meta_ads', 'google_ads', 'outras', 'nao_rastreada'];
@@ -192,7 +191,7 @@ export default function WhatsAppDashboardPage({ selectedClient, selectedRange })
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ color: 'var(--text-muted)', textAlign: 'left' }}>
-                  {['Campanha', 'Conversas', 'Vendas', 'Faturamento', 'Investimento', 'Custo/conversa', 'ROAS'].map((h) => (
+                  {['Campanha', 'Conversas', 'Vendas', 'Faturamento', 'Investimento', 'Custo/conversa'].map((h) => (
                     <th key={h} style={{ padding: '8px 10px', fontWeight: 600, borderBottom: '1px solid var(--border-color)' }}>{h}</th>
                   ))}
                 </tr>
@@ -206,7 +205,6 @@ export default function WhatsAppDashboardPage({ selectedClient, selectedRange })
                     <td style={{ padding: '10px', borderBottom: '1px solid var(--border-color)', color: 'var(--accent-success)' }}>{brl(c.revenue)}</td>
                     <td style={{ padding: '10px', borderBottom: '1px solid var(--border-color)' }}>{brl(c.spend)}</td>
                     <td style={{ padding: '10px', borderBottom: '1px solid var(--border-color)' }}>{c.costPerConversation === null ? '—' : brl(c.costPerConversation)}</td>
-                    <td style={{ padding: '10px', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{c.roas === null ? '—' : `${c.roas.toFixed(2).replace('.', ',')}x`}</td>
                   </tr>
                 ))}
               </tbody>

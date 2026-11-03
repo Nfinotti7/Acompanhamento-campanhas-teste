@@ -98,6 +98,51 @@ async function fetchCampaignMeta(accountId, accessToken) {
   return map;
 }
 
+// Conjuntos de anúncio por campanha: quantos existem e quantos estão rodando. Campanha ativa
+// com todos os conjuntos pausados não entrega nada, e o status da campanha sozinho não mostra.
+async function fetchAdsetActivity(accountId, accessToken, fetchImpl = fetch) {
+  const params = new URLSearchParams({
+    fields: 'id,campaign_id,effective_status',
+    access_token: accessToken,
+    limit: '500'
+  });
+  const activity = new Map();
+  let url = `https://graph.facebook.com/${API_VERSION}/${accountId}/adsets?${params.toString()}`;
+  while (url) {
+    const res = await fetchImpl(url);
+    const data = await parseJsonResponse(res, 'Erro ao consultar conjuntos de anúncios do Meta Ads');
+    if (!res.ok) throw new Error(data?.error?.message || 'Erro ao consultar conjuntos de anúncios do Meta Ads.');
+    for (const a of data.data || []) {
+      const entry = activity.get(a.campaign_id) || { total: 0, active: 0 };
+      entry.total += 1;
+      if (a.effective_status === 'ACTIVE') entry.active += 1;
+      activity.set(a.campaign_id, entry);
+    }
+    url = data.paging?.next || null;
+  }
+  return activity;
+}
+
+// Campanha "ACTIVE" cujos conjuntos estão todos parados conta como pausada.
+export function resolveCampaignStatus(status, adsets) {
+  if (status === 'ACTIVE' && adsets && adsets.total > 0 && adsets.active === 0) return 'PAUSED';
+  return status;
+}
+
+// Status de TODAS as campanhas da conta (não só as que tiveram gasto no período). Sem isso,
+// uma campanha pausada deixa de ter dados, o status nunca é atualizado e ela segue como
+// "ativa" no banco (alerta falso de "sem entrega").
+export async function fetchCampaignStatuses(accountId, accessToken, deps = {}) {
+  const campaigns = await (deps.fetchCampaignMeta || fetchCampaignMeta)(accountId, accessToken);
+  let adsets = new Map();
+  try {
+    adsets = await (deps.fetchAdsetActivity || fetchAdsetActivity)(accountId, accessToken);
+  } catch {
+    // Sem o detalhe dos conjuntos, vale o status da campanha.
+  }
+  return new Map([...campaigns].map(([id, c]) => [id, resolveCampaignStatus(c.status, adsets.get(id))]));
+}
+
 export async function fetchCampaignPageId(campaignId, accessToken, fetchImpl = fetch) {
   const params = new URLSearchParams({
     fields: 'creative{effective_object_story_id}',

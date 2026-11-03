@@ -19,23 +19,7 @@ export default function KPICards({ summary }) {
       icon: ShoppingCart,
       color: 'var(--accent-success)',
       bgGlow: 'color-mix(in srgb, var(--accent-success) 12%, transparent)',
-      subtext: `Receita: R$ ${summary.conversion_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    },
-    {
-      title: 'Custo / Conversão (CPA)',
-      value: `R$ ${summary.cpa.toFixed(2)}`,
-      icon: Target,
-      color: 'var(--accent-warning)',
-      bgGlow: 'color-mix(in srgb, var(--accent-warning) 12%, transparent)',
-      subtext: `Eficiência de Captação`
-    },
-    {
-      title: 'ROAS (Retorno de Mídia)',
-      value: `${summary.roas.toFixed(2)}x`,
-      icon: TrendingUp,
-      color: 'var(--chart-6)',
-      bgGlow: 'color-mix(in srgb, var(--chart-6) 12%, transparent)',
-      subtext: `Retorno sobre Investimento`
+      subtext: 'Resultados informados pela plataforma'
     },
     {
       title: 'Total de Cliques',

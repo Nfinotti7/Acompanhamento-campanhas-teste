@@ -2,7 +2,7 @@
 // checklist de implantação. Contas em funções puras; as consultas reaproveitam o que o
 // resumo semanal já usa (ownerReport.collectStats).
 import { addDays, dayOf } from './reservationSlots.js';
-import { collectStats } from './ownerReport.js';
+import { collectStats, topicsText } from './ownerReport.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -61,28 +61,30 @@ export function derive(s) {
     attendance: marked >= 3 ? s.arrived / marked : null,
     costPerReservation: s.reservations > 0 && s.spend > 0 ? s.spend / s.reservations : null,
     costPerConversation: s.conversations > 0 && s.spend > 0 ? s.spend / s.conversations : null,
-    roas: s.spend > 0 && s.revenue > 0 ? s.revenue / s.spend : null,
+    costPerClick: s.clicks > 0 && s.spend > 0 ? s.spend / s.clicks : null,
+    ctr: s.impressions > 0 ? s.clicks / s.impressions : null,
     reservationRate: s.conversations > 0 ? s.reservations / s.conversations : 0
   };
 }
 
-// Frases curtas pro dono ler em 10 segundos.
+const int = new Intl.NumberFormat('pt-BR');
+
+// Frases curtas pro dono ler em 10 segundos. O anúncio não serve só pra reserva: conversa,
+// visualização e o que as pessoas procuraram vêm antes; reserva entra quando existe.
 export function buildHeadline(cur, prev) {
   const lines = [];
   const d = derive(cur);
   lines.push(`${cur.conversations} ${cur.conversations === 1 ? 'pessoa chamou' : 'pessoas chamaram'} no WhatsApp${pctText(delta(cur.conversations, prev.conversations))}.`);
+  if (cur.impressions > 0) {
+    lines.push(`Os anúncios foram vistos ${int.format(cur.impressions)} vezes${pctText(delta(cur.impressions, prev.impressions))} e geraram ${int.format(cur.clicks)} cliques${d.ctr !== null ? ` (${(d.ctr * 100).toFixed(1).replace('.', ',')}% de quem viu clicou)` : ''}.`);
+  }
+  if (d.costPerConversation !== null) lines.push(`Cada conversa custou ${brl.format(d.costPerConversation)} em anúncio.`);
+  const wanted = topicsText(cur.topics);
+  if (wanted) lines.push(`O que mais procuraram: ${wanted}.`);
   if (cur.reservations > 0) {
     lines.push(`${cur.reservations} ${cur.reservations === 1 ? 'reserva' : 'reservas'} (${cur.people} pessoas)${pctText(delta(cur.reservations, prev.reservations))}.`);
-  } else {
-    lines.push('Nenhuma reserva no período.');
+    if (d.attendance !== null) lines.push(`${Math.round(d.attendance * 100)}% de quem tinha reserva compareceu.`);
   }
-  if (d.attendance !== null) {
-    lines.push(`${Math.round(d.attendance * 100)}% de quem tinha reserva compareceu.`);
-  } else if (cur.unmarked > 0) {
-    lines.push(`${cur.unmarked} ${cur.unmarked === 1 ? 'reserva está' : 'reservas estão'} sem marcação de "Chegou" ou "Não veio" no Balcão: marcar ajuda a medir o comparecimento.`);
-  }
-  if (d.costPerReservation !== null) lines.push(`Cada reserva custou ${brl.format(d.costPerReservation)} em anúncio.`);
-  if (d.roas !== null) lines.push(`As vendas lançadas somaram ${brl.format(cur.revenue)}: ${d.roas.toFixed(1).replace('.', ',')}x o que foi investido.`);
   if (cur.response?.unanswered > 0) {
     lines.push(`${cur.response.unanswered} ${cur.response.unanswered === 1 ? 'conversa ficou' : 'conversas ficaram'} sem resposta.`);
   }

@@ -31,11 +31,12 @@ Escolha o cliente e o período no topo da tela.
 
 ### Resumo do dono (novo)
 **Painel → menu "Resumo do dono"**.
-Números grandes (conversas, reservas, comparecimento, investimento, custo por reserva, vendas lançadas), com a variação contra o período anterior e frases em linguagem simples.
+Números grandes (conversas novas, anúncios vistos, cliques, investimento, custo por conversa; reservas só aparecem quando existem), o bloco **"O que as pessoas procuraram"** (cardápio, localização, preços, horário, outras dúvidas) e frases em linguagem simples, tudo com a variação contra o período anterior.
+**Não tem ROAS nem vendas**: a equipe não lança valor, então esses números ficariam zerados.
 Abas: **Última semana**, **Este mês**, **Mês passado**. O botão **Imprimir / PDF** gera o relatório mensal (escolha "Salvar como PDF" na janela de impressão).
 
 ### Unidades (novo, só admin)
-**Painel → menu "Unidades"**. Compara os restaurantes lado a lado.
+**Painel → menu "Unidades"**. Compara os restaurantes lado a lado (conversas, anúncios vistos, cliques, investimento, custo por conversa e reservas).
 Para agrupar: **Clientes → editar o cliente → campo "Grupo / rede"** (use o mesmo nome nos restaurantes do mesmo grupo).
 
 ### Implantação (novo, só admin)
@@ -56,7 +57,7 @@ Os envios aparecem no bloco **Disparos**, na mesma página.
 - **Lembrete enviado** / **Confirmou presença**: o cliente respondeu SIM ao lembrete.
 - **Nota N**: a nota que o cliente deu depois da visita.
 - **★ n pts**: pontos do clube de fidelidade (só aparece quando o clube está ligado).
-- **Comanda R$**: depois de marcar **Chegou**, aparece o campo para digitar o valor da comanda. Salvar vira uma venda, entra no retorno do investimento por campanha e, se configurado, vai para a Meta e para o Google. Editar o valor depois só atualiza a mesma venda.
+- **Comanda R$**: depois de marcar **Chegou**, aparece o campo para digitar o valor da comanda. É opcional: salvar vira uma venda lançada (e, se configurado, vai para a Meta e para o Google). Os resumos não usam esse valor por enquanto. Editar o valor depois só atualiza a mesma venda.
 
 ### Conversas
 **Balcão → Conversas.**
@@ -124,7 +125,13 @@ Para ver o que mudou em cada commit: `git show <commit> --stat`.
 
 ---
 
-## 6. O que ainda não foi testado de verdade
+## 6. Ajustes depois da primeira versão (03/11, à tarde)
+
+- **Resumo do dono e resumo semanal no WhatsApp** deixaram de ser só de reserva: agora mostram conversas, anúncios vistos, cliques, custo por conversa e o que as pessoas procuraram. Reserva aparece só quando há.
+- **ROAS removido** do Dashboard (cartão de KPI), do relatório executivo, da apresentação, da tabela de campanhas, da tabela do Dashboard WhatsApp, do Resumo do dono, da tela Unidades e do resumo semanal. Continua existindo só na tela "WhatsApp & Conversões" (onde a venda é lançada à mão) e como opção de gráfico.
+- **Alerta "sem entrega" falso**: o sistema só atualizava o status de campanhas que tinham gasto no período, então uma campanha que você pausou continuava "ativa" no banco. Agora cada sincronização atualiza o status de todas as campanhas da conta, e uma campanha com todos os conjuntos de anúncio pausados conta como pausada. O alerta some depois da próxima sincronização (botão "Atualizar dados" no topo do Painel).
+
+## 7. O que ainda não foi testado de verdade
 
 - Envio real pelo WhatsApp de todos os recursos novos (os testes automáticos e a verificação no banco passaram).
 - A conversão offline do Google contra o Google de verdade.

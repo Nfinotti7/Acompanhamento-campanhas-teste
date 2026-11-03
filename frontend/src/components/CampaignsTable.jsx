@@ -19,8 +19,7 @@ const PHONE_COLUMNS = [
   { key: 'total_spend', label: 'Investimento', render: (c) => <strong>{brl(c.total_spend)}</strong> },
   { key: 'total_clicks', label: 'Cliques', render: (c) => Number(c.total_clicks || 0).toLocaleString('pt-BR') },
   { key: 'total_conversions', label: 'Conversões', render: (c) => <strong style={{ color: 'var(--accent-success)' }}>{c.total_conversions}</strong> },
-  { key: 'cpa', label: 'CPA', render: (c) => brl(c.cpa) },
-  { key: 'roas', label: 'ROAS', render: (c) => <strong style={{ color: 'var(--chart-6)' }}>{c.roas}x</strong> }
+  { key: 'cpa', label: 'CPA', render: (c) => brl(c.cpa) }
 ];
 
 export default function CampaignsTable({ campaigns = [] }) {
@@ -148,11 +147,6 @@ export default function CampaignsTable({ campaigns = [] }) {
                   CPA <ArrowUpDown size={12} />
                 </div>
               </th>
-              <th style={{ padding: '12px', cursor: 'pointer', textAlign: 'right' }} onClick={() => handleSort('roas')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                  ROAS <ArrowUpDown size={12} />
-                </div>
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -201,9 +195,6 @@ export default function CampaignsTable({ campaigns = [] }) {
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                     R$ {c.cpa.toFixed(2)}
-                  </td>
-                  <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--chart-6)' }}>
-                    {c.roas}x
                   </td>
                 </tr>
               ))

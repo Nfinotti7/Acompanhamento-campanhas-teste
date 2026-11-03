@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 import { fetchGoogleAdsData } from './googleAdsSync.js';
-import { fetchMetaAdsData, fetchCampaignPageId, normalizeAccountId } from './metaAdsSync.js';
+import { fetchMetaAdsData, fetchCampaignPageId, fetchCampaignStatuses, normalizeAccountId } from './metaAdsSync.js';
 import { classifyAndPrepareRows } from './metaAccountSync.js';
 
 const SYNC_WINDOW_DAYS = 30;
@@ -121,6 +121,20 @@ export async function getMetaAccountMembers(accountId, deps = {}) {
     });
   }
   return members;
+}
+
+// Grava o status vindo da Meta (id da campanha → status) nas campanhas que já existem.
+export async function updateCampaignStatuses(statuses, dbImpl = db) {
+  let changed = 0;
+  for (const [campaignId, status] of statuses) {
+    if (!status) continue;
+    const { rowCount } = await dbImpl.query(
+      `UPDATE campaigns SET status = ? WHERE platform = 'meta' AND campaign_id = ? AND status IS DISTINCT FROM ?`,
+      [status, String(campaignId), status]
+    );
+    changed += rowCount || 0;
+  }
+  return changed;
 }
 
 async function upsertCampaign(tx, { clientId, platform, campaignId, campaignName, status, budget }) {
@@ -386,6 +400,15 @@ export async function syncMetaAccountGroup(accountId, startDate, endDate, deps =
     (r) => (r.classification === 'ok' ? startByClient.get(r.resolvedClientId) : null)
   );
   const perClientCounts = await storeClassifiedRows('meta', classifiedRows);
+
+  // Atualiza o status de todas as campanhas da conta, inclusive as pausadas que não têm mais
+  // dados no período. Falha aqui nunca derruba a sincronização.
+  try {
+    const statuses = await fetchCampaignStatuses(accountId, groupAccessToken);
+    await updateCampaignStatuses(statuses);
+  } catch (err) {
+    console.error('Sincronização: não foi possível atualizar o status das campanhas:', err.message);
+  }
 
   const results = {};
   for (const m of members) {

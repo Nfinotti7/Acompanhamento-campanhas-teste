@@ -256,13 +256,6 @@ export default function PresentationView({
                     R$ {summary?.cpa?.toFixed(2)}
                   </div>
                 </div>
-
-                <div style={{ backgroundColor: 'var(--border-color)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>ROAS Obtido</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--chart-6)' }}>
-                    {summary?.roas?.toFixed(2)}x
-                  </div>
-                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -317,17 +310,6 @@ export default function PresentationView({
                   R$ {summary?.cpa?.toFixed(2)}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Custo por aquisição efetuada</div>
-              </div>
-
-              <div className="glass-card" style={{ padding: '28px', backgroundColor: 'var(--glass-bg)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600 }}>ROAS (Retorno em Vendas)</span>
-                  <TrendingUp size={24} color="var(--chart-6)" />
-                </div>
-                <div style={{ fontSize: '2.4rem', fontWeight: 900, color: 'var(--chart-6)', marginBottom: '8px' }}>
-                  {summary?.roas?.toFixed(2)}x
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Faturamento sobre cada R$ 1 investido</div>
               </div>
 
               <div className="glass-card" style={{ padding: '28px', backgroundColor: 'var(--glass-bg)' }}>
@@ -515,7 +497,6 @@ export default function PresentationView({
                       <th style={{ padding: '12px', textAlign: 'right' }}>CTR</th>
                       <th style={{ padding: '12px', textAlign: 'right' }}>Conversões</th>
                       <th style={{ padding: '12px', textAlign: 'right' }}>CPA</th>
-                      <th style={{ padding: '12px', textAlign: 'right' }}>ROAS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -543,9 +524,6 @@ export default function PresentationView({
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right', color: 'var(--accent-warning)' }}>
                           R$ {c.cpa.toFixed(2)}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--chart-6)' }}>
-                          {c.roas}x
                         </td>
                       </tr>
                     ))}

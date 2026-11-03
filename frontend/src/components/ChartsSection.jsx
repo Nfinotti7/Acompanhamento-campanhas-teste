@@ -34,7 +34,7 @@ export const METRIC_CATALOG = {
   roi: { label: 'ROI', color: 'var(--accent-danger)', format: 'percent' }
 };
 
-const DEFAULT_METRICS = ['spend', 'conversions', 'cpa', 'roas'];
+const DEFAULT_METRICS = ['spend', 'conversions', 'cpa', 'clicks'];
 const METRICS_STORAGE_KEY = 'further_ads_chart_metrics';
 
 function formatMetricValue(format, value) {

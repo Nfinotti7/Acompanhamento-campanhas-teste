@@ -6,7 +6,10 @@ import { DEFAULT_FOLLOWUP_SETTINGS } from './followupText.js';
 const range = { from: '2026-10-26', to: '2026-11-01' };
 const stats = {
   conversations: 84, fromAds: 61, reservations: 31, people: 96, arrived: 24, noShow: 4, cancelled: 5, unmarked: 3,
-  confirmedByClient: 12, ratings: 12, avgRating: 4.6, spend: 1250, topCampaign: { name: 'Reservas Rodízio', count: 9 }
+  confirmedByClient: 12, ratings: 12, avgRating: 4.6, spend: 1260, impressions: 48200, clicks: 910,
+  topics: { menu: 22, prices: 9, hours: 4, location: 15, questions: 3 },
+  topCampaignConversations: { name: 'Reservas Rodízio', count: 40 },
+  response: { answered: 70, medianMinutes: 0.4, within5Pct: 0.91, unanswered: 2 }
 };
 
 test('a segunda-feira depois das 9h em Brasília é hora do relatório', () => {
@@ -16,26 +19,26 @@ test('a segunda-feira depois das 9h em Brasília é hora do relatório', () => {
   assert.deepEqual(lastWeekRange('2026-11-02'), { from: '2026-10-26', to: '2026-11-01', key: '2026-11-02' });
 });
 
-test('texto do relatório', () => {
+test('texto do relatório mostra alcance, custo por conversa e assuntos, sem ROAS', () => {
   const text = buildOwnerReport({ restaurant: 'Malibu', range, stats });
   assert.match(text, /\*Resumo da semana — Malibu\*/);
   assert.match(text, /26\/10 a 01\/11/);
   assert.match(text, /Conversas novas: \*84\* \(61 vindas de anúncio\)/);
+  assert.match(text, /Anúncios vistos \*48\.200\* vezes, com \*910\* cliques/);
+  assert.match(text, /R\$\s1\.260,00 → \*R\$\s15,00\* por conversa/);
+  assert.match(text, /O que mais procuraram: cardápio \(22\), localização \(15\), preços \(9\), horário \(4\), outras dúvidas \(3\)/);
   assert.match(text, /Reservas: \*31\* \(96 pessoas\)/);
-  assert.match(text, /Compareceram: 24/);
   assert.match(text, /Comparecimento: \*86%\*/);
-  assert.match(text, /R\$\s1\.250,00/);
-  assert.match(text, /R\$\s40,32\*? por reserva/);
-  assert.match(text, /\*4,6\*/);
-  assert.match(text, /Reservas Rodízio \(9\)/);
+  assert.match(text, /Campanha que mais trouxe conversas: Reservas Rodízio \(40\)/);
+  assert.doesNotMatch(text, /ROAS|retorno de|Faturamento|por reserva/i);
 });
 
-test('relatório sem reservas nem investimento fica enxuto', () => {
-  const empty = { ...stats, reservations: 0, people: 0, arrived: 0, noShow: 0, cancelled: 0, unmarked: 0, confirmedByClient: 0, ratings: 0, avgRating: null, spend: 0, topCampaign: null };
+test('sem reservas o relatório não fala de reserva', () => {
+  const empty = { ...stats, reservations: 0, people: 0, arrived: 0, noShow: 0, cancelled: 0, unmarked: 0, confirmedByClient: 0, ratings: 0, avgRating: null, topics: {}, impressions: 0, clicks: 0, spend: 0, topCampaignConversations: null, response: {} };
   const text = buildOwnerReport({ restaurant: 'Malibu', range, stats: empty });
-  assert.match(text, /Reservas: nenhuma na semana/);
-  assert.doesNotMatch(text, /Investido/);
-  assert.doesNotMatch(text, /Avaliação/);
+  assert.doesNotMatch(text, /Reservas/);
+  assert.doesNotMatch(text, /Investido|Anúncios vistos|procuraram|Avaliação/);
+  assert.match(text, /Conversas novas: \*84\*/);
 });
 
 function weekly({ now, followup }) {
