@@ -6,6 +6,7 @@ import { sendViaBaileys } from './baileysClient.js';
 import { loadReservationSettings } from './reservationStore.js';
 import { addDays, dayOf, weekdayOf } from './reservationSlots.js';
 import { parseOwnerPhones } from './followupText.js';
+import { loadResponseTimes } from './campaignInsights.js';
 
 const localDay = (column) => `((${column} AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo')::date`;
 // Reservas guardam starts_at em TIMESTAMPTZ: o fuso certo é direto.
@@ -64,8 +65,10 @@ export async function collectStats(dbImpl, clientId, { from, to }, now = new Dat
      GROUP BY c.campaign_name ORDER BY count DESC, c.campaign_name LIMIT 1`,
     [clientId, from, to]
   );
+  const response = await loadResponseTimes(dbImpl, clientId, from, to, now);
   const n = (v) => Number(v) || 0;
   return {
+    response,
     conversations: n(contacts?.total), fromAds: n(contacts?.from_ads),
     reservations: n(res?.total), people: n(res?.people), arrived: n(res?.arrived), noShow: n(res?.no_show),
     cancelled: n(res?.cancelled), unmarked: n(res?.unmarked), confirmedByClient: n(res?.confirmed_by_client),
@@ -73,6 +76,15 @@ export async function collectStats(dbImpl, clientId, { from, to }, now = new Dat
     spend: n(spend?.total),
     topCampaign: top[0] ? { name: top[0].campaign_name, count: n(top[0].count) } : null
   };
+}
+
+// 0,4 → "menos de 1 min"; 7,2 → "7 min"; 75 → "1h15".
+export function formatMinutes(m) {
+  if (m < 1) return 'menos de 1 min';
+  if (m < 60) return `${Math.round(m)} min`;
+  const h = Math.floor(m / 60);
+  const min = Math.round(m % 60);
+  return min ? `${h}h${String(min).padStart(2, '0')}` : `${h}h`;
 }
 
 export function buildOwnerReport({ restaurant, range, stats: s }) {
@@ -89,6 +101,13 @@ export function buildOwnerReport({ restaurant, range, stats: s }) {
     if (s.confirmedByClient) lines.push(`   📲 Confirmaram presença pelo lembrete: ${s.confirmedByClient}`);
   } else {
     lines.push('📅 Reservas: nenhuma na semana');
+  }
+  if (s.response?.answered > 0 && s.response.medianMinutes !== null) {
+    const fast = s.response.within5Pct !== null ? `, ${Math.round(s.response.within5Pct * 100)}% em até 5 min` : '';
+    lines.push(`⏱️ Primeira resposta: típico ${formatMinutes(s.response.medianMinutes)}${fast}`);
+  }
+  if (s.response?.unanswered > 0) {
+    lines.push(`   ⚠️ ${s.response.unanswered} ${s.response.unanswered === 1 ? 'conversa ficou' : 'conversas ficaram'} sem resposta`);
   }
   if (s.spend > 0) {
     const perReservation = s.reservations > 0 ? ` → *${brl.format(s.spend / s.reservations)}* por reserva` : '';

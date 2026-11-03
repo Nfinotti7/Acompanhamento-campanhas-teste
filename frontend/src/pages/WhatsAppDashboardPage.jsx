@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieC
 import { ORIGIN_META } from '../components/AttributionView';
 import ResponsiveTable from '../components/ui/ResponsiveTable';
 import { useBreakpoint } from '../responsive/useBreakpoint';
+import InsightsPanel from '../components/InsightsPanel';
 
 // Celular: cada campanha vira um cartão.
 const CAMPAIGN_COLUMNS = [
@@ -105,6 +106,8 @@ export default function WhatsAppDashboardPage({ selectedClient, selectedRange })
   return (
     <div className="animate-fade-in" style={{ opacity: loading ? 0.6 : 1 }}>
       {header}
+
+      <InsightsPanel clientId={selectedClient} range={selectedRange} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) 2fr', gap: '16px', marginBottom: '16px' }}>
         <Card title="Visão geral das conversas">

@@ -13,6 +13,13 @@ export const LOCK_BASE = 900000;
 // Configuração inválida (mensagem pronta pra mostrar na tela).
 export class ReservationSettingsError extends Error {}
 
+// Chamado quando uma mesa é liberada (cancelamento ou mudança): a lista de espera de vaga
+// (vacancyWaitlist.js) oferece ao primeiro da fila. Ligado em server.js; vazio em teste.
+let releaseHook = null;
+export function setReleaseHook(fn) {
+  releaseHook = fn;
+}
+
 export class SlotTakenError extends Error {
   constructor() {
     super('Esse horário não tem mais mesa livre.');
@@ -78,7 +85,7 @@ function validateSettings(s) {
 }
 
 function validateFollowup(f) {
-  for (const key of ['reminder_enabled', 'review_enabled', 'report_enabled']) {
+  for (const key of ['reminder_enabled', 'review_enabled', 'report_enabled', 'vacancy_enabled', 'alerts_enabled']) {
     if (typeof f[key] !== 'boolean') throw new ReservationSettingsError('Lembrete e avaliação: valor inválido.');
   }
   if (!Number.isInteger(f.reminder_hours_before) || f.reminder_hours_before < 1 || f.reminder_hours_before > 24) {
@@ -88,8 +95,10 @@ function validateFollowup(f) {
       || (f.google_review_url && !/^https?:\/\//i.test(f.google_review_url.trim()))) {
     throw new ReservationSettingsError('O link de avaliação do Google precisa começar com http:// ou https://.');
   }
-  if (typeof f.owner_phones !== 'string' || f.owner_phones.length > 300) {
-    throw new ReservationSettingsError('Telefones do relatório: use até 300 caracteres.');
+  for (const key of ['owner_phones', 'alert_phones']) {
+    if (typeof f[key] !== 'string' || f[key].length > 300) {
+      throw new ReservationSettingsError('Telefones: use até 300 caracteres.');
+    }
   }
   for (const [key, value] of Object.entries(f.messages || {})) {
     if (!FOLLOWUP_MESSAGE_KEYS.includes(key) || typeof value !== 'string' || value.length > 1500) {
@@ -199,6 +208,7 @@ export async function updateReservation(dbImpl, { clientId, id, partySize, start
   if (!reservation) return null;
   if (reservation.contact_id) await syncContactAppointment(dbImpl, reservation.contact_id);
   d.broadcast(clientId, 'reservation', { id, contactId: reservation.contact_id });
+  notifyRelease(clientId); // o horário antigo ficou livre
   return reservation;
 }
 
@@ -223,7 +233,15 @@ export async function setReservationStatus(dbImpl, { clientId, id, status, cance
   if (!reservation) return null;
   if (reservation.contact_id) await syncContactAppointment(dbImpl, reservation.contact_id);
   d.broadcast(clientId, 'reservation', { id, contactId: reservation.contact_id });
+  if (status === 'cancelled') notifyRelease(clientId);
   return reservation;
+}
+
+// Mesa liberada (cancelamento): a lista de espera de vaga oferece ao primeiro da fila.
+function notifyRelease(clientId) {
+  if (!releaseHook) return;
+  Promise.resolve().then(() => releaseHook(clientId))
+    .catch((error) => console.error('Lista de espera: erro ao oferecer a vaga:', error.message));
 }
 
 // Reservas que ocupam algum pedaço de [from, to), com a origem do contato (anúncio).

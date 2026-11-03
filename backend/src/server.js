@@ -21,6 +21,10 @@ import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanb
 import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { startFollowupScheduler } from './services/followupScheduler.js';
+import { offerVacancies } from './services/vacancyWaitlist.js';
+import { setReleaseHook } from './services/reservationStore.js';
+import { getInsights } from './controllers/insightsController.js';
+import { listQuickFiles, createQuickFile, deleteQuickFile, sendQuickFile } from './controllers/quickFilesController.js';
 import { setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
@@ -107,6 +111,12 @@ app.get('/api/whatsapp/conversations/:contactId/messages', getMessages);
 app.post('/api/whatsapp/conversations/:contactId/reply', replyToConversation);
 // Corpo = o arquivo. 16 MB pra o limite de 15 MB do serviço dar a mensagem legível.
 app.post('/api/whatsapp/conversations/:contactId/attachment', express.raw({ type: () => true, limit: '16mb' }), sendAttachment);
+// Arquivos fixos do Balcão (cardápio, mapa...) e envio com um clique.
+app.get('/api/quick-files', listQuickFiles);
+app.post('/api/quick-files', express.raw({ type: () => true, limit: '16mb' }), createQuickFile);
+app.delete('/api/quick-files/:id', deleteQuickFile);
+app.post('/api/whatsapp/conversations/:contactId/quick-file/:fileId', sendQuickFile);
+app.get('/api/whatsapp/insights', getInsights);
 app.post('/api/whatsapp/conversations/:contactId/read', markConversationRead);
 
 // Real Conversions & ROI
@@ -269,7 +279,10 @@ initDb()
 
     // Lembrete de reserva, avaliação pós-visita e relatório do dono. Desligado junto com
     // o BAILEYS_AUTOCONNECT=false, pra o backend local não mandar mensagem de verdade.
-    if (process.env.BAILEYS_AUTOCONNECT !== 'false') startFollowupScheduler();
+    if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
+      setReleaseHook((clientId) => offerVacancies(clientId));
+      startFollowupScheduler();
+    }
 
     if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
       reconnectAllBaileysClients().catch((err) => {

@@ -50,6 +50,8 @@
 
 **Lembrete, avaliação pós-visita e resumo do dono (03/11, commit local, não enviado):** tudo pelo Baileys, desligado por padrão (liga em Balcão → Reservas → Configurar). Falta o deploy, ligar no Malibu e cadastrar o link do Google e o WhatsApp do dono. Ver Registro 2026-11-03.
 
+**Segunda leva (03/11, não enviada):** ranking de criativos e no-show por campanha, tempo de resposta e alertas de campanha no Dashboard WhatsApp; alertas no WhatsApp da agência; lista de espera de vaga (AVISAR); arquivos salvos do Balcão. Tudo desligado por padrão onde é automático. Ver Registro 2026-11-03 (continuação).
+
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
@@ -1055,4 +1057,23 @@ Contexto: o Google Ads do Malibu e da Giulí está travado por verificação da 
 **Pra colocar no ar:** deploy fora do horário de serviço do Malibu (se aparecer `standby`, reiniciar o app no hPanel) → Balcão do Malibu → Reservas → Configurar → ligar lembrete (3 h antes) e avaliação (link do Google do restaurante), cadastrar o WhatsApp do dono e ligar o resumo; usar "Enviar o resumo agora" pra conferir.
 
 **Ideias ainda não feitas (todas viáveis no Baileys):** alertas proativos de campanha (CPL subindo, anúncio sem entrega), ranking de criativos por reserva, no-show por campanha no Dashboard WhatsApp, lista de espera que oferece a vaga de cancelamento, tempo médio de resposta (SLA) no Balcão, arquivos fixos (cardápio, mapa) com um clique. **Só com API oficial:** reativação de clientes inativos, aniversário, campanhas de disparo.
+
+### 2026-11-03 (continuação) — Ideias restantes do Baileys (não enviado)
+
+O usuário mandou fazer as ideias que ainda cabiam no Baileys. Seis entregas:
+
+1. **Ranking de criativos + no-show por campanha** (`campaignInsights.js`, `GET /api/whatsapp/insights`, `components/InsightsPanel.jsx` no topo do Dashboard WhatsApp). Por anúncio: conversas, reservas, conversão, % que não veio. Por campanha: investimento, custo por conversa/reserva, % que não veio. Veredito só com volume: **Escalar** (≥8 conversas, ≥2 reservas, conversão ≥1,5× a média) e **Pausar?** (≥10 conversas e 0 reservas). No-show só aparece com ≥3 reservas marcadas (Chegou/Não veio). Só Meta (a atribuição por anúncio vem do `meta_ad_cache`); gasto é por campanha, não por anúncio.
+2. **Tempo de resposta (SLA)**: mediana da 1ª resposta, % em até 5 min e conversas sem resposta há mais de 15 min (mediana porque conversa da madrugada estica a média). Aparece no painel e no resumo semanal do dono.
+3. **Alertas de campanha** (`computeAlerts`): comparam os 3 dias anteriores a hoje com os 7 antes disso. Três regras: ativa que parou de gastar (**sem entrega**), gastou ≥R$30 e **nenhuma conversa** (e antes trazia), **custo por conversa ≥1,5×** o anterior (base ≥5 conversas). Banner no Dashboard e, se ligado, mensagem diária (depois das 9h, uma por dia por cliente, reservada em `owner_reports`) para o WhatsApp da **agência** (`followup.alert_phones`), não pro dono.
+4. **Lista de espera de vaga** (`vacancyWaitlist.js`): dia lotado → o robô sugere outro dia e oferece "responda AVISAR" (`followup.vacancy_enabled`). Quem aceita entra em `reservation_waiters`. Quando uma reserva é **cancelada ou mudada** (`setReleaseHook`, ligado em `server.js`) e a cada 5 min no agendador, o 1º da fila recebe os horários que abriram e a conversa de reserva continua no passo "escolher horário" (reaproveita o fluxo normal: nome → confirmar). A vaga fica com ele 30 min; depois passa pro próximo. Só 8h–22h, respeita pausa do robô, não atravessa conversa de reserva em andamento. Textos novos editáveis: `waitOffer`, `waitAdded`, `waitOpened`.
+5. **Arquivos salvos do Balcão** (`quickFilesController.js`, `components/QuickFilesMenu.jsx`, tabela `quick_files`, até 30 por restaurante, 15 MB cada): ícone de pasta ao lado do clipe; clique no arquivo manda pra conversa (mesmo caminho dos anexos), "Salvar um arquivo novo" guarda cardápio/mapa.
+6. **Configurar**: novos campos (lista de espera, alertas, telefone da agência) e os 3 textos novos.
+
+**Testado:** backend 503 testes (18 novos: ranking, SLA, alertas, envio de alertas, lista de espera completa, fluxo AVISAR no robô), frontend 73, build ok.
+
+**Não testado / pendente:**
+- **O SQL novo não foi rodado no Postgres real** (ranking, tempo de resposta, dados dos alertas, `reservation_waiters`, `quick_files`): o modo auto barrou a leitura de produção. Só os testes com banco falso cobrem. O script de verificação (transação desfeita) está em `scratchpad/check_sql2.mjs` desta sessão; rodar com autorização do usuário antes ou logo depois do deploy e olhar o log do servidor.
+- Envio real pelo Baileys, telas no navegador.
+- Os alertas e a lista de espera ficam em Reservas → Configurar, então só aparecem pra cliente com reservas ligadas (hoje, o Malibu). Alertas pros outros clientes pediriam uma tela própria.
+- Reativação de cliente inativo, aniversário e disparos continuam só com a API oficial.
 

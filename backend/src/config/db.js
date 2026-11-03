@@ -467,6 +467,35 @@ export async function initDb() {
   await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ`);
   await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS rating INTEGER`);
   await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ`);
+  // Lista de espera de vaga (vacancyWaitlist.js): quem quis ser avisado se abrir mesa.
+  await query(`
+    CREATE TABLE IF NOT EXISTS reservation_waiters (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      party_size INTEGER NOT NULL,
+      name TEXT,
+      status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting','notified','booked','expired')),
+      notified_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_reservation_waiter_open ON reservation_waiters (client_id, contact_id, day) WHERE status IN ('waiting','notified')`);
+  // Arquivos fixos do Balcão (cardápio, mapa...) pra mandar com um clique.
+  await query(`
+    CREATE TABLE IF NOT EXISTS quick_files (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      filename TEXT,
+      mime_type TEXT NOT NULL,
+      data BYTEA NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_quick_files_client ON quick_files (client_id)`);
   // Um relatório por cliente e período: a linha é reservada antes de enviar (ownerReport.js).
   await query(`
     CREATE TABLE IF NOT EXISTS owner_reports (

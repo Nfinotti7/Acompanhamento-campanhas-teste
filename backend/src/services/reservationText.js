@@ -32,6 +32,9 @@ export const DEFAULT_RESERVATION_MESSAGES = {
   changeTimeUnavailable: 'Pra {dia}, {hora} não tenho mesa pra {pessoas} pessoas. Tenho: {opcoes}. Qual prefere?',
   changeNoSlots: 'Pra {dia} não tenho mais mesa pra {pessoas} pessoas. Quer tentar outro dia?',
   changeConfirm: 'Mudando sua reserva pra {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. Responda SIM pra confirmar.',
+  waitOffer: 'Se preferir {dia}, responda AVISAR que eu te chamo aqui se abrir uma mesa 😉',
+  waitAdded: 'Combinado! Se abrir uma mesa pra {dia}, te aviso por aqui.',
+  waitOpened: 'Boa notícia, {nome}! Abriu uma mesa pra {dia}, {pessoas} pessoas. Tenho: {opcoes}. Qual prefere? A vaga fica reservada pra você por 30 minutos.',
   changed: '✅ Reserva alterada: {dia}, {hora}, {pessoas} pessoas, em nome de {nomeReserva}. A mesa fica guardada até {tolerancia} min depois do horário.'
 };
 
@@ -46,6 +49,13 @@ function clean(text) {
 export function isReservationCommand(text) {
   const t = clean(text);
   return t === 'reserva' || t === 'reservar' || /\bcod\.?\s*reserva\b/.test(t);
+}
+
+// "AVISAR" depois de um dia lotado: quer ser chamado se abrir mesa.
+export function isWaitCommand(text) {
+  const t = clean(text);
+  return t.split(/\s+/).length <= 6
+    && /^(avisar|avisa|me avisa|me avise|pode avisar|pode me avisar|quero ser avisad[oa]|lista de espera|me coloca na lista)\b/.test(t);
 }
 
 export function isCancelCommand(text) {

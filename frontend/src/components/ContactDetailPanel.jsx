@@ -6,6 +6,7 @@ import { formatTime, dayLabel, isSameDay, StatusTicks } from './chatFormat';
 import DealBar from './crm/DealBar';
 import BotStatusBar, { useContactBot } from './reservas/BotStatusBar';
 import ReservationForm from './reservas/ReservationForm';
+import QuickFilesMenu from './QuickFilesMenu';
 
 
 const fieldStyle = {
@@ -554,6 +555,13 @@ export default function ContactDetailPanel({ apiClient, clientId, contact, onClo
                   >
                     <Paperclip size={16} />
                   </button>
+                  <QuickFilesMenu
+                    apiClient={apiClient}
+                    clientId={clientId}
+                    contactId={contact.id}
+                    disabled={sending}
+                    onSent={() => { stickToBottomRef.current = true; fetchMessages(); if (onUpdated) onUpdated(); }}
+                  />
                   <input
                     type="text"
                     value={replyText}

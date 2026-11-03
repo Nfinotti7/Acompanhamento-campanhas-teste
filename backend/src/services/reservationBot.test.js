@@ -585,3 +585,30 @@ test('Gilmar: "Vou ver aqui e assim que definir, aviso" encerra com gentileza, s
   assert.equal(paused.length, 0);
   assert.equal(conversations[0].status, 'done');
 });
+
+// ---- Lista de espera de vaga (AVISAR) ----
+
+const SATURDAY_FULL = [2, 2, 4, 4, 6, 6].map((seats) => ({
+  table_seats: seats, contact_id: 99,
+  starts_at: toInstant('2026-10-24', '00:00'), ends_at: toInstant('2026-10-25', '00:00')
+}));
+const WITH_VACANCY = { ...MALIBU, followup: { vacancy_enabled: true } };
+
+test('dia lotado: sugere outro dia, oferece AVISAR e põe na lista de espera', async () => {
+  const waiters = [];
+  const { say, sent, last, deps } = setup({ settings: WITH_VACANCY, reservations: SATURDAY_FULL });
+  deps.addWaiter = async (_db, w) => { waiters.push(w); };
+  await say('RESERVA'); await say('4');
+  assert.equal(await say('sábado'), 'asked_time');
+  assert.match(sent.at(-2).body, /não tenho mais mesa pra 4 pessoas\. Tenho domingo/);
+  assert.match(last(), /responda AVISAR/);
+  assert.equal(await say('avisar'), 'wait_added');
+  assert.match(last(), /te aviso por aqui/);
+  assert.deepEqual(waiters, [{ clientId: 9, contactId: 3, day: '2026-10-24', partySize: 4, name: 'Ana Souza' }]);
+});
+
+test('sem a chave ligada, o dia lotado não oferece AVISAR', async () => {
+  const { say, sent } = setup({ reservations: SATURDAY_FULL });
+  await say('RESERVA'); await say('4'); await say('sábado');
+  assert.ok(sent.every((m) => !/AVISAR/.test(m.body)));
+});

@@ -17,8 +17,9 @@ import {
   DEFAULT_RESERVATION_MESSAGES, isReservationCommand, isCancelCommand, isYes, parseDay, parseTimeChoice,
   formatDayLabel, formatTime, formatOptions, mentionsWeekday,
   isChangeCommand, mentionsTimeWord, mentionsDayWord, extractTime, correctedName,
-  isReservationIntent, extractPartySize, isDeferral
+  isReservationIntent, extractPartySize, isDeferral, isWaitCommand
 } from './reservationText.js';
+import { addWaiter } from './vacancyWaitlist.js';
 import {
   loadReservationSettings, createReservation, updateReservation, listReservations, upcomingReservationsForContact,
   setReservationStatus, SlotTakenError
@@ -44,7 +45,8 @@ function resolveDeps(deps) {
     upcomingReservations: deps.upcomingReservations || upcomingReservationsForContact,
     createReservation: deps.createReservation || createReservation,
     updateReservation: deps.updateReservation || updateReservation,
-    setReservationStatus: deps.setReservationStatus || setReservationStatus
+    setReservationStatus: deps.setReservationStatus || setReservationStatus,
+    addWaiter: deps.addWaiter || addWaiter
   };
 }
 
@@ -303,8 +305,10 @@ async function handleOne(
       const nextSlots = await slotsFor(next, base.size);
       if (nextSlots.length > 0) {
         const options = nextSlots.map((s) => s.time);
-        await save(c, 'time', { ...base, day: next, options });
+        await save(c, 'time', { ...base, day: next, options, waitDay: settings.followup?.vacancy_enabled ? day : null });
         await reply('noSlotsSuggest', { dia, pessoas: base.size, proximoDia: formatDayLabel(next, today), opcoes: formatOptions(options) });
+        // Dia lotado: oferece avisar se abrir mesa (cancelamento).
+        if (settings.followup?.vacancy_enabled) await reply('waitOffer', { dia });
         return 'asked_time';
       }
     }
@@ -434,6 +438,12 @@ async function handleOne(
       return stepDay(conv, text, extractTime(text) || data.wantedTime || null);
 
     case 'time': {
+      if (data.waitDay && isWaitCommand(text)) {
+        await d.addWaiter(q, { clientId, contactId, day: data.waitDay, partySize: data.size, name: profileName });
+        await finish(conv, 'done');
+        await reply('waitAdded', { dia: formatDayLabel(data.waitDay, today) });
+        return 'wait_added';
+      }
       const time = parseTimeChoice(text, data.options || []);
       if (!time) return retry(conv, 'askTimeAgain', { opcoes: formatOptions(data.options || []) });
       return chooseTime(conv, data, time);

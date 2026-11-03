@@ -3,6 +3,8 @@
 // ownerReport.js), então dois processos ao mesmo tempo (deploy) não mandam em dobro.
 import { runReminders, runReviewRequests } from './followupBot.js';
 import { runWeeklyReports } from './ownerReport.js';
+import { runVacancySweep } from './vacancyWaitlist.js';
+import { runCampaignAlerts } from './campaignInsights.js';
 
 export const TICK_MS = 5 * 60e3;
 const FIRST_TICK_MS = 60e3;
@@ -11,7 +13,9 @@ export async function followupTick(deps = {}) {
   const jobs = [
     ['lembretes', deps.runReminders || runReminders],
     ['avaliações', deps.runReviewRequests || runReviewRequests],
-    ['relatório do dono', deps.runWeeklyReports || runWeeklyReports]
+    ['relatório do dono', deps.runWeeklyReports || runWeeklyReports],
+    ['avisos de vaga', deps.runVacancySweep || runVacancySweep],
+    ['alertas de campanha', deps.runCampaignAlerts || runCampaignAlerts]
   ];
   for (const [name, job] of jobs) {
     try {

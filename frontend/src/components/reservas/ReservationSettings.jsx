@@ -34,7 +34,10 @@ const MESSAGE_LABELS = {
   changeTimeUnavailable: 'Mudar reserva: horário sem mesa',
   changeNoSlots: 'Mudar reserva: dia lotado',
   changeConfirm: 'Mudar reserva: resumo pra confirmar',
-  changed: 'Reserva alterada'
+  changed: 'Reserva alterada',
+  waitOffer: 'Dia lotado: oferece avisar se abrir mesa',
+  waitAdded: 'Entrou na lista de espera',
+  waitOpened: 'Avisa que abriu mesa'
 };
 
 // Respostas automáticas (backend: services/infoBot.js). Assunto em branco não é respondido.
@@ -57,7 +60,7 @@ const FOLLOWUP_LABELS = {
 };
 const EMPTY_FOLLOWUP = {
   reminder_enabled: false, reminder_hours_before: '3', review_enabled: false, google_review_url: '',
-  report_enabled: false, owner_phones: '', messages: {}
+  report_enabled: false, owner_phones: '', vacancy_enabled: false, alerts_enabled: false, alert_phones: '', messages: {}
 };
 const EMPTY_INFO = { enabled: false, menu: '', prices: '', hours: '', location: '', other: '', reserveHint: '' };
 
@@ -350,6 +353,19 @@ export default function ReservationSettings({ api, onBack }) {
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>WhatsApp de quem recebe (separe vários por vírgula)</span>
           <input className="nm-input" placeholder="(62) 99999-0000" value={form.followup.owner_phones}
             onChange={(e) => setFollowup({ owner_phones: e.target.value })} />
+        </label>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.vacancy_enabled} onChange={(e) => setFollowup({ vacancy_enabled: e.target.checked })} />
+          Lista de espera de vaga (dia lotado: "responda AVISAR" e o cliente é chamado se abrir mesa)
+        </label>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.alerts_enabled} onChange={(e) => setFollowup({ alerts_enabled: e.target.checked })} />
+          Alertas de campanha no WhatsApp da agência (anúncio sem entrega, sem conversa, custo subindo)
+        </label>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>WhatsApp da agência que recebe os alertas</span>
+          <input className="nm-input" placeholder="(62) 99999-0000" value={form.followup.alert_phones}
+            onChange={(e) => setFollowup({ alert_phones: e.target.value })} />
         </label>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="nm-btn nm-btn-muted" onClick={sendReportNow}>Enviar o resumo agora (salve antes)</button>

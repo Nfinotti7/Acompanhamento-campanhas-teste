@@ -11,6 +11,11 @@ export const DEFAULT_FOLLOWUP_SETTINGS = {
   google_review_url: '',
   report_enabled: false,
   owner_phones: '',
+  // Lista de espera de vaga: oferece avisar quando abrir mesa num dia lotado.
+  vacancy_enabled: false,
+  // Alertas de campanha pro WhatsApp da agência (CPL subindo, anúncio sem entrega).
+  alerts_enabled: false,
+  alert_phones: '',
   messages: {}
 };
 
