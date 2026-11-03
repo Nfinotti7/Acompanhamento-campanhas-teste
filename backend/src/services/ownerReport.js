@@ -65,10 +65,15 @@ export async function collectStats(dbImpl, clientId, { from, to }, now = new Dat
      GROUP BY c.campaign_name ORDER BY count DESC, c.campaign_name LIMIT 1`,
     [clientId, from, to]
   );
+  const { rows: [sales] } = await dbImpl.query(
+    `SELECT COUNT(*) AS count, COALESCE(SUM(amount_spent), 0) AS revenue
+     FROM real_conversions WHERE client_id = ? AND ${localDay('created_at')} BETWEEN ?::date AND ?::date`,
+    [clientId, from, to]
+  );
   const response = await loadResponseTimes(dbImpl, clientId, from, to, now);
   const n = (v) => Number(v) || 0;
   return {
-    response,
+    response, sales: n(sales?.count), revenue: n(sales?.revenue),
     conversations: n(contacts?.total), fromAds: n(contacts?.from_ads),
     reservations: n(res?.total), people: n(res?.people), arrived: n(res?.arrived), noShow: n(res?.no_show),
     cancelled: n(res?.cancelled), unmarked: n(res?.unmarked), confirmedByClient: n(res?.confirmed_by_client),
@@ -112,6 +117,10 @@ export function buildOwnerReport({ restaurant, range, stats: s }) {
   if (s.spend > 0) {
     const perReservation = s.reservations > 0 ? ` → *${brl.format(s.spend / s.reservations)}* por reserva` : '';
     lines.push(`💰 Investido em anúncios: ${brl.format(s.spend)}${perReservation}`);
+  }
+  if (s.revenue > 0) {
+    const roas = s.spend > 0 ? ` (retorno de *${dec1.format(s.revenue / s.spend)}x* o investimento)` : '';
+    lines.push(`💵 Faturamento das vendas lançadas: *${brl.format(s.revenue)}*${roas}`);
   }
   if (s.ratings > 0 && s.avgRating !== null) {
     lines.push(`⭐ Avaliação média pós-visita: *${dec1.format(s.avgRating)}* (${s.ratings} ${s.ratings === 1 ? 'resposta' : 'respostas'})`);

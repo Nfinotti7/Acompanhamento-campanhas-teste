@@ -138,7 +138,7 @@ export const deleteLink = withClient(async (req, res, clientId) => {
 // ---- Meta Conversions API ----
 
 export const getCapiSettings = withClient(async (_req, res, clientId) => {
-  const { rows } = await db.query(`SELECT pixel_id, test_event_code, enabled FROM capi_settings WHERE client_id = ?`, [clientId]);
+  const { rows } = await db.query(`SELECT pixel_id, test_event_code, enabled, google_conversion_action, google_enabled FROM capi_settings WHERE client_id = ?`, [clientId]);
   const { rows: cred } = await db.query(`SELECT config_json FROM credentials WHERE client_id = ? AND platform = 'meta'`, [clientId]);
   let hasMetaToken = false;
   try {
@@ -146,7 +146,7 @@ export const getCapiSettings = withClient(async (_req, res, clientId) => {
   } catch {
     hasMetaToken = false;
   }
-  return res.json({ pixelId: rows[0]?.pixel_id || '', testEventCode: rows[0]?.test_event_code || '', enabled: Boolean(rows[0]?.enabled), hasMetaToken });
+  return res.json({ pixelId: rows[0]?.pixel_id || '', testEventCode: rows[0]?.test_event_code || '', enabled: Boolean(rows[0]?.enabled), hasMetaToken, googleConversionAction: rows[0]?.google_conversion_action || '', googleEnabled: Boolean(rows[0]?.google_enabled) });
 }, 'Erro ao carregar a configuração da Meta');
 
 export const saveCapiSettings = withClient(async (req, res, clientId) => {
@@ -163,6 +163,25 @@ export const saveCapiSettings = withClient(async (req, res, clientId) => {
   );
   return res.json({ message: 'Configuração salva.' });
 }, 'Erro ao salvar a configuração da Meta');
+
+// Conversão offline do Google: ID da ação de conversão (tipo "Importação de cliques")
+// criada na conta do Google Ads do cliente + chave de ligar.
+export const saveGoogleConversionSettings = withClient(async (req, res, clientId) => {
+  const action = String(req.body.googleConversionAction || '').trim().slice(0, 120);
+  const enabled = Boolean(req.body.googleEnabled);
+  if (action && !/^(\d+|customers\/\d+\/conversionActions\/\d+)$/.test(action)) {
+    return res.status(400).json({ error: 'Use só o número da ação de conversão (ou o nome completo customers/.../conversionActions/...).' });
+  }
+  if (enabled && !action) return res.status(400).json({ error: 'Informe o ID da ação de conversão pra ativar.' });
+  await db.query(
+    `INSERT INTO capi_settings (client_id, google_conversion_action, google_enabled, updated_at)
+     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT (client_id) DO UPDATE SET google_conversion_action = excluded.google_conversion_action,
+       google_enabled = excluded.google_enabled, updated_at = CURRENT_TIMESTAMP`,
+    [clientId, action || null, enabled]
+  );
+  return res.json({ message: 'Configuração do Google salva.' });
+}, 'Erro ao salvar a conversão do Google');
 
 // Manda um evento de teste (com o código de teste) pra conferir pixel e token na aba
 // "Eventos de teste" do Gerenciador de Eventos. Não entra no registro de disparos.

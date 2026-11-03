@@ -8,7 +8,7 @@ import { sendTyping } from './baileysClient.js';
 import { isBotPaused } from './botPause.js';
 import { loadReservationSettings, upcomingReservationsForContact } from './reservationStore.js';
 import { firstName, renderMessage } from './waitlistText.js';
-import { detectInfoTopics, isOtherQuestion } from './infoText.js';
+import { detectInfoTopics, isOtherQuestion, matchFaq } from './infoText.js';
 
 // O mesmo assunto não é mandado de novo pro mesmo contato nesse intervalo.
 export const REPEAT_WINDOW_MS = 12 * 3600e3;
@@ -47,7 +47,10 @@ async function handleOne({ clientId, contactId, waId, profileName, body, restaur
   if (!info.enabled) return 'ignored';
 
   const other = isOtherQuestion(body);
-  const asked = other ? ['other'] : detectInfoTopics(body).filter((topic) => (info[topic] || '').trim());
+  const fixed = other ? ['other'] : detectInfoTopics(body).filter((topic) => (info[topic] || '').trim());
+  // Pergunta frequente do restaurante só vale se nenhum assunto fixo respondeu a mesma coisa.
+  const faqAsked = fixed.length === 0 && !other ? matchFaq(body, info.faq).map((i) => `faq:${i}`) : [];
+  const asked = [...fixed, ...faqAsked];
   if (asked.length === 0) return 'ignored';
   if (await d.isBotPaused(q, { contactId, now: d.now })) return 'paused';
 
@@ -74,7 +77,8 @@ async function handleOne({ clientId, contactId, waId, profileName, body, restaur
   const vars = { nome: firstName(profileName), restaurante: restaurantName };
   for (const [i, topic] of topics.entries()) {
     const last = i === topics.length - 1;
-    const text = renderMessage(info[topic].trim(), vars) + (last && hint ? `\n\n${hint}` : '');
+    const answer = topic.startsWith('faq:') ? info.faq[Number(topic.slice(4))].answer : info[topic];
+    const text = renderMessage(answer.trim(), vars) + (last && hint ? `\n\n${hint}` : '');
     // Grava antes de enviar: outra mensagem igual que chegue no meio não responde de novo.
     await q.query(`INSERT INTO info_replies (client_id, contact_id, topic) VALUES (?, ?, ?)`, [clientId, contactId, topic]);
     try {

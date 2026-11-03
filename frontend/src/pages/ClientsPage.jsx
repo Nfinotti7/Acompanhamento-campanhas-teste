@@ -14,6 +14,7 @@ const EMPTY_FORM = {
   reservations_enabled: false,
   whatsapp_ads_only: false,
   data_start_date: '',
+  group_name: '',
   clientUserEmail: '',
   clientUserPassword: ''
 };
@@ -63,6 +64,7 @@ export default function ClientsPage() {
       reservations_enabled: Boolean(client.reservations_enabled),
       whatsapp_ads_only: Boolean(client.whatsapp_ads_only),
       data_start_date: client.data_start_date || '',
+      group_name: client.group_name || '',
       clientUserEmail: '',
       clientUserPassword: ''
     });
@@ -310,6 +312,19 @@ export default function ClientsPage() {
                 />
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-8px', marginBottom: '12px' }}>
                   Cliente anuncia por mais de uma Página do Facebook? Separe os IDs por vírgula (ex: 111,222).
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Grupo / rede (opcional)</label>
+                <input
+                  className="form-input"
+                  value={formData.group_name}
+                  onChange={(e) => setFormData({ ...formData, group_name: e.target.value })}
+                  placeholder="Ex: Grupo Malibu"
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-8px', marginBottom: '12px' }}>
+                  Restaurantes com o mesmo grupo aparecem juntos na tela Unidades, para comparar.
                 </p>
               </div>
 

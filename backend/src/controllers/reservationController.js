@@ -11,7 +11,7 @@ import { DEFAULT_FOLLOWUP_MESSAGES, FOLLOWUP_MESSAGE_KEYS } from '../services/fo
 import { sendReportNow } from '../services/ownerReport.js';
 import {
   loadReservationSettings, saveReservationSettings, listReservations, createReservation, updateReservation,
-  setReservationStatus, SlotTakenError, ReservationSettingsError
+  setReservationStatus, recordReservationSpend, SlotTakenError, ReservationSettingsError
 } from '../services/reservationStore.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,6 +39,7 @@ export function createReservationHandlers(overrides = {}) {
     createReservation,
     updateReservation,
     setReservationStatus,
+    recordReservationSpend,
     send: sendToContact,
     pauseBot,
     resumeBot,
@@ -125,6 +126,18 @@ export function createReservationHandlers(overrides = {}) {
       if (result.delivered === 0) return res.status(502).json({ error: 'Não consegui enviar. Confira se o WhatsApp do restaurante está conectado.' });
       return res.json({ delivered: result.delivered });
     }, 'Erro ao enviar o resumo'),
+
+    // Valor da comanda (R$): vira venda e entra no ROAS. Pode ser editado depois.
+    spend: handler(async (req, res, clientId) => {
+      try {
+        const r = await d.recordReservationSpend(d.db, { clientId, id: Number(req.params.id), amount: req.body?.amount });
+        if (!r) return res.status(404).json({ error: 'Reserva não encontrada.' });
+        return res.json({ reservation: r });
+      } catch (error) {
+        if (error instanceof ReservationSettingsError) return res.status(400).json({ error: error.message });
+        throw error;
+      }
+    }, 'Erro ao salvar o valor da comanda'),
 
     getDay: handler(async (req, res, clientId) => {
       const day = DAY.test(req.query.day || '') ? req.query.day : dayOf(d.now());

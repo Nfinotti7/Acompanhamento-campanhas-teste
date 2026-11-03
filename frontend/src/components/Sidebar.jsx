@@ -13,7 +13,10 @@ import {
   Columns3,
   CalendarDays,
   PieChart,
-  Radar
+  Radar,
+  Gauge,
+  Store,
+  ListChecks
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from '../brand/BrandLogo';
@@ -22,6 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate })
   const { user, logout } = useAuth();
 
   const menuItems = [
+    { id: 'owner-summary', label: 'Resumo do dono', icon: Gauge },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'campaigns', label: 'Campanhas', icon: BarChart3 },
     { id: 'remarketing', label: 'Remarketing / Leads', icon: Target },
@@ -35,6 +39,8 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, onNavigate })
 
   if (user?.role === 'admin') {
     menuItems.splice(2, 0, { id: 'credentials', label: 'Chaves e APIs', icon: KeyRound });
+    menuItems.push({ id: 'units', label: 'Unidades', icon: Store });
+    menuItems.push({ id: 'onboarding', label: 'Implantação', icon: ListChecks });
     menuItems.push({ id: 'clients', label: 'Clientes', icon: Users });
   }
 

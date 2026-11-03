@@ -8,6 +8,7 @@
 // - Nada é enviado se o cliente não ligou a CAPI (pixel + "ativo") ou não tem token Meta.
 import db from '../config/db.js';
 import { buildCapiEvent, sendCapiEvent } from './metaCapi.js';
+import { fireGoogleSale } from './googleOfflineConversions.js';
 
 async function loadCapiConfig(dbImpl, clientId) {
   const { rows } = await dbImpl.query(
@@ -98,7 +99,15 @@ export async function fireStageEvent({ clientId, contactId }, deps = {}) {
 }
 
 export async function fireSaleEvent({ clientId, contactId, conversionId, value }, deps = {}) {
-  return fireEvent({ clientId, contactId, eventName: 'Purchase', eventId: `sale-${conversionId}`, value }, deps);
+  const meta = await fireEvent({ clientId, contactId, eventName: 'Purchase', eventId: `sale-${conversionId}`, value }, deps);
+  // A mesma venda também vai pro Google (conversão offline) quando o cliente configurou.
+  // Erro do Google nunca atrapalha o resultado da Meta.
+  try {
+    await (deps.fireGoogleSale || fireGoogleSale)({ clientId, contactId, conversionId, value }, deps);
+  } catch (error) {
+    console.error('Conversão offline do Google:', error.message);
+  }
+  return meta;
 }
 
 // Pra chamar sem segurar a resposta da requisição/webhook.

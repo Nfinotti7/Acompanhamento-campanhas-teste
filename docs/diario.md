@@ -52,6 +52,10 @@
 
 **Segunda leva (03/11, não enviada):** ranking de criativos e no-show por campanha, tempo de resposta e alertas de campanha no Dashboard WhatsApp; alertas no WhatsApp da agência; lista de espera de vaga (AVISAR); arquivos salvos do Balcão. Tudo desligado por padrão onde é automático. Ver Registro 2026-11-03 (continuação).
 
+**No ar desde 03/11 14:11 (push `59c7211`):** lembrete, avaliação pós-visita, resumo do dono, ranking de criativos, tempo de resposta, alertas de campanha, lista de espera de vaga e arquivos salvos do Balcão. Tudo desligado por padrão onde é automático; o usuário liga em Balcão → Reservas → Configurar.
+
+**Terceira leva (03/11, commitada, não enviada):** painel do dono (+ relatório mensal imprimível), valor da comanda → venda → ROAS, conversão offline do Google, fora do horário, perguntas frequentes, implantação, unidades, sazonalidade e o clube de fidelidade (**desligado**, a combinar com o cliente). Ver Registro 2026-11-03 (terceira leva).
+
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
@@ -1076,4 +1080,28 @@ O usuário mandou fazer as ideias que ainda cabiam no Baileys. Seis entregas:
 - Envio real pelo Baileys, telas no navegador.
 - Os alertas e a lista de espera ficam em Reservas → Configurar, então só aparecem pra cliente com reservas ligadas (hoje, o Malibu). Alertas pros outros clientes pediriam uma tela própria.
 - Reativação de cliente inativo, aniversário e disparos continuam só com a API oficial.
+
+### 2026-11-03 (terceira leva) — Painel do dono, comanda→ROAS, Google offline e mais (não enviada)
+
+Pedido do usuário: fazer o resto da lista (menos Google Meu Negócio e delivery, que ficam pra depois, e a API oficial, que só daqui a algum tempo). A **fidelidade deve ficar pronta e inativa**, pra ligar no painel depois de falar com o cliente.
+
+**Entregas:**
+1. **Painel do dono** (`pages/OwnerSummaryPage.jsx`, `GET /api/owner/summary?period=week|month|last_month`, `ownerSummary.js`): números grandes (conversas, reservas, comparecimento, investimento, custo por reserva, vendas lançadas) com variação contra o período anterior de mesmo tamanho, frases em linguagem simples ("Em resumo") e botão **Imprimir / PDF** (usa o `@media print` que já existia). Serve também de **relatório mensal** (Este mês / Mês passado). Item de menu "Resumo do dono" pra todos os papéis.
+2. **Valor da comanda → venda → ROAS**: no cartão da reserva "Chegou" aparece o campo "Comanda R$". Salvar cria uma venda em `real_conversions` (`reservations.conversion_id`), move o card pra etapa de venda e dispara o Purchase da Meta; editar o valor só atualiza a mesma venda (não conta duas vezes, não reenvia). Por isso entra sozinho no ROAS por campanha do Dashboard WhatsApp. Rota `POST /api/reservations/:id/spend`. O resumo semanal do dono ganhou a linha de faturamento e retorno.
+3. **Conversão offline do Google** (`googleOfflineConversions.js`): a mesma venda vai pro Google (`uploadClickConversions`) quando o contato veio de Link Rastreável com `gclid`, o cliente tem credenciais do Google, o ID da ação de conversão (tipo "Importação de cliques", criada no Google Ads) e a chave ligada em **Links e Conversões**. Cada envio entra em `conversion_events` com `platform='google'`. **Não validado contra o Google de verdade** (só com fetch falso nos testes): o Google do Malibu e da Giulí ainda está travado, e no Alma/Recreio ninguém criou a ação. Primeiro teste real: criar a ação, ligar e lançar uma venda de contato com gclid, e olhar o status em "Disparos".
+4. **Fora do horário** (`afterHoursBot.js`): última etapa da cadeia dos robôs. Janela configurável (padrão 23:00–10:00, pode atravessar a meia-noite); responde 1 vez a cada 12h por pessoa e marca `whatsapp_contacts.after_hours_at`, que vira o selo "Fora do horário" na lista do Balcão até a equipe responder.
+5. **Perguntas frequentes** (`info.faq`, `matchFaq`): lista de "palavras-chave → resposta" editável (vegano, estacionamento, criança...), até 20. Casa gênero/plural ("vegano" pega "vegana"). Só roda se nenhum assunto fixo (cardápio, preço, horário, local) respondeu a mesma mensagem.
+6. **Cadeia dos robôs no ingest** reescrita como lista: reserva → lembrete/avaliação → fidelidade → respostas automáticas → fora do horário. O primeiro que trata encerra; erro num não derruba os outros.
+7. **Implantação** (`OnboardingPage`, `GET /api/owner/onboarding`, admin): checklist por cliente com o que está pronto (Meta, Google, campanhas, WhatsApp, link rastreável, Pixel, reservas com mesas e horários, respostas automáticas, link do Google, WhatsApp do dono) e onde fazer o que falta; "Abrir" leva à aba certa.
+8. **Unidades** (`UnitsPage`, `GET /api/owner/units`, admin): compara os restaurantes lado a lado, agrupados por **"Grupo / rede"** (`clients.group_name`, campo novo no cadastro do cliente). 🏆 no que mais reservou.
+9. **Sazonalidade** (`seasonality.js`): Namorados, Mães, Pais, Páscoa, Carnaval, Black Friday, Natal, Réveillon, confraternizações etc., com a antecedência pra começar a campanha e uma dica. Aparece no painel de indicadores do Dashboard WhatsApp ("Datas para planejar campanha"). Datas móveis calculadas por regra (testadas).
+10. **Clube de fidelidade — INATIVO** (`loyalty.js`): +1 ponto por visita ("Chegou"), meta e prêmio configuráveis, o cliente é avisado a cada ponto, "pontos" devolve o saldo, ao completar a meta ganha o prêmio e o saldo desconta (`loyalty_points`). **Chave `followup.loyalty_enabled` desligada** em Reservas → Configurar → Clube de fidelidade; ligar só depois de combinar com o restaurante. Cartão da reserva mostra "★ n pts" quando há saldo.
+
+**Fica pra depois (combinado):** Google Meu Negócio, pedido de delivery pelo WhatsApp, reativação/aniversário/disparos (API oficial).
+
+**Testado:** backend 527 testes (20 novos em `batch3.test.js` + sazonalidade), frontend 73, build ok.
+**Não testado / pendente:**
+- **SQL novo não rodado no Postgres real** (resumo com vendas, unidades, implantação, `loyalty_points`, comanda, `after_hours_at`, listagem de reservas com saldo de pontos). Rodar a verificação (transação desfeita) com autorização do usuário antes do deploy.
+- Envio real pelo WhatsApp, telas no navegador, impressão em PDF, conversão do Google.
+- Tabelas/colunas novas são criadas na subida do servidor (`initDb`).
 

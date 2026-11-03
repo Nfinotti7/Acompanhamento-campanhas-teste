@@ -22,15 +22,17 @@ import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controller
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { startFollowupScheduler } from './services/followupScheduler.js';
 import { offerVacancies } from './services/vacancyWaitlist.js';
-import { setReleaseHook } from './services/reservationStore.js';
+import { setReleaseHook, setArrivedHook } from './services/reservationStore.js';
+import { awardVisit } from './services/loyalty.js';
 import { getInsights } from './controllers/insightsController.js';
+import { getOwnerSummary, getUnits, getOnboarding } from './controllers/ownerController.js';
 import { listQuickFiles, createQuickFile, deleteQuickFile, sendQuickFile } from './controllers/quickFilesController.js';
 import { setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
 import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
-import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
+import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, saveGoogleConversionSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
@@ -117,6 +119,9 @@ app.post('/api/quick-files', express.raw({ type: () => true, limit: '16mb' }), c
 app.delete('/api/quick-files/:id', deleteQuickFile);
 app.post('/api/whatsapp/conversations/:contactId/quick-file/:fileId', sendQuickFile);
 app.get('/api/whatsapp/insights', getInsights);
+app.get('/api/owner/summary', getOwnerSummary);
+app.get('/api/owner/units', getUnits);
+app.get('/api/owner/onboarding', getOnboarding);
 app.post('/api/whatsapp/conversations/:contactId/read', markConversationRead);
 
 // Real Conversions & ROI
@@ -168,6 +173,7 @@ app.patch('/api/tracking/links/:id', denyStaff, updateLink);
 app.delete('/api/tracking/links/:id', denyStaff, deleteLink);
 app.get('/api/tracking/capi', denyStaff, getCapiSettings);
 app.put('/api/tracking/capi', denyStaff, saveCapiSettings);
+app.put('/api/tracking/google-conversion', denyStaff, saveGoogleConversionSettings);
 app.post('/api/tracking/capi/test', denyStaff, sendCapiTest);
 app.get('/api/tracking/events', denyStaff, listConversionEvents);
 
@@ -196,6 +202,7 @@ app.get('/api/reservations', reservationHandlers.getDay);
 app.post('/api/reservations', reservationHandlers.create);
 app.patch('/api/reservations/:id', reservationHandlers.update);
 app.post('/api/reservations/:id/arrived', reservationHandlers.arrived);
+app.post('/api/reservations/:id/spend', reservationHandlers.spend);
 app.post('/api/reservations/:id/no-show', reservationHandlers.noShow);
 app.post('/api/reservations/:id/confirm', reservationHandlers.confirm);
 app.post('/api/reservations/:id/cancel', reservationHandlers.cancel);
@@ -281,6 +288,7 @@ initDb()
     // o BAILEYS_AUTOCONNECT=false, pra o backend local não mandar mensagem de verdade.
     if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
       setReleaseHook((clientId) => offerVacancies(clientId));
+      setArrivedHook((reservation) => awardVisit(reservation));
       startFollowupScheduler();
     }
 

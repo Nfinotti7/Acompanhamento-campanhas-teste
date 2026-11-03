@@ -56,13 +56,19 @@ const FOLLOWUP_LABELS = {
   reviewAsk: 'Pergunta a nota depois da visita',
   reviewHigh: 'Nota 4 ou 5 (com o link do Google)',
   reviewHighNoLink: 'Nota 4 ou 5 (sem link do Google)',
-  reviewLow: 'Nota 1 a 3 (chama a equipe)'
+  reviewLow: 'Nota 1 a 3 (chama a equipe)',
+  afterHours: 'Resposta fora do horário de atendimento',
+  loyaltyBalance: 'Clube: saldo de pontos',
+  loyaltyEarned: 'Clube: ponto da visita',
+  loyaltyReward: 'Clube: prêmio conquistado'
 };
 const EMPTY_FOLLOWUP = {
   reminder_enabled: false, reminder_hours_before: '3', review_enabled: false, google_review_url: '',
-  report_enabled: false, owner_phones: '', vacancy_enabled: false, alerts_enabled: false, alert_phones: '', messages: {}
+  report_enabled: false, owner_phones: '', vacancy_enabled: false, alerts_enabled: false, alert_phones: '',
+  after_hours_enabled: false, after_hours_from: '23:00', after_hours_to: '10:00',
+  loyalty_enabled: false, loyalty_goal: '10', loyalty_reward: 'uma sobremesa por conta da casa', messages: {}
 };
-const EMPTY_INFO = { enabled: false, menu: '', prices: '', hours: '', location: '', other: '', reserveHint: '' };
+const EMPTY_INFO = { enabled: false, menu: '', prices: '', hours: '', location: '', other: '', reserveHint: '', faq: [] };
 
 function toForm(s) {
   return {
@@ -81,10 +87,11 @@ function toForm(s) {
     bot_enabled: s.bot_enabled !== false,
     ad_fallback: Boolean(s.ad_fallback),
     messages: { ...(s.messages || {}) },
-    info: { ...EMPTY_INFO, ...(s.info || {}) },
+    info: { ...EMPTY_INFO, ...(s.info || {}), faq: (s.info?.faq || []).map((x) => ({ ...x })) },
     followup: {
       ...EMPTY_FOLLOWUP, ...(s.followup || {}),
       reminder_hours_before: String(s.followup?.reminder_hours_before ?? 3),
+      loyalty_goal: String(s.followup?.loyalty_goal ?? 10),
       messages: { ...(s.followup?.messages || {}) }
     }
   };
@@ -109,10 +116,12 @@ function fromForm(f) {
     bot_enabled: f.bot_enabled,
     ad_fallback: f.ad_fallback,
     messages,
-    info: f.info,
+    info: { ...f.info, faq: f.info.faq.filter((x) => x.keywords.trim() && x.answer.trim()) },
     followup: {
       ...f.followup,
       reminder_hours_before: Number(f.followup.reminder_hours_before),
+      loyalty_goal: Number(f.followup.loyalty_goal),
+      loyalty_reward: f.followup.loyalty_reward.trim(),
       google_review_url: f.followup.google_review_url.trim(),
       messages: Object.fromEntries(Object.entries(f.followup.messages).filter(([, v]) => v && v.trim()))
     }
@@ -193,6 +202,7 @@ export default function ReservationSettings({ api, onBack }) {
     }
   };
 
+  const setFaq = (faq) => set({ info: { ...form.info, faq } });
   const setFollowup = (patch) => set({ followup: { ...form.followup, ...patch } });
 
   const sendReportNow = async () => {
@@ -385,6 +395,61 @@ export default function ReservationSettings({ api, onBack }) {
             ))}
           </div>
         </details>
+      </div>
+
+      <div className="nm-card" style={section}>
+        <strong>Perguntas frequentes do restaurante</strong>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Para o que o cliente costuma perguntar fora cardápio, preço, horário e localização (ex: opção vegana, estacionamento, aceita criança, eventos). Separe as palavras-chave por vírgula; quando a mensagem tiver uma delas, o robô manda a resposta. Só vale com as respostas automáticas ligadas.
+        </span>
+        {form.info.faq.map((item, i) => (
+          <div key={i} style={{ display: 'grid', gap: '6px', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+            <input className="nm-input" placeholder="Palavras-chave: vegano, vegetariano, sem carne" value={item.keywords}
+              onChange={(e) => setFaq(form.info.faq.map((x, j) => (j === i ? { ...x, keywords: e.target.value } : x)))} />
+            <textarea className="nm-input" rows={3} placeholder="Resposta que o robô manda" value={item.answer}
+              onChange={(e) => setFaq(form.info.faq.map((x, j) => (j === i ? { ...x, answer: e.target.value } : x)))} />
+            <button type="button" className="nm-btn nm-btn-ghost" style={{ justifySelf: 'start' }} onClick={() => setFaq(form.info.faq.filter((_, j) => j !== i))}><Trash2 size={14} /> Remover</button>
+          </div>
+        ))}
+        <button type="button" className="nm-btn nm-btn-muted" style={{ justifySelf: 'start' }} disabled={form.info.faq.length >= 20}
+          onClick={() => setFaq([...form.info.faq, { keywords: '', answer: '' }])}><Plus size={16} /> Pergunta frequente</button>
+      </div>
+
+      <div className="nm-card" style={section}>
+        <strong>Fora do horário de atendimento</strong>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.after_hours_enabled} onChange={(e) => setFollowup({ after_hours_enabled: e.target.checked })} />
+          Responder quem chama fora do horário e deixar a conversa marcada pra equipe
+        </label>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Uma resposta a cada 12h por pessoa, só pro que o robô de reserva e as respostas automáticas não trataram. A conversa fica com o selo "Fora do horário" no Balcão até alguém responder.
+        </span>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>Fora do horário de</span>
+          <input className="nm-input" type="time" value={form.followup.after_hours_from} onChange={(e) => setFollowup({ after_hours_from: e.target.value })} style={{ width: 'auto' }} />
+          <span>até</span>
+          <input className="nm-input" type="time" value={form.followup.after_hours_to} onChange={(e) => setFollowup({ after_hours_to: e.target.value })} style={{ width: 'auto' }} />
+        </div>
+      </div>
+
+      <div className="nm-card" style={section}>
+        <strong>Clube de fidelidade</strong>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.followup.loyalty_enabled} onChange={(e) => setFollowup({ loyalty_enabled: e.target.checked })} />
+          Clube de pontos ligado
+        </label>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Deixe desligado até combinar com o restaurante. Ligado, cada visita marcada como "Chegou" soma 1 ponto e o cliente é avisado; quem manda "pontos" recebe o saldo. Ao completar a meta ganha o prêmio e o saldo reinicia.
+        </span>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>Meta:</span>
+          <input className="nm-input" type="number" min="2" max="100" value={form.followup.loyalty_goal} onChange={(e) => setFollowup({ loyalty_goal: e.target.value })} style={{ width: '80px' }} />
+          <span>visitas</span>
+        </div>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Prêmio</span>
+          <input className="nm-input" value={form.followup.loyalty_reward} onChange={(e) => setFollowup({ loyalty_reward: e.target.value })} />
+        </label>
       </div>
 
       <details className="nm-card" style={section}>

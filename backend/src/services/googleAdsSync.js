@@ -1,5 +1,5 @@
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const API_VERSION = 'v25';
+export const API_VERSION = 'v25';
 
 async function parseJsonResponse(res, fallbackErrorMessage) {
   const rawText = await res.text();
@@ -13,7 +13,7 @@ async function parseJsonResponse(res, fallbackErrorMessage) {
   }
 }
 
-async function getAccessToken({ client_id, client_secret, refresh_token }) {
+export async function getAccessToken({ client_id, client_secret, refresh_token }) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -131,7 +131,7 @@ export default function ReservationsView({ api, lastEvent }) {
           </button>
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: STATUS_COLOR[r.status], whiteSpace: 'nowrap' }}>{statusLabel(r.status)}</span>
         </div>
-        {(origin || r.over_limit || r.client_confirmed_at || r.rating || (r.reminder_sent_at && r.status === 'confirmed')) && (
+        {(origin || r.over_limit || Number(r.loyalty_balance) > 0 || r.client_confirmed_at || r.rating || (r.reminder_sent_at && r.status === 'confirmed')) && (
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {origin && (
               <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'var(--surface-subtle)', color: 'var(--text-secondary)' }}>{origin}</span>
@@ -145,6 +145,9 @@ export default function ReservationsView({ api, lastEvent }) {
             {r.rating && (
               <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: r.rating >= 4 ? 'var(--accent-success)' : 'var(--accent-danger)', border: `1px solid ${r.rating >= 4 ? 'var(--accent-success)' : 'var(--accent-danger)'}` }}>Nota {r.rating}</span>
             )}
+            {Number(r.loyalty_balance) > 0 && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'var(--surface-subtle)', color: 'var(--text-secondary)' }}>★ {r.loyalty_balance} pts</span>
+            )}
             {r.over_limit && (
               <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: 'var(--accent-warning)', border: '1px solid var(--accent-warning)' }}>Acima do limite</span>
             )}
@@ -157,6 +160,9 @@ export default function ReservationsView({ api, lastEvent }) {
             <button type="button" className="nm-btn nm-btn-ghost" disabled={busy} onClick={() => setEditing(r)} aria-label="Editar"><Pencil size={16} /></button>
             <button type="button" className="nm-btn nm-btn-ghost" disabled={busy} onClick={() => { setNotify(true); setCancelling(r); }} aria-label="Cancelar"><X size={16} /></button>
           </div>
+        )}
+        {(r.status === 'arrived') && (
+          <SpendField r={r} api={api} onSaved={load} />
         )}
         {(r.status === 'arrived' || r.status === 'no_show') && (
           <button type="button" className="nm-btn nm-btn-ghost" style={{ justifySelf: 'start' }} disabled={busy} onClick={() => act(r, 'confirm')}>
@@ -245,6 +251,33 @@ export default function ReservationsView({ api, lastEvent }) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// Valor da comanda: vira venda e entra no retorno do investimento (ROAS) da campanha.
+function SpendField({ r, api, onSaved }) {
+  const [value, setValue] = useState(r.amount_spent ? String(r.amount_spent) : '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await api.post(`/api/reservations/${r.id}/spend`, { amount: Number(String(value).replace(',', '.')) });
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Não foi possível salvar o valor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Comanda R$</span>
+      <input className="nm-input" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0,00" style={{ width: '100px' }} aria-label="Valor da comanda" />
+      <button type="button" className="nm-btn nm-btn-muted" disabled={saving || value === ''} onClick={save}>{saving ? 'Salvando...' : (r.amount_spent ? 'Atualizar' : 'Salvar valor')}</button>
+      {error && <span style={{ color: 'var(--accent-danger)', fontSize: '0.78rem' }}>{error}</span>}
     </div>
   );
 }

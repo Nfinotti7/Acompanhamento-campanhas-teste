@@ -3,6 +3,7 @@
 import db from '../config/db.js';
 import { resolveDateRange } from './campaignController.js';
 import { dayOf } from '../services/reservationSlots.js';
+import { upcomingDates } from '../services/seasonality.js';
 import {
   loadCreativeRanking, loadResponseTimes, loadCampaignAlertData, computeAlerts
 } from '../services/campaignInsights.js';
@@ -28,7 +29,8 @@ export async function getInsights(req, res) {
       period: { start: startStr, end: endStr },
       creatives,
       responseTimes,
-      alerts: computeAlerts(alertData, dayOf(now))
+      alerts: computeAlerts(alertData, dayOf(now)),
+      upcomingDates: upcomingDates(dayOf(now), 60)
     });
   } catch (error) {
     console.error('Insights error:', error);

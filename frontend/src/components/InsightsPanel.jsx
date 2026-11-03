@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { AlertTriangle, Timer, Trophy } from 'lucide-react';
+import { AlertTriangle, Timer, Trophy, CalendarClock } from 'lucide-react';
 
 const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const pct = (v) => `${Math.round(Number(v || 0) * 100)}%`;
@@ -61,6 +61,25 @@ export default function InsightsPanel({ clientId, range }) {
               <li key={i}>{a.message.replace(/\*/g, '')}</li>
             ))}
           </ul>
+        </Box>
+      )}
+
+      {data.upcomingDates?.length > 0 && (
+        <Box title="Datas para planejar campanha" icon={<CalendarClock size={18} color="var(--accent-primary)" />}>
+          <div style={{ display: 'grid', gap: '10px' }}>
+            {data.upcomingDates.map((d) => (
+              <div key={d.key} style={{ display: 'grid', gap: 2, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>{d.name}</strong>
+                  <span style={{ fontSize: '0.78rem', color: d.status === 'comecar_agora' ? 'var(--accent-warning)' : 'var(--text-muted)', fontWeight: 700 }}>
+                    {d.date.slice(8, 10)}/{d.date.slice(5, 7)} · em {d.daysUntil} {d.daysUntil === 1 ? 'dia' : 'dias'}
+                    {d.status === 'comecar_agora' ? ' · começar a campanha agora' : ` · começar em ${d.startOn.slice(8, 10)}/${d.startOn.slice(5, 7)}`}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{d.tip}</span>
+              </div>
+            ))}
+          </div>
         </Box>
       )}
 

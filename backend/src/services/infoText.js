@@ -12,6 +12,7 @@ export const DEFAULT_INFO_SETTINGS = {
   prices: '',
   hours: '',
   location: '',
+  faq: [],
   other: 'Claro, pode mandar sua dúvida 🙂',
   reserveHint: 'Quer garantir sua mesa? É só responder RESERVA que eu já faço a reserva pra você.'
 };
@@ -48,6 +49,30 @@ export function detectInfoTopics(text) {
   const t = clean(text);
   if (!t || t.split(' ').length > MAX_WORDS) return [];
   return INFO_TOPICS.filter((topic) => PATTERNS[topic].test(t));
+}
+
+// Perguntas frequentes configuradas pelo restaurante ([{ keywords: 'vegano, vegetariano',
+// answer: '...' }]): devolve os índices das que a mensagem toca. Mais folga de palavras que
+// os assuntos fixos, porque a pergunta costuma vir mais completa.
+const FAQ_MAX_WORDS = 25;
+export function matchFaq(text, faq = []) {
+  const t = clean(text);
+  if (!t || t.split(' ').length > FAQ_MAX_WORDS) return [];
+  const hits = [];
+  faq.forEach((item, i) => {
+    if (!String(item?.answer || '').trim()) return;
+    const words = String(item.keywords || '').split(/[,\n;]+/).map((w) => clean(w)).filter(Boolean);
+    // "vegano" também pega "vegana", "veganos"; "criança" pega "crianças".
+    const found = words.some((w) => {
+      const parts = w.split(' ');
+      const last = parts.pop();
+      const stem = last.length >= 5 ? last.replace(/(os|as|es|o|a|e|s)$/, '') : last;
+      const escaped = [...parts, stem].join(' ').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(^| )${escaped}\\w{0,3}( |$)`).test(t);
+    });
+    if (found) hits.push(i);
+  });
+  return hits;
 }
 
 // "Tenho outra dúvida" (pergunta pronta do anúncio): responde na hora e deixa com a equipe.

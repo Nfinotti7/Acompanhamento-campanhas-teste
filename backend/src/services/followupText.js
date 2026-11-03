@@ -16,6 +16,14 @@ export const DEFAULT_FOLLOWUP_SETTINGS = {
   // Alertas de campanha pro WhatsApp da agência (CPL subindo, anúncio sem entrega).
   alerts_enabled: false,
   alert_phones: '',
+  // Fora do horário: responde e deixa anotado pra equipe retomar (afterHoursBot.js).
+  after_hours_enabled: false,
+  after_hours_from: '23:00',
+  after_hours_to: '10:00',
+  // Clube de fidelidade (loyalty.js): desligado até combinar com o restaurante.
+  loyalty_enabled: false,
+  loyalty_goal: 10,
+  loyalty_reward: 'uma sobremesa por conta da casa',
   messages: {}
 };
 
@@ -25,6 +33,10 @@ export const DEFAULT_FOLLOWUP_MESSAGES = {
   reviewAsk: '{nome}, obrigado por visitar o {restaurante}! De 1 a 5, como foi a sua experiência? É só responder com o número 🙂',
   reviewHigh: 'Que bom saber, {nome}! 🙏 Se puder deixar sua avaliação no Google, ajuda demais a gente: {link}',
   reviewHighNoLink: 'Que bom saber, {nome}! Obrigado pelo carinho, esperamos você de volta em breve 🙂',
+  afterHours: 'Oi, {nome}! Recebemos sua mensagem 🙂 No momento estamos fora do horário de atendimento, mas já deixei anotado e retornamos a partir das {ate}.',
+  loyaltyBalance: '{nome}, você tem {pontos} de {meta} pontos no nosso clube 🎉 Faltam {faltam} pra ganhar {premio}.',
+  loyaltyEarned: 'Obrigado pela visita, {nome}! Mais 1 ponto no nosso clube: agora são {pontos} de {meta} 🎉',
+  loyaltyReward: '🎁 Parabéns, {nome}! Você completou {meta} pontos e ganhou {premio}. É só avisar a equipe na sua próxima visita.',
   reviewLow: 'Poxa, sinto muito que não tenha sido perfeito, {nome}. Me conta o que podemos melhorar? Vou chamar alguém do nosso time pra cuidar disso pessoalmente.'
 };
 

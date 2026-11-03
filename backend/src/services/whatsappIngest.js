@@ -7,6 +7,8 @@ import { pauseBot } from './botPause.js';
 import { handleInboundForReservation } from './reservationBot.js';
 import { handleInboundForInfo } from './infoBot.js';
 import { handleInboundForFollowup } from './followupBot.js';
+import { handleInboundForLoyalty } from './loyalty.js';
+import { handleInboundForAfterHours } from './afterHoursBot.js';
 import { notifyInboundMessage } from './pushNotify.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
@@ -186,29 +188,32 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // ele não tratar vai pras respostas automáticas (cardápio, localização...), que moram
   // na mesma configuração.
   if (event.direction === 'inbound' && isPhone && flags.reservations_enabled && messageRows.length > 0) {
-    const onReservation = deps.onReservation || handleInboundForReservation;
-    const onFollowup = deps.onFollowup || handleInboundForFollowup;
-    const onInfo = deps.onInfo || handleInboundForInfo;
+    // Cada robô só segue pro próximo quando devolve 'ignored'; o primeiro que trata a
+    // mensagem encerra a cadeia. Erro num deles nunca derruba os outros.
+    const chain = [
+      ['Reservas', deps.onReservation || handleInboundForReservation],
+      ['Lembrete/avaliação', deps.onFollowup || handleInboundForFollowup],
+      ['Fidelidade', deps.onLoyalty || handleInboundForLoyalty],
+      ['Respostas automáticas', deps.onInfo || handleInboundForInfo],
+      ['Fora do horário', deps.onAfterHours || handleInboundForAfterHours]
+    ];
     const args = {
       clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
       fromAd: fromAd || presumedAd, isNewContact, restaurantName: flags.name || ''
     };
     const botDeps = deps.db ? { db: dbImpl } : {};
-    Promise.resolve()
-      .then(() => onReservation(args, botDeps))
-      .catch((error) => {
-        console.error('Reservas: erro no robô de reserva:', error.message);
-        return 'error';
-      })
-      // Resposta ao lembrete (SIM) ou à pergunta de nota, antes das respostas automáticas.
-      .then((result) => (result === 'ignored'
-        ? Promise.resolve().then(() => onFollowup(args, botDeps)).catch((error) => {
-          console.error('Lembrete/avaliação: erro:', error.message);
-          return 'ignored';
-        })
-        : result))
-      .then((result) => (result === 'ignored' ? onInfo(args, botDeps) : null))
-      .catch((error) => console.error('Respostas automáticas: erro:', error.message));
+    (async () => {
+      for (const [label, handler] of chain) {
+        let result;
+        try {
+          result = await handler(args, botDeps);
+        } catch (error) {
+          console.error(`${label}: erro no robô:`, error.message);
+          result = label === 'Reservas' ? 'error' : 'ignored';
+        }
+        if (result !== 'ignored') return;
+      }
+    })().catch((error) => console.error('Robôs do WhatsApp: erro:', error.message));
   }
 
   // Alguém da equipe respondeu direto pelo celular (Baileys entrega essa mensagem
@@ -230,7 +235,10 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
         [contactId]
       );
       const sinceInbound = lastIn[0] ? new Date(event.sentAt).getTime() - new Date(lastIn[0].sent_at).getTime() : Infinity;
-      if (sinceInbound >= AUTO_REPLY_WINDOW_MS) await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
+      if (sinceInbound >= AUTO_REPLY_WINDOW_MS) {
+        await (deps.pauseBot || pauseBot)(dbImpl, { clientId, contactId });
+        await dbImpl.query(`UPDATE whatsapp_contacts SET after_hours_at = NULL WHERE id = ?`, [contactId]);
+      }
     } catch (error) {
       console.error('Reservas: erro ao pausar o robô:', error.message);
     }

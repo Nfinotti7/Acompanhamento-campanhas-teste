@@ -11,6 +11,9 @@ import WhatsAppInboxPage from './pages/WhatsAppInboxPage';
 import WhatsAppKanbanPage from './pages/WhatsAppKanbanPage';
 import WhatsAppAgendaPage from './pages/WhatsAppAgendaPage';
 import WhatsAppDashboardPage from './pages/WhatsAppDashboardPage';
+import OwnerSummaryPage from './pages/OwnerSummaryPage';
+import UnitsPage from './pages/UnitsPage';
+import OnboardingPage from './pages/OnboardingPage';
 import TrackingLinksPage from './pages/TrackingLinksPage';
 import ClientsPage from './pages/ClientsPage';
 import LoginPage from './pages/LoginPage';
@@ -312,6 +315,16 @@ function MainApp() {
 
           {activeTab === 'whatsapp-agenda' && (
             <WhatsAppAgendaPage selectedClient={selectedClientId} onViewConversation={handleViewConversation} />
+          )}
+
+          {activeTab === 'owner-summary' && (
+            <OwnerSummaryPage selectedClient={selectedClientId} />
+          )}
+
+          {activeTab === 'units' && user.role === 'admin' && <UnitsPage />}
+
+          {activeTab === 'onboarding' && user.role === 'admin' && (
+            <OnboardingPage selectedClient={selectedClientId} onNavigate={setActiveTab} />
           )}
 
           {activeTab === 'clients' && user.role === 'admin' && (

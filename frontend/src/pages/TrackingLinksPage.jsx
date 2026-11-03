@@ -88,6 +88,18 @@ export default function TrackingLinksPage({ selectedClient }) {
 
   const [capi, setCapi] = useState({ pixelId: '', testEventCode: '', enabled: false, hasMetaToken: true });
   const [capiMessage, setCapiMessage] = useState(null);
+  const [googleMessage, setGoogleMessage] = useState(null);
+  const saveGoogle = async () => {
+    setGoogleMessage(null);
+    try {
+      await axios.put('/api/tracking/google-conversion', {
+        googleConversionAction: capi.googleConversionAction || '', googleEnabled: Boolean(capi.googleEnabled), clientId: selectedClient
+      });
+      setGoogleMessage({ ok: true, text: 'Salvo.' });
+    } catch (err) {
+      setGoogleMessage({ ok: false, text: err.response?.data?.error || 'Não foi possível salvar.' });
+    }
+  };
   const [savingCapi, setSavingCapi] = useState(false);
 
   const [events, setEvents] = useState([]);
@@ -285,7 +297,24 @@ export default function TrackingLinksPage({ selectedClient }) {
         </p>
       </Card>
 
-      <Card title="Disparos" subtitle="Os últimos 100 eventos enviados pra Meta.">
+      <Card
+        title="Conversão offline do Google Ads"
+        subtitle="Manda a venda real (comanda lançada) pro Google, pras campanhas aprenderem com quem de fato comprou. Só vale pra quem chegou por um link rastreável com clique do Google. Crie no Google Ads uma ação de conversão do tipo Importação de cliques e cole o número dela aqui."
+      >
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <Field label="ID da ação de conversão"><input style={inputStyle} value={capi.googleConversionAction || ''} onChange={(e) => setCapi({ ...capi, googleConversionAction: e.target.value })} placeholder="Ex: 1234567890" /></Field>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
+            <input type="checkbox" checked={Boolean(capi.googleEnabled)} onChange={(e) => setCapi({ ...capi, googleEnabled: e.target.checked })} />
+            Enviar vendas pro Google
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+          <button type="button" style={btn} onClick={saveGoogle}>Salvar</button>
+          {googleMessage && <span style={{ color: googleMessage.ok ? 'var(--accent-success)' : 'var(--accent-danger)', fontSize: '0.82rem' }}>{googleMessage.text}</span>}
+        </div>
+      </Card>
+
+      <Card title="Disparos" subtitle="Os últimos 100 eventos enviados pra Meta e pro Google.">
         {events.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum evento enviado ainda.</p>
         ) : (

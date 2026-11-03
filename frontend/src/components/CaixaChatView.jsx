@@ -243,6 +243,8 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                     </div>
                     {needsAttention.has(c.id) ? (
                       <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-warning)', border: '1px solid var(--accent-warning)', borderRadius: '999px', padding: '0 6px', flexShrink: 0 }}>Precisa de atendimento</span>
+                    ) : c.after_hours_at ? (
+                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-warning)', flexShrink: 0 }}>Fora do horário</span>
                     ) : c.bot_active && (
                       <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--accent-link)', flexShrink: 0 }}>Robô</span>
                     )}

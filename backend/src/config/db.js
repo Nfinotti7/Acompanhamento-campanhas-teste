@@ -496,6 +496,30 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_quick_files_client ON quick_files (client_id)`);
+  // Valor da comanda da reserva (vira venda em real_conversions: ROAS real por campanha).
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS amount_spent NUMERIC(12,2)`);
+  await query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS conversion_id INTEGER`);
+  // Unidades do mesmo grupo (tela Unidades).
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS group_name TEXT`);
+  // Conversão offline pro Google Ads (googleOfflineConversions.js).
+  await query(`ALTER TABLE capi_settings ADD COLUMN IF NOT EXISTS google_conversion_action TEXT`);
+  await query(`ALTER TABLE capi_settings ADD COLUMN IF NOT EXISTS google_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+  // Mensagem que chegou fora do horário e ainda espera a equipe (afterHoursBot.js).
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS after_hours_at TIMESTAMPTZ`);
+  // Clube de fidelidade (loyalty.js): +1 por visita, -meta ao ganhar o prêmio.
+  await query(`
+    CREATE TABLE IF NOT EXISTS loyalty_points (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      points INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      reservation_id INTEGER,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_loyalty_visit ON loyalty_points (reservation_id) WHERE reason = 'visit'`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_loyalty_contact ON loyalty_points (contact_id)`);
   // Um relatório por cliente e período: a linha é reservada antes de enviar (ownerReport.js).
   await query(`
     CREATE TABLE IF NOT EXISTS owner_reports (

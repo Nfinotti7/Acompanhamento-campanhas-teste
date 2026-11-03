@@ -5,6 +5,7 @@ import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
 import { DEFAULT_RESERVATION_SETTINGS, pickTableSize, tablesForDay, dayOf } from './reservationSlots.js';
 import { DEFAULT_INFO_SETTINGS } from './infoText.js';
+import { fireSaleEvent, inBackground } from './conversionEvents.js';
 import { DEFAULT_FOLLOWUP_SETTINGS, FOLLOWUP_MESSAGE_KEYS } from './followupText.js';
 
 // Chave do pg_advisory_xact_lock: LOCK_BASE + client_id (longe de qualquer outra trava).
@@ -18,6 +19,12 @@ export class ReservationSettingsError extends Error {}
 let releaseHook = null;
 export function setReleaseHook(fn) {
   releaseHook = fn;
+}
+
+// Chamado quando a reserva vira "Chegou" (fidelidade soma o ponto). Ligado em server.js.
+let arrivedHook = null;
+export function setArrivedHook(fn) {
+  arrivedHook = fn;
 }
 
 export class SlotTakenError extends Error {
@@ -76,7 +83,8 @@ function validateSettings(s) {
   if (s.slot_minutes < 5 || s.duration_minutes < 15) throw new ReservationSettingsError('Duração ou intervalo muito curtos.');
   if (s.max_party !== null && (!Number.isInteger(s.max_party) || s.max_party < 1)) throw new ReservationSettingsError('Limite de grupo inválido.');
   if (typeof s.info.enabled !== 'boolean') throw new ReservationSettingsError('Respostas automáticas: valor inválido.');
-  for (const key of Object.keys(DEFAULT_INFO_SETTINGS).filter((k) => k !== 'enabled')) {
+  validateFaq(s.info.faq);
+  for (const key of Object.keys(DEFAULT_INFO_SETTINGS).filter((k) => k !== 'enabled' && k !== 'faq')) {
     if (typeof s.info[key] !== 'string' || s.info[key].length > 2000) {
       throw new ReservationSettingsError('Respostas automáticas: cada texto pode ter até 2000 caracteres.');
     }
@@ -84,8 +92,19 @@ function validateSettings(s) {
   validateFollowup(s.followup);
 }
 
+// Perguntas frequentes do restaurante (infoBot.js): palavras-chave + resposta.
+function validateFaq(faq) {
+  if (!Array.isArray(faq) || faq.length > 20) throw new ReservationSettingsError('Perguntas frequentes: no máximo 20.');
+  for (const item of faq) {
+    if (typeof item?.keywords !== 'string' || typeof item?.answer !== 'string'
+        || item.keywords.length > 200 || item.answer.length > 1500) {
+      throw new ReservationSettingsError('Perguntas frequentes: palavras-chave até 200 e resposta até 1500 caracteres.');
+    }
+  }
+}
+
 function validateFollowup(f) {
-  for (const key of ['reminder_enabled', 'review_enabled', 'report_enabled', 'vacancy_enabled', 'alerts_enabled']) {
+  for (const key of ['reminder_enabled', 'review_enabled', 'report_enabled', 'vacancy_enabled', 'alerts_enabled', 'after_hours_enabled', 'loyalty_enabled']) {
     if (typeof f[key] !== 'boolean') throw new ReservationSettingsError('Lembrete e avaliação: valor inválido.');
   }
   if (!Number.isInteger(f.reminder_hours_before) || f.reminder_hours_before < 1 || f.reminder_hours_before > 24) {
@@ -99,6 +118,15 @@ function validateFollowup(f) {
     if (typeof f[key] !== 'string' || f[key].length > 300) {
       throw new ReservationSettingsError('Telefones: use até 300 caracteres.');
     }
+  }
+  for (const key of ['after_hours_from', 'after_hours_to']) {
+    if (!HHMM.test(f[key] || '')) throw new ReservationSettingsError('Fora do horário: use horas no formato 23:00.');
+  }
+  if (!Number.isInteger(f.loyalty_goal) || f.loyalty_goal < 2 || f.loyalty_goal > 100) {
+    throw new ReservationSettingsError('Clube de fidelidade: a meta vai de 2 a 100 pontos.');
+  }
+  if (typeof f.loyalty_reward !== 'string' || !f.loyalty_reward.trim() || f.loyalty_reward.length > 150) {
+    throw new ReservationSettingsError('Clube de fidelidade: descreva o prêmio (até 150 caracteres).');
   }
   for (const [key, value] of Object.entries(f.messages || {})) {
     if (!FOLLOWUP_MESSAGE_KEYS.includes(key) || typeof value !== 'string' || value.length > 1500) {
@@ -234,6 +262,10 @@ export async function setReservationStatus(dbImpl, { clientId, id, status, cance
   if (reservation.contact_id) await syncContactAppointment(dbImpl, reservation.contact_id);
   d.broadcast(clientId, 'reservation', { id, contactId: reservation.contact_id });
   if (status === 'cancelled') notifyRelease(clientId);
+  if (status === 'arrived' && arrivedHook) {
+    Promise.resolve().then(() => arrivedHook(reservation))
+      .catch((error) => console.error('Fidelidade: erro ao somar o ponto:', error.message));
+  }
   return reservation;
 }
 
@@ -244,11 +276,50 @@ function notifyRelease(clientId) {
     .catch((error) => console.error('Lista de espera: erro ao oferecer a vaga:', error.message));
 }
 
+// Valor da comanda de uma reserva. Vira uma venda em real_conversions (a mesma que a equipe
+// lança à mão), então entra sozinha no ROAS por campanha, no funil e no evento Purchase da
+// Meta. Mexer no valor depois só atualiza a mesma venda -- nunca conta duas vezes.
+export async function recordReservationSpend(dbImpl, { clientId, id, amount }, deps = {}) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value < 0 || value > 1000000) throw new ReservationSettingsError('Valor da comanda inválido.');
+  const fireSale = deps.fireSale || fireSaleEvent;
+  const background = deps.inBackground || inBackground;
+  const moveStage = deps.moveToAutoStage || moveToAutoStage;
+  const { rows } = await dbImpl.query(`SELECT * FROM reservations WHERE id = ? AND client_id = ?`, [id, clientId]);
+  const r = rows[0];
+  if (!r) return null;
+  let conversionId = r.conversion_id;
+  let created = false;
+  if (conversionId) {
+    await dbImpl.query(`UPDATE real_conversions SET amount_spent = ? WHERE id = ? AND client_id = ?`, [value, conversionId, clientId]);
+  } else if (value > 0) {
+    const { rows: ins } = await dbImpl.query(
+      `INSERT INTO real_conversions (client_id, contact_id, customer_name, phone, amount_spent, matched_by)
+       VALUES (?, ?, ?, ?, ?, 'phone') RETURNING id`,
+      [clientId, r.contact_id, r.name || 'Cliente', r.phone || null, value]
+    );
+    conversionId = ins[0].id;
+    created = true;
+  }
+  await dbImpl.query(`UPDATE reservations SET amount_spent = ?, conversion_id = ?, updated_at = now() WHERE id = ?`, [value, conversionId || null, id]);
+  if (created && r.contact_id) {
+    try {
+      await moveStage(dbImpl, { clientId, contactId: r.contact_id, event: 'venda' });
+    } catch (error) {
+      console.error(`Reservas: valor da reserva ${id} gravado, mas falhou o funil:`, error.message);
+    }
+    background(fireSale({ clientId, contactId: r.contact_id, conversionId, value }));
+  }
+  (deps.broadcast || broadcast)(clientId, 'reservation', { id, contactId: r.contact_id });
+  return { ...r, amount_spent: value, conversion_id: conversionId || null };
+}
+
 // Reservas que ocupam algum pedaço de [from, to), com a origem do contato (anúncio).
 export async function listReservations(dbImpl, { clientId, from, to }) {
   const { rows } = await dbImpl.query(
     `SELECT r.*, wc.profile_name, wc.wa_id, wc.source AS contact_source, wc.tracking_method,
-            c.campaign_name, c.ad_name
+            c.campaign_name, c.ad_name,
+            (SELECT COALESCE(SUM(lp.points), 0) FROM loyalty_points lp WHERE lp.contact_id = r.contact_id) AS loyalty_balance
      FROM reservations r
      LEFT JOIN whatsapp_contacts wc ON wc.id = r.contact_id
      LEFT JOIN meta_ad_cache c ON c.ad_id = wc.ad_id
