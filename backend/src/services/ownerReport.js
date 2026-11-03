@@ -207,7 +207,13 @@ export async function runWeeklyReports(deps = {}) {
       [client.id, range.key]
     );
     if (claimed.length === 0) continue;
-    const { delivered } = await sendReport(d, { clientId: client.id, restaurant: client.name, phones, range });
+    let delivered = 0;
+    try {
+      ({ delivered } = await sendReport(d, { clientId: client.id, restaurant: client.name, phones, range }));
+    } catch (error) {
+      // Erro ao montar o resumo (consulta): não perde a semana, tenta de novo no próximo ciclo.
+      console.error(`Relatório do dono: erro ao montar o resumo do cliente ${client.id}:`, error.message);
+    }
     if (delivered === 0) {
       // Nada saiu (WhatsApp fora do ar): libera pra tentar no próximo ciclo.
       await d.db.query(`DELETE FROM owner_reports WHERE client_id = ? AND kind = 'weekly' AND period_key = ?`, [client.id, range.key]);

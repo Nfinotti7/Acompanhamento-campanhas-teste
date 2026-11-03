@@ -94,3 +94,33 @@ test('se nada saiu, libera pra tentar de novo', async () => {
   deps.sendRaw = async () => {};
   assert.equal(await runWeeklyReports(deps), 1);
 });
+
+test('erro ao montar o resumo libera a semana pra tentar de novo', async () => {
+  const claims = new Set();
+  let breakStats = true;
+  const db = {
+    query: async (sql, params = []) => {
+      if (/FROM clients cl/.test(sql)) return { rows: [{ id: 9, name: 'Malibu' }] };
+      if (/INSERT INTO owner_reports/.test(sql)) {
+        const k = `${params[0]}:${params[1]}`;
+        if (claims.has(k)) return { rows: [] };
+        claims.add(k);
+        return { rows: [{ client_id: 9 }] };
+      }
+      if (/DELETE FROM owner_reports/.test(sql)) { claims.clear(); return { rows: [] }; }
+      if (breakStats && /FROM whatsapp_contacts/.test(sql)) throw new Error('consulta quebrou');
+      return { rows: [{}] };
+    }
+  };
+  const sent = [];
+  const deps = {
+    db, now: () => new Date('2026-11-02T13:00:00Z'),
+    loadSettings: async () => ({ followup: { ...DEFAULT_FOLLOWUP_SETTINGS, report_enabled: true, owner_phones: '62999990000' } }),
+    sendRaw: async (clientId, phone, body) => { sent.push(body); }
+  };
+  assert.equal(await runWeeklyReports(deps), 0);
+  assert.equal(claims.size, 0);
+  breakStats = false;
+  assert.equal(await runWeeklyReports(deps), 1);
+  assert.equal(sent.length, 1);
+});
