@@ -1116,3 +1116,17 @@ Feedback do usuário depois de ver o painel no ar: (1) o alerta "Atenção nas c
 - **ROAS removido de:** KPI do Dashboard (e o "Receita" do cartão de Conversões), relatório executivo (`ReportModal`), `PresentationView`, tabela de campanhas, tabela do Dashboard WhatsApp, Resumo do dono, Unidades, resumo semanal. Ficou na tela "WhatsApp & Conversões" (lançamento manual de vendas) e como opção de gráfico em `ChartsSection` (não é mais padrão; o 4º gráfico padrão virou Cliques). Os dados de venda continuam sendo gravados; quando a equipe passar a lançar valor, é só recolocar.
 - **Testado:** backend 530 testes, frontend 73, build ok. **Não rodei** o SQL novo no Postgres real (topics, impressões/cliques, campanha por conversas, `UPDATE campaigns ... IS DISTINCT FROM`) nem o sync contra a Meta de verdade (a chamada `/adsets` e o efeito no alerta).
 
+### 2026-11-08 — Vetor (outro projeto, `Agência Further/CRM teste`): checagem geral e teste visual descartado
+
+Registrado aqui a pedido do usuário; nada deste repositório mudou. O Vetor está no branch `vetor-fase3` (36 commits fora do master), e nenhum código foi alterado nesta sessão.
+
+- **Funcionando:** 669 testes e TypeScript sem erros, todas as telas, relatório, PDFs de relatório (cliente e agência) e de carta, busca de empresa no Google Places.
+- **Não testado:** diagnóstico novo de ponta a ponta. O 3×3 ficou na tela de confirmação de débito (~US$ 0,29) e não foi executado. O último completo é o nº 10, de 06/11, com tudo certo menos o volume de busca.
+- **Bug 1, posição média:** `summarizeRanking` (`src/lib/ranking.ts`) faz a média só dos pontos onde a empresa apareceu; o laudo (`RankingReport`, `resumoDoAlvo`) conta os outros como 21. No nº 10 dá 8,5 contra 15,5, e a nota de Maps dá 63 na carta/nota geral contra 28 no laudo.
+- **Bug 2, carta:** `campos.cidade` não vem preenchido a partir do diagnóstico, e o texto sai com "em ." e "negócios de em parte das buscas". Sem frase de mercado, o Consultivo mostra "[preencher: dado de mercado]".
+- **Menor:** o relatório tem rolagem lateral em 1024 px.
+- **Pendências do usuário:** ativar a PageSpeed Insights API (a chave leva 403, confirmado no nº 10), `GOOGLE_ADS_DEVELOPER_TOKEN`, criar o login e pôr `VETOR_DB_PATH` no `.env.local`.
+- **Decisão:** testado nas capturas um visual F1 + Red Bull Racing + Further (CSS injetado só para a imagem). O usuário preferiu **manter o visual original**; não retomar sem ele pedir.
+- **Acesso de fora de casa:** o Vetor só roda no PC de casa. Túnel público só depois de ativar o login, porque hoje quem tivesse o link veria os dados e poderia rodar scans cobrados. O usuário preferiu acessar em casa.
+- **Próximo:** corrigir os dois bugs e rodar o scan de teste, com autorização do débito.
+
