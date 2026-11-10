@@ -1130,3 +1130,14 @@ Registrado aqui a pedido do usuário; nada deste repositório mudou. O Vetor est
 - **Acesso de fora de casa:** o Vetor só roda no PC de casa. Túnel público só depois de ativar o login, porque hoje quem tivesse o link veria os dados e poderia rodar scans cobrados. O usuário preferiu acessar em casa.
 - **Próximo:** corrigir os dois bugs e rodar o scan de teste, com autorização do débito.
 
+
+### 2026-11-10 — Balcão sem conversas desde 08/11 (diagnóstico, nada alterado)
+
+O usuário notou que o Balcão não registra conversa de WhatsApp desde 08/11. Leitura no Postgres de produção (transação só leitura):
+- **Malibu (cliente 9):** última mensagem em 08/11 às 16:02 (pedido de cardápio respondido pelo robô). `baileys_status` diz `connected`, mas o vigia recicla a conexão a cada 20 min com "nenhum evento do WhatsApp há 20 min", e nada chega. A sessão abre sem pedir QR, mas o WhatsApp não entrega nada a ela. Enquanto isso, a Meta mostra 84 cliques em 09/11 no [TRF] Rodízio, que leva ao WhatsApp da Página do Malibu. Conclusão: conexão zumbi do lado do WhatsApp, que o vigia não resolve.
+- **Mercearia (cliente 13):** caiu em 08/11 às 02:50 e está pedindo QR (`QR refs attempts ended`), ou seja, o aparelho foi desconectado no celular.
+- Não houve deploy desde 03/11 (`origin/main` = `b8c83b3`), então não foi mudança no sistema.
+- A Confraternização do Malibu vai para o 62 9241-4052, que não está no Balcão. Esses cliques nunca aparecem lá.
+
+**Correção (ação do usuário, com o celular de cada casa):** no celular, abrir WhatsApp → Aparelhos conectados, remover o aparelho antigo do sistema, e escanear o QR novo no Balcão → WhatsApp. Se o QR do Malibu não aparecer porque a sessão ainda "conecta", é preciso resetar a sessão (apaga a pasta de sessão e pede QR novo), feito junto com quem está com o celular.
+**Ideia:** o vigia só renova. Ele deveria avisar (alerta no WhatsApp da agência) quando a conexão passa, por exemplo, 6 h no horário de funcionamento sem nenhuma mensagem recebida, para isso não passar dois dias sem ninguém ver.
