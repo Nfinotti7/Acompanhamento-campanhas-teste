@@ -8,6 +8,13 @@ const CONVERSION_ACTION_TYPES = [
   'onsite_conversion.messaging_conversation_started_7d'
 ];
 
+// Campanhas de eventos levam a um WhatsApp por link (62 9241-4052) que não está ligado à Página:
+// a Meta nunca conta conversa nelas. O que mede o resultado é o clique no link ("contato de evento").
+export function isEventCampaign(name) {
+  const n = String(name ?? '').toUpperCase();
+  return n.includes('4052') || n.includes('[EVT]');
+}
+
 function sumActions(actions = []) {
   return actions
     .filter((a) => CONVERSION_ACTION_TYPES.includes(a.action_type))
@@ -36,7 +43,7 @@ async function fetchInsights(accountId, accessToken, startDate, endDate) {
     level: 'campaign',
     time_increment: '1',
     time_range: JSON.stringify({ since: startDate, until: endDate }),
-    fields: 'campaign_id,campaign_name,spend,clicks,impressions,reach,actions,action_values',
+    fields: 'campaign_id,campaign_name,spend,clicks,inline_link_clicks,impressions,reach,actions,action_values',
     access_token: accessToken
   });
 
@@ -60,7 +67,8 @@ async function fetchInsights(accountId, accessToken, startDate, endDate) {
         impressions: Number(r.impressions || 0),
         reach: Number(r.reach || 0),
         conversions: sumActions(r.actions),
-        conversionValue: sumActions(r.action_values)
+        conversionValue: sumActions(r.action_values),
+        eventContacts: isEventCampaign(r.campaign_name) ? Number(r.inline_link_clicks || 0) : 0
       });
     }
 

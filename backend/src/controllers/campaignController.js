@@ -1,5 +1,9 @@
 import db from '../config/db.js';
 import { syncClients } from '../services/syncService.js';
+import { isEventCampaign } from '../services/metaAdsSync.js';
+
+// Mesma regra de isEventCampaign (metaAdsSync.js): campanha de eventos com WhatsApp por link.
+const EVENT_CAMPAIGN_SQL = `(campaign_name LIKE '%4052%' OR UPPER(campaign_name) LIKE '%[EVT]%')`;
 
 function withDerivedMetrics(row) {
   const spend = Number(row.spend) || 0;
@@ -15,6 +19,8 @@ function withDerivedMetrics(row) {
   const cpa = conversions > 0 ? spend / conversions : 0;
   const roas = spend > 0 ? conversionValue / spend : 0;
   const roi = spend > 0 ? ((conversionValue - spend) / spend) * 100 : 0;
+  const eventContacts = Number(row.event_contacts) || 0;
+  const eventSpend = Number(row.event_spend) || 0;
 
   return {
     ...row,
@@ -24,6 +30,9 @@ function withDerivedMetrics(row) {
     reach,
     conversions,
     conversion_value: Number(conversionValue.toFixed(2)),
+    event_contacts: eventContacts,
+    event_spend: Number(eventSpend.toFixed(2)),
+    cost_per_event_contact: eventContacts > 0 ? Number((eventSpend / eventContacts).toFixed(2)) : 0,
     ctr: Number(ctr.toFixed(2)),
     cpc: Number(cpc.toFixed(2)),
     cpm: Number(cpm.toFixed(2)),
@@ -90,6 +99,8 @@ export async function getMetricsSummary(req, res) {
         COALESCE(SUM(impressions), 0) as impressions,
         COALESCE(SUM(reach), 0) as reach,
         COALESCE(SUM(conversions), 0) as conversions,
+        COALESCE(SUM(event_contacts), 0) as event_contacts,
+        COALESCE(SUM(CASE WHEN campaign_id IN (SELECT id FROM campaigns WHERE ${EVENT_CAMPAIGN_SQL}) THEN spend ELSE 0 END), 0) as event_spend,
         COALESCE(SUM(conversion_value), 0) as conversion_value
       FROM daily_metrics
       WHERE ${whereSql}
@@ -107,6 +118,7 @@ export async function getMetricsSummary(req, res) {
         SUM(impressions) as impressions,
         SUM(reach) as reach,
         SUM(conversions) as conversions,
+        SUM(event_contacts) as event_contacts,
         SUM(conversion_value) as conversion_value
       FROM daily_metrics
       WHERE ${whereSql}
@@ -239,6 +251,7 @@ export async function getCampaigns(req, res) {
         COALESCE(SUM(m.clicks), 0) as total_clicks,
         COALESCE(SUM(m.impressions), 0) as total_impressions,
         COALESCE(SUM(m.conversions), 0) as total_conversions,
+        COALESCE(SUM(m.event_contacts), 0) as total_event_contacts,
         COALESCE(SUM(m.conversion_value), 0) as total_conversion_value
       FROM campaigns c
       JOIN clients cl ON c.client_id = cl.id
@@ -268,6 +281,8 @@ export async function getCampaigns(req, res) {
         total_clicks: totalClicks,
         total_impressions: totalImpressions,
         total_conversions: totalConversions,
+        total_event_contacts: Number(c.total_event_contacts) || 0,
+        is_event: isEventCampaign(c.campaign_name),
         total_conversion_value: totalConversionValue,
         ctr: Number(ctr.toFixed(2)),
         cpc: Number(cpc.toFixed(2)),

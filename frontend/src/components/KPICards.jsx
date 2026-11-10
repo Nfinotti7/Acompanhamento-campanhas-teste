@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, MousePointerClick, Eye, ShoppingCart, TrendingUp, Award, Target, Percent } from 'lucide-react';
+import { DollarSign, MousePointerClick, Eye, ShoppingCart, TrendingUp, Award, Target, Percent, CalendarHeart } from 'lucide-react';
 
 export default function KPICards({ summary }) {
   if (!summary) return null;
@@ -38,6 +38,20 @@ export default function KPICards({ summary }) {
       subtext: `${summary.impressions.toLocaleString('pt-BR')} Impressões`
     }
   ];
+
+  // Só aparece pra quem tem campanha de eventos com contatos no período.
+  const eventContacts = Number(summary.event_contacts) || 0;
+  if (eventContacts > 0) {
+    const costPer = Number(summary.cost_per_event_contact) || 0;
+    cards.push({
+      title: 'Contatos de eventos',
+      value: eventContacts.toLocaleString('pt-BR'),
+      icon: CalendarHeart,
+      color: 'var(--chart-3)',
+      bgGlow: 'color-mix(in srgb, var(--chart-3) 12%, transparent)',
+      subtext: `Cliques no WhatsApp de eventos · R$ ${costPer.toFixed(2)} cada`
+    });
+  }
 
   return (
     <div className="kpi-grid" style={{

@@ -18,9 +18,23 @@ const PHONE_COLUMNS = [
   ) },
   { key: 'total_spend', label: 'Investimento', render: (c) => <strong>{brl(c.total_spend)}</strong> },
   { key: 'total_clicks', label: 'Cliques', render: (c) => Number(c.total_clicks || 0).toLocaleString('pt-BR') },
-  { key: 'total_conversions', label: 'Conversões', render: (c) => <strong style={{ color: 'var(--accent-success)' }}>{c.total_conversions}</strong> },
+  { key: 'total_conversions', label: 'Conversões', render: (c) => <ConversionsCell c={c} /> },
   { key: 'cpa', label: 'CPA', render: (c) => brl(c.cpa) }
 ];
+
+// Campanha de eventos (WhatsApp por link, 62 9241-4052): a Meta não conta conversa nela,
+// então mostra os contatos (cliques no botão do WhatsApp) no lugar de um zero enganoso.
+function ConversionsCell({ c }) {
+  if (c.is_event) {
+    return (
+      <span title="Cliques no botão do WhatsApp de eventos. A Meta não conta essas conversas.">
+        {Number(c.total_event_contacts || 0).toLocaleString('pt-BR')}
+        <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: 4 }}>contatos de eventos</span>
+      </span>
+    );
+  }
+  return <strong style={{ color: 'var(--accent-success)' }}>{c.total_conversions}</strong>;
+}
 
 export default function CampaignsTable({ campaigns = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -191,7 +205,7 @@ export default function CampaignsTable({ campaigns = [] }) {
                     R$ {c.cpc.toFixed(2)}
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-success)' }}>
-                    {c.total_conversions}
+                    <ConversionsCell c={c} />
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                     R$ {c.cpa.toFixed(2)}

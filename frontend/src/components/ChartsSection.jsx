@@ -26,6 +26,7 @@ export const METRIC_CATALOG = {
   impressions: { label: 'Impressões', color: 'var(--chart-6)', format: 'number' },
   reach: { label: 'Alcance', color: 'var(--chart-1)', format: 'number' },
   conversions: { label: 'Conversões (Resultados)', color: 'var(--accent-success)', format: 'number' },
+  event_contacts: { label: 'Contatos de eventos', color: 'var(--chart-3)', format: 'number' },
   cpa: { label: 'Custo por Resultado (CPA)', color: 'var(--accent-warning)', format: 'currency' },
   cpc: { label: 'CPC', color: 'var(--chart-5)', format: 'currency' },
   cpm: { label: 'CPM', color: 'var(--chart-3)', format: 'currency' },
@@ -34,8 +35,11 @@ export const METRIC_CATALOG = {
   roi: { label: 'ROI', color: 'var(--accent-danger)', format: 'percent' }
 };
 
-const DEFAULT_METRICS = ['spend', 'conversions', 'cpa', 'clicks'];
-const METRICS_STORAGE_KEY = 'further_ads_chart_metrics';
+// Semana de 10/11/2026: Conversões saiu do padrão e o CTR entrou (pedido do usuário pra reunião
+// com os clientes). A chave do localStorage mudou pra que a escolha antiga salva no navegador
+// não traga Conversões de volta. Pra voltar: DEFAULT com 'conversions' e chave nova (_v3).
+const DEFAULT_METRICS = ['spend', 'cpa', 'clicks', 'ctr'];
+const METRICS_STORAGE_KEY = 'further_ads_chart_metrics_v2';
 
 function formatMetricValue(format, value) {
   const n = Number(value) || 0;

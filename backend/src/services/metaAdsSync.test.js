@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchCampaignPageId, normalizeAccountId } from './metaAdsSync.js';
+import { fetchCampaignPageId, normalizeAccountId, isEventCampaign } from './metaAdsSync.js';
 
 test('fetchCampaignPageId extrai o page id do effective_object_story_id', async () => {
   const fakeFetch = async (url) => {
@@ -71,4 +71,11 @@ test('atualiza só o que mudou', async () => {
   const changed = await updateCampaignStatuses(new Map([['1', 'PAUSED'], ['2', 'ACTIVE'], ['3', null]]), db);
   assert.equal(changed, 1);
   assert.equal(calls.length, 2); // o status vazio é ignorado
+});
+
+test('isEventCampaign: campanhas de eventos com WhatsApp 4052 ou marca [EVT]', () => {
+  assert.equal(isEventCampaign('RECREIO - [TRF] Confraternização WhatsApp 4052'), true);
+  assert.equal(isEventCampaign('ALMA - [evt] Natal'), true);
+  assert.equal(isEventCampaign('MALIBU - [ENG] Rodízio Jantar WhatsApp - NOV26'), false);
+  assert.equal(isEventCampaign(null), false);
 });

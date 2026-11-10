@@ -58,6 +58,8 @@
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
+**Contatos de eventos + CTR no gráfico (10/11, não enviado):** card e coluna de contatos de eventos (cliques no WhatsApp 4052) e CTR no lugar de Conversões no padrão do gráfico, só nesta semana. Ver Registro 2026-11-10 (noite).
+
 **Google (10/11):** refresh token renovado nos clientes 5 e 7; provável app OAuth em "Testing" (vence a cada ~7 dias), publicar em Production. Ver Registro 2026-11-10 (tarde).
 
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
@@ -1156,3 +1158,13 @@ O diagnóstico de "conexão zumbi" acima estava **errado**. O usuário testou o 
 - `get-google-refresh-token.js` ganhou `NO_OPEN_BROWSER=1` (não abre o navegador sozinho, pra abrir a URL no Chrome Trabalho em vez do Edge). O client_id/secret vêm da credencial do banco por um wrapper temporário, sem aparecer na tela.
 - **Segunda vez** que o token vence (a primeira foi 19/10, ~3 semanas antes). Hipótese: o app OAuth no Google Cloud está em modo "Testing" (refresh token vale 7 dias). **Ação do usuário:** publicar o app em "Production" (Google Cloud → APIs e serviços → Tela de consentimento OAuth). Sem isso vai vencer de novo. Ainda não confirmado.
 - Giulí e Malibu não têm credencial Google (CSV). Ao renovar de novo, atualizar as duas linhas (5 e 7).
+
+### 2026-11-10 (noite) — Contatos de eventos na dashboard + CTR no lugar de Conversões no gráfico (não enviado)
+
+Contexto: nas 4 casas as conversões de novembro caíram muito (gasto menor e campanhas de tráfego que não viram conversa; as de tráfego foram trocadas por engajamento na Meta nesta data). As campanhas de **eventos** levam ao WhatsApp 62 9241-4052 por link (`api.whatsapp.com`), número que não está ligado à Página, então a Meta nunca conta conversa nelas e a dashboard mostrava 0.
+
+- **Contatos de eventos:** campanha de eventos = nome com `4052` ou `[EVT]` (`isEventCampaign` em `metaAdsSync.js`; mesma regra em SQL, `EVENT_CAMPAIGN_SQL` em `campaignController.js`). O sync da Meta busca `inline_link_clicks` e grava em `daily_metrics.event_contacts` (coluna nova, criada no `initDb`) só para essas campanhas. **Não soma em conversões.** Resumo e gráfico diário trazem `event_contacts`, `event_spend` e `cost_per_event_contact`; a lista de campanhas traz `total_event_contacts` e `is_event`.
+- **Tela:** card "Contatos de eventos" (só aparece se houver contatos no período), coluna Conversões mostra "N contatos de eventos" nas campanhas de eventos, e a métrica "Contatos de eventos" entrou no seletor do gráfico.
+- **Gráfico, só nesta semana (pedido do usuário para a reunião dos clientes de 11/11):** padrão passou de Investimento/Conversões/CPA/Cliques para **Investimento/CPA/Cliques/CTR**. A chave do localStorage virou `further_ads_chart_metrics_v2` para a escolha antiga salva no navegador não trazer Conversões de volta. **Para desfazer:** voltar `conversions` no `DEFAULT_METRICS` e trocar a chave para `_v3`. O card "Conversões" e o modo apresentação continuam mostrando conversões (não foi pedido mexer).
+- **Testado:** backend 533 testes (1 novo), frontend 73, build ok. SQL do resumo verificado no Postgres real numa transação desfeita (ALTER + consulta): reconhece as 3 campanhas 4052 (Giulí 999, Recreio 979, Malibu 1016). **Não testado:** sync real com `inline_link_clicks` e a tela no navegador. Depois do deploy, o primeiro sync (janela de 30 dias) preenche os contatos; até lá o card não aparece.
+- **Visto de passagem:** no banco, o gasto de novembro do Giulí (cliente 8) soma R$ 239,80, contra ~R$ 450 na Meta. Conferir se o sync do Giulí está atrasado.
