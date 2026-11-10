@@ -1141,3 +1141,8 @@ O usuário notou que o Balcão não registra conversa de WhatsApp desde 08/11. L
 
 **Correção (ação do usuário, com o celular de cada casa):** no celular, abrir WhatsApp → Aparelhos conectados, remover o aparelho antigo do sistema, e escanear o QR novo no Balcão → WhatsApp. Se o QR do Malibu não aparecer porque a sessão ainda "conecta", é preciso resetar a sessão (apaga a pasta de sessão e pede QR novo), feito junto com quem está com o celular.
 **Ideia:** o vigia só renova. Ele deveria avisar (alerta no WhatsApp da agência) quando a conexão passa, por exemplo, 6 h no horário de funcionamento sem nenhuma mensagem recebida, para isso não passar dois dias sem ninguém ver.
+
+### 2026-11-10 (noite) — Correção: o Balcão do Malibu não estava quebrado
+
+O diagnóstico de "conexão zumbi" acima estava **errado**. O usuário testou o número (+55 62 8281-3491) e ele funciona, e às 19h03 e 19h04 duas mensagens de anúncio entraram no Balcão normalmente. O vigia renova a conexão a cada 20 min sem mensagem, e isso é o comportamento normal num período parado, não um sinal de defeito. A própria Meta contou 0 conversas em 09-10/11: ninguém mandou mensagem. O problema é a conversão da campanha [TRF] Rodízio (otimizada para clique, 84 cliques e 0 conversas, 2/3 dos cliques em Stories do Facebook), não o sistema. A Mercearia, essa sim, continua pedindo QR.
+**Lição:** antes de culpar a conexão, comparar com as conversas que a Meta conta (`messaging_conversation_started_7d`); se lá também é zero, ninguém escreveu.
