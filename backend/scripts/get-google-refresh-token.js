@@ -24,6 +24,7 @@ async function ask(question) {
 }
 
 function openBrowser(url) {
+  if (process.env.NO_OPEN_BROWSER) return; // quem chamou abre a URL (ex.: Chrome em outro perfil)
   const platform = process.platform;
   const cmd =
     platform === 'win32' ? `start "" "${url}"` :

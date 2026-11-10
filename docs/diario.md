@@ -58,6 +58,8 @@
 
 **Mercearia trocando de número (18/10):** sessão resetada, status `qr`. Falta o usuário escanear com o número novo, trocar o "WhatsApp do restaurante" no Configurar e reimprimir o QR da porta. **Baixa prioridade** (usuário, 19/10): a Mercearia ainda está testando com números diferentes (primeiro o do gerente, depois o da atendente) e pode trocar de novo. Trocar de número é rotina, não um problema a resolver.
 
+**Google (10/11):** refresh token renovado nos clientes 5 e 7; provável app OAuth em "Testing" (vence a cada ~7 dias), publicar em Production. Ver Registro 2026-11-10 (tarde).
+
 **Scripts de token** (`backend/scripts/`: `get-meta-long-lived-token.js`, `update-google-token-db.js`, `update-meta-token-db.js`, `validate-google-token.js`, opção `OUTPUT_FILE` no `get-google-refresh-token.js`) e o `AGENTS.md` (cópia do CLAUDE.md pro Codex) foram commitados em 21/10 a pedido do usuário. Nenhum tem segredo: leem tudo de variável de ambiente ou arquivo local.
 
 **Pendente / bloqueado (não é trabalho meu, é ação do usuário):**
@@ -1146,3 +1148,11 @@ O usuário notou que o Balcão não registra conversa de WhatsApp desde 08/11. L
 
 O diagnóstico de "conexão zumbi" acima estava **errado**. O usuário testou o número (+55 62 8281-3491) e ele funciona, e às 19h03 e 19h04 duas mensagens de anúncio entraram no Balcão normalmente. O vigia renova a conexão a cada 20 min sem mensagem, e isso é o comportamento normal num período parado, não um sinal de defeito. A própria Meta contou 0 conversas em 09-10/11: ninguém mandou mensagem. O problema é a conversão da campanha [TRF] Rodízio (otimizada para clique, 84 cliques e 0 conversas, 2/3 dos cliques em Stories do Facebook), não o sistema. A Mercearia, essa sim, continua pedindo QR.
 **Lição:** antes de culpar a conexão, comparar com as conversas que a Meta conta (`messaging_conversation_started_7d`); se lá também é zero, ninguém escreveu.
+
+### 2026-11-10 (tarde) — "Token inválido ou expirado" na dashboard: refresh token do Google renovado
+
+- Testei todas as credenciais do banco (sem imprimir segredos). **Meta:** os 4 clientes válidos, sem expiração. **Google:** o refresh token do Recreio (5) e do Alma (7, mesma cópia) estava vencido (`invalid_grant`).
+- Gerado token novo com `get-google-refresh-token.js` (autorização no Chrome Trabalho) e gravado nos clientes 5 e 7 com `update-google-token-db.js`. Validado com `validate-google-token.js`: Recreio lista 4 campanhas, Alma 2.
+- `get-google-refresh-token.js` ganhou `NO_OPEN_BROWSER=1` (não abre o navegador sozinho, pra abrir a URL no Chrome Trabalho em vez do Edge). O client_id/secret vêm da credencial do banco por um wrapper temporário, sem aparecer na tela.
+- **Segunda vez** que o token vence (a primeira foi 19/10, ~3 semanas antes). Hipótese: o app OAuth no Google Cloud está em modo "Testing" (refresh token vale 7 dias). **Ação do usuário:** publicar o app em "Production" (Google Cloud → APIs e serviços → Tela de consentimento OAuth). Sem isso vai vencer de novo. Ainda não confirmado.
+- Giulí e Malibu não têm credencial Google (CSV). Ao renovar de novo, atualizar as duas linhas (5 e 7).
