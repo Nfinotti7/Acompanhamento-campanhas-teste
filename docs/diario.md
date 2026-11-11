@@ -1169,3 +1169,9 @@ Contexto: nas 4 casas as conversões de novembro caíram muito (gasto menor e ca
 - **Testado:** backend 533 testes (1 novo), frontend 73, build ok. SQL do resumo verificado no Postgres real numa transação desfeita (ALTER + consulta): reconhece as 3 campanhas 4052 (Giulí 999, Recreio 979, Malibu 1016). **Não testado:** sync real com `inline_link_clicks` e a tela no navegador. Depois do deploy, o primeiro sync (janela de 30 dias) preenche os contatos; até lá o card não aparece.
 - **Deploy (10/11, 19:32):** a pedido do usuário, push `4002293..3ff623d`. O bundle novo (`index-MSDCmTYl.js`) confirmou com a chave `_v2` e o texto "Contatos de eventos". Subiu em horário de serviço do Malibu: conferir se o WhatsApp do Balcão segue "Conectado" (se aparecer `standby`, reiniciar o app no hPanel).
 - **Visto de passagem:** no banco, o gasto de novembro do Giulí (cliente 8) soma R$ 239,80, contra ~R$ 450 na Meta. Conferir se o sync do Giulí está atrasado.
+
+
+### 2026-11-11 — Eventos do Giulí e do Recreio viram formulário de cadastro
+- Pedido do usuário: tirar eventos do tráfego (conversas ruins). O 4052 está no ezchat e não liga às Páginas; a Meta não aceita link de WhatsApp no formulário.
+- **Novas páginas no ar** (push `6b45d87..0fca4ff`, 16:00): `/privacidade.html` (política dos formulários) e `/eventos-giuli.html`, `/eventos-recreio.html` (botão para o WhatsApp 4052). Ficam em `frontend/public`.
+- Campanhas de cadastro criadas no Gerenciador e ajustadas pela API (IDs na memória `campanhas-eventos-numero-4052`). O nome delas não leva "4052" de propósito: `isEventCampaign` trataria como evento por link e esconderia os cadastros. Os cadastros entram como conversão (`lead`/`onsite_conversion.lead_grouped`).
