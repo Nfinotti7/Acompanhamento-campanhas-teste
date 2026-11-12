@@ -1186,3 +1186,5 @@ A pedido do usuário (o Recreio foi conectado no Balcão por Baileys hoje, núme
 - `whatsapp_ads_only` do Recreio **não** foi ligado: o 8147-9128 é o número principal da Página, recebe gente que não veio de anúncio.
 
 Achado: o Malibu tem "Novo lead" → Lead, mas **não tem linha em `capi_settings`**, então nenhum evento do Malibu vai para a Meta (`conversion_events` estava vazia). Falta confirmar com o usuário se liga também. Ainda não houve contato novo do Recreio depois da mudança para ver um evento real no registro.
+
+**Continuação (12/11/2026), a pedido:** Malibu (client 9) também ligado: `capi_settings` com o mesmo pixel `1632524085197382`, `enabled = true`. O token Meta do Malibu lê o pixel e o evento de teste foi aceito. A etapa "Novo lead" → Lead e o `waba_id = 'baileys'` já estavam certos. Recreio e Malibu agora mandam conversões para o mesmo pixel; para separar as casas no Gerenciador de Eventos, só pela campanha/anúncio de origem.
