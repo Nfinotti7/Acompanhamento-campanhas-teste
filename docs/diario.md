@@ -1196,3 +1196,5 @@ Sintoma (usuário): no Balcão do Recreio, contatos aparecem como "Recreio Bar".
 Correção (não commitada, aguardando OK de deploy): `baileysMapper.js` só usa `pushName` em mensagem recebida; teste novo em `baileysMapper.test.js`. Suíte do backend: 533/533.
 
 Pendente: limpar os nomes já gravados (`UPDATE whatsapp_contacts SET profile_name = NULL WHERE (client_id=5 AND profile_name='Recreio Bar') OR (client_id=13 AND profile_name='Mercearia Original')`, 3 + 14 contatos); o nome real volta na próxima mensagem do cliente. O classificador bloqueou esse UPDATE sem liberação explícita.
+
+**Deploy (12/11, ~18:10), a pedido ("sobe e limpa"):** push `6e7bfb2..0550dda` (correção + 4 commits do diário). Às 18:12 o processo novo assumiu (`baileys_status.instance_id` mudou para `1996650-…`), e Recreio, Malibu e Mercearia ficaram `connected` (o Recreio passou ~1 min como `disconnected` na troca). Limpeza feita: 3 contatos do Recreio e 14 da Mercearia com `profile_name = NULL`; em 6 min de observação nenhum nome da casa voltou.
