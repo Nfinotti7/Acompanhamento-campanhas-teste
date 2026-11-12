@@ -303,3 +303,18 @@ test('tipo que ainda não conhecemos: rótulo de sempre e os tipos ficam dispon�
   assert.equal(mapBaileysMessageToEvent(msg).body, UNKNOWN_MESSAGE_LABEL);
   assert.deepEqual(messageTypes(msg), ['tipoNovoDoWhatsapp', 'messageContextInfo']);
 });
+
+test('mapBaileysMessageToEvent não usa o nome do perfil da empresa em mensagem enviada (fromMe)', () => {
+  // Resposta mandada pelo celular do restaurante: o pushName é o da própria empresa
+  // ("Recreio Bar"), não o do cliente. Não pode virar o nome do contato.
+  const msg = {
+    key: { remoteJid: '5562999990000@s.whatsapp.net', id: 'OUT2', fromMe: true },
+    pushName: 'Recreio Bar',
+    messageTimestamp: 1760000300,
+    message: { conversation: 'Temos mesa, sim!' }
+  };
+
+  const event = mapBaileysMessageToEvent(msg);
+  assert.equal(event.direction, 'outbound');
+  assert.equal(event.profileName, null);
+});

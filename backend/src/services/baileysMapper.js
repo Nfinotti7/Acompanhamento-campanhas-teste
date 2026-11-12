@@ -146,7 +146,8 @@ export function mapBaileysMessageToEvent(msg) {
 
   return {
     waId: extractWaId(msg.key),
-    profileName: msg.pushName || null,
+    // Mensagem enviada (fromMe) traz o nome do perfil da própria empresa, não do cliente.
+    profileName: msg.key?.fromMe ? null : (msg.pushName || null),
     waMessageId: msg.key?.id || null,
     direction: msg.key?.fromMe ? 'outbound' : 'inbound',
     body,
