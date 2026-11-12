@@ -1175,3 +1175,14 @@ Contexto: nas 4 casas as conversões de novembro caíram muito (gasto menor e ca
 - Pedido do usuário: tirar eventos do tráfego (conversas ruins). O 4052 está no ezchat e não liga às Páginas; a Meta não aceita link de WhatsApp no formulário.
 - **Novas páginas no ar** (push `6b45d87..0fca4ff`, 16:00): `/privacidade.html` (política dos formulários) e `/eventos-giuli.html`, `/eventos-recreio.html` (botão para o WhatsApp 4052). Ficam em `frontend/public`.
 - Campanhas de cadastro criadas no Gerenciador e ajustadas pela API (IDs na memória `campanhas-eventos-numero-4052`). O nome delas não leva "4052" de propósito: `isEventCampaign` trataria como evento por link e esconderia os cadastros. Os cadastros entram como conversão (`lead`/`onsite_conversion.lead_grouped`).
+
+### 2026-11-12 — Rastreio de conversões do Recreio ligado no Balcão (só banco, sem código)
+
+A pedido do usuário (o Recreio foi conectado no Balcão por Baileys hoje, número 5562981479128), ligada a Meta Conversions API do Recreio (client 5), direto no Postgres de produção:
+- `capi_settings`: pixel `1632524085197382` ("Recreio Bar - Pixel", compartilhado com o Malibu na conta de anúncios), `enabled = true`, sem código de teste.
+- `crm_stages` id 1 ("Novo lead"): `meta_event = 'Lead'`, igual ao Malibu.
+- `whatsapp_settings` do Recreio tinha `waba_id = 'WABA_TEST'` e `phone_number_id = 'PHONE_123'` (sobra de teste de 28/09). Trocados para o placeholder `'baileys'`, como no Malibu: com `WABA_TEST`, o `conversionEvents.js` mandaria o evento como `business_messaging` com uma WABA falsa.
+- Antes de gravar: o token Meta do Recreio lê o pixel e um evento com `test_event_code` foi aceito (`events_received: 1`).
+- `whatsapp_ads_only` do Recreio **não** foi ligado: o 8147-9128 é o número principal da Página, recebe gente que não veio de anúncio.
+
+Achado: o Malibu tem "Novo lead" → Lead, mas **não tem linha em `capi_settings`**, então nenhum evento do Malibu vai para a Meta (`conversion_events` estava vazia). Falta confirmar com o usuário se liga também. Ainda não houve contato novo do Recreio depois da mudança para ver um evento real no registro.
