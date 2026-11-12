@@ -1188,3 +1188,11 @@ A pedido do usuário (o Recreio foi conectado no Balcão por Baileys hoje, núme
 Achado: o Malibu tem "Novo lead" → Lead, mas **não tem linha em `capi_settings`**, então nenhum evento do Malibu vai para a Meta (`conversion_events` estava vazia). Falta confirmar com o usuário se liga também. Ainda não houve contato novo do Recreio depois da mudança para ver um evento real no registro.
 
 **Continuação (12/11/2026), a pedido:** Malibu (client 9) também ligado: `capi_settings` com o mesmo pixel `1632524085197382`, `enabled = true`. O token Meta do Malibu lê o pixel e o evento de teste foi aceito. A etapa "Novo lead" → Lead e o `waba_id = 'baileys'` já estavam certos. Recreio e Malibu agora mandam conversões para o mesmo pixel; para separar as casas no Gerenciador de Eventos, só pela campanha/anúncio de origem.
+
+### 2026-11-12 (noite) — Nome do contato virando o nome da casa ("Recreio Bar") no Balcão
+
+Sintoma (usuário): no Balcão do Recreio, contatos aparecem como "Recreio Bar". Causa: no Baileys, mensagem enviada pelo próprio celular do restaurante (`fromMe`) chega no `messages.upsert` com o `pushName` **da empresa**; o `baileysMapper` mandava isso como `profileName` e o upsert (`COALESCE(excluded.profile_name, ...)`) sobrescrevia o nome do cliente. No Malibu quase não aparece porque o número é só de anúncio e a equipe responde pelo Balcão; no Recreio o número é o principal e a equipe responde pelo celular. A Mercearia tem o mesmo problema (14 contatos "Mercearia Original").
+
+Correção (não commitada, aguardando OK de deploy): `baileysMapper.js` só usa `pushName` em mensagem recebida; teste novo em `baileysMapper.test.js`. Suíte do backend: 533/533.
+
+Pendente: limpar os nomes já gravados (`UPDATE whatsapp_contacts SET profile_name = NULL WHERE (client_id=5 AND profile_name='Recreio Bar') OR (client_id=13 AND profile_name='Mercearia Original')`, 3 + 14 contatos); o nome real volta na próxima mensagem do cliente. O classificador bloqueou esse UPDATE sem liberação explícita.
