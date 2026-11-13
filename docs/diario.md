@@ -1198,3 +1198,14 @@ Correção (não commitada, aguardando OK de deploy): `baileysMapper.js` só usa
 Pendente: limpar os nomes já gravados (`UPDATE whatsapp_contacts SET profile_name = NULL WHERE (client_id=5 AND profile_name='Recreio Bar') OR (client_id=13 AND profile_name='Mercearia Original')`, 3 + 14 contatos); o nome real volta na próxima mensagem do cliente. O classificador bloqueou esse UPDATE sem liberação explícita.
 
 **Deploy (12/11, ~18:10), a pedido ("sobe e limpa"):** push `6e7bfb2..0550dda` (correção + 4 commits do diário). Às 18:12 o processo novo assumiu (`baileys_status.instance_id` mudou para `1996650-…`), e Recreio, Malibu e Mercearia ficaram `connected` (o Recreio passou ~1 min como `disconnected` na troca). Limpeza feita: 3 contatos do Recreio e 14 da Mercearia com `profile_name = NULL`; em 6 min de observação nenhum nome da casa voltou.
+
+### 2026-11-13 — Robô de reserva do Malibu atropelou "E o executivo?"
+
+Conversa da Karla (contato 2453, ~10h06): no passo de pessoas ela perguntou "Qual o valor?" (respondido pelas respostas automáticas) e depois "E o executivo?". Nada respondia "executivo" (nem assunto fixo nem pergunta frequente), então o robô tratou como resposta não entendida e mandou "Me manda só o número de pessoas". Ela fechou a reserva (sáb 14/11, 13h, 2 pessoas) sem resposta sobre o executivo.
+
+- **Banco (feito, a pedido):** pergunta frequente do executivo no Malibu (`reservation_settings.config.info.faq`, client 9): palavras `executivo, executivos, prato executivo, 3 tempos, tres tempos`; texto "sexta a domingo, 12h às 15h30, 3 tempos (entrada, prato principal e sobremesa), a partir de R$ 49,90", tirado dos criativos e do horário dado pelo usuário. Os pratos de cada dia não estão no texto (o usuário não sabe além dos criativos).
+- **Código (não commitado, aguardando OK de deploy):**
+  - `reservationBot.js`: no `retry`, pergunta frequente também conta como info (antes só os 4 assuntos fixos), então a reserva espera e o `infoBot` responde. Pergunta que o robô não sabe responder (`isQuestion`: tem "?" ou começa com qual/quanto/como/onde/quando/"e o"...) não gasta tentativa: avisa no Balcão (`needsAttention`) e responde "Anotei sua pergunta e te respondo por aqui 🙂 Enquanto isso, vamos seguindo com a reserva:" + a pergunta do passo (chave nova `questionToStaff`, sem a palavra "equipe" por regra). No passo do nome, texto com "?" não vira nome.
+  - `infoBot.js`: se uma pergunta frequente bate, o assunto fixo `prices` sai ("qual o valor do executivo?" responde o executivo, não a tabela do rodízio).
+  - Testes: 5 novos; backend 538/538.
+- **Visto de passagem:** os criativos do rodízio do almoço dizem "das 12h às 16h"; o texto de preços/horário no Balcão diz 15h30.
