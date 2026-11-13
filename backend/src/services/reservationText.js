@@ -25,6 +25,8 @@ export const DEFAULT_RESERVATION_MESSAGES = {
   cancelled: 'Reserva cancelada. Se quiser marcar de novo, é só mandar RESERVA.',
   cancelledByStaff: 'Sua reserva de {dia}, {hora} foi cancelada. Qualquer dúvida, é só responder aqui.',
   handoff: 'Só um instante, já te respondo 🙂',
+  // Pergunta no meio da reserva que o robô não sabe responder: avisa e segue a reserva.
+  questionToStaff: 'Anotei sua pergunta e te respondo por aqui 🙂 Enquanto isso, vamos seguindo com a reserva:',
   later: 'Combinado! Quando decidir, é só me mandar o dia e o número de pessoas que eu faço a reserva 🙂',
   adFallbackAsk: 'Quer fazer uma reserva? Responda 1 pra reservar ou 2 pra falar com a gente.',
   changeAsk: 'Claro! Sua reserva está pra {dia}, {hora}, {pessoas} pessoas. Pra quando quer mudar? Pode mandar o dia, o horário ou os dois (ex: sábado 20h).',

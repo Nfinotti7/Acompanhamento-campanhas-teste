@@ -116,3 +116,18 @@ test('equipe responde durante o "digitando": não envia', async () => {
   assert.equal(await s.say('Quero ver o cardápio'), 'paused');
   assert.equal(s.sent.length, 0);
 });
+
+test('"qual o valor do executivo?": a pergunta frequente do executivo vale mais que a tabela do rodízio', async () => {
+  const info = { ...INFO, faq: [{ keywords: 'executivo, executivos', answer: 'Executivo a partir de R$ 49,90.' }] };
+  const { say, sent } = setup({ info, activeReservation: true });
+  assert.equal(await say('qual o valor do executivo?'), 'answered');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].body, 'Executivo a partir de R$ 49,90.');
+});
+
+test('"E o executivo?" responde a pergunta frequente', async () => {
+  const info = { ...INFO, faq: [{ keywords: 'executivo, executivos', answer: 'Executivo a partir de R$ 49,90.' }] };
+  const { say, sent } = setup({ info, activeReservation: true });
+  assert.equal(await say('E o executivo?'), 'answered');
+  assert.equal(sent[0].body, 'Executivo a partir de R$ 49,90.');
+});

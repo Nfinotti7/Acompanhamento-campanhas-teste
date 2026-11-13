@@ -7,7 +7,7 @@ import { broadcast } from './sseHub.js';
 import { sendToContact } from './whatsappSender.js';
 import { sendTyping } from './baileysClient.js';
 import { isBotPaused, pauseBot } from './botPause.js';
-import { detectInfoTopics } from './infoText.js';
+import { detectInfoTopics, matchFaq, isQuestion } from './infoText.js';
 import { firstName, displayName, renderMessage, parsePartySize } from './waitlistText.js';
 import { isUniqueViolation } from './waitlistQueue.js';
 import {
@@ -100,15 +100,19 @@ async function handleOne(
   // meio-tempo, o robô não fala. Falha de envio só vai pro log.
   // greetNext: a próxima resposta abre com o "Olá" (pedido escrito que pulou a pergunta
   // de pessoas, que é a que normalmente cumprimenta).
+  // prefixNext: um aviso antes da próxima pergunta (questionToStaff).
   let greetNext = false;
+  let prefixNext = null;
   async function reply(key, vars = {}) {
     try {
       await d.typing(clientId, waId);
       if (await d.isBotPaused(q, { contactId, now: d.now })) return;
       const allVars = { nome: firstName(profileName), restaurante: restaurantName, tolerancia: settings.hold_minutes, ...vars };
       const render = (k) => renderMessage(settings.messages?.[k] || DEFAULT_RESERVATION_MESSAGES[k], allVars);
-      const body = greetNext ? `${render('greeting')}\n${render(key)}` : render(key);
+      let body = greetNext ? `${render('greeting')}\n${render(key)}` : render(key);
+      if (prefixNext) body = `${render(prefixNext)}\n${body}`;
       greetNext = false;
+      prefixNext = null;
       await d.send({ clientId, contactId, sentBy: 'bot_reserva', body });
     } catch (error) {
       console.error(`Reservas: falha ao responder "${key}" pro contato ${contactId}:`, error.message);
@@ -154,9 +158,20 @@ async function handleOne(
   // Não entendeu: repete a pergunta uma vez; na segunda, passa pra equipe.
   // "Quero ver o cardápio" no meio da reserva não conta: a resposta automática responde
   // (whatsappIngest.js chama infoBot quando o resultado é 'ignored') e a reserva continua.
+  // Pergunta que o robô não sabe responder ("E o executivo?") também não conta: avisa a
+  // equipe no Balcão, diz isso pra pessoa e repete a pergunta do passo, sem gastar tentativa.
   async function retry(c, key, vars = {}) {
-    if (settings.info?.enabled && detectInfoTopics(text).some((topic) => (settings.info[topic] || '').trim())) {
+    const info = settings.info || {};
+    if (info.enabled && (
+      detectInfoTopics(text).some((topic) => (info[topic] || '').trim()) || matchFaq(text, info.faq).length > 0
+    )) {
       return 'ignored';
+    }
+    if (isQuestion(text)) {
+      d.broadcast(clientId, 'reservation', { contactId: Number(contactId), needsAttention: true });
+      prefixNext = 'questionToStaff';
+      await reply(key, vars);
+      return 'question_to_staff';
     }
     if ((c.attempts || 0) + 1 >= MAX_ATTEMPTS) return handoff(c);
     await save(c, c.step, c.data, (c.attempts || 0) + 1);
@@ -455,6 +470,8 @@ async function handleOne(
         await reply('askNameEmpty');
         return 'asked_name';
       }
+      // "E o executivo?" no lugar do nome não vira o nome da reserva.
+      if (text.includes('?')) return retry(conv, data.candidate ? 'askName' : 'askNameEmpty');
       let name = null;
       if (data.candidate && isYes(text)) name = data.candidate;
       else {

@@ -47,9 +47,12 @@ async function handleOne({ clientId, contactId, waId, profileName, body, restaur
   if (!info.enabled) return 'ignored';
 
   const other = isOtherQuestion(body);
-  const fixed = other ? ['other'] : detectInfoTopics(body).filter((topic) => (info[topic] || '').trim());
-  // Pergunta frequente do restaurante só vale se nenhum assunto fixo respondeu a mesma coisa.
-  const faqAsked = fixed.length === 0 && !other ? matchFaq(body, info.faq).map((i) => `faq:${i}`) : [];
+  const faqAsked = other ? [] : matchFaq(body, info.faq).map((i) => `faq:${i}`);
+  // Pergunta frequente é mais específica que os assuntos fixos: "qual o valor do
+  // executivo?" responde o executivo, não a tabela do rodízio.
+  const fixed = other
+    ? ['other']
+    : detectInfoTopics(body).filter((topic) => (info[topic] || '').trim() && !(faqAsked.length && topic === 'prices'));
   const asked = [...fixed, ...faqAsked];
   if (asked.length === 0) return 'ignored';
   if (await d.isBotPaused(q, { contactId, now: d.now })) return 'paused';

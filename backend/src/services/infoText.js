@@ -79,3 +79,11 @@ export function matchFaq(text, faq = []) {
 export function isOtherQuestion(text) {
   return /^(tenho (uma |outra )?duvida|outra duvida|tenho uma pergunta)$/.test(clean(text));
 }
+
+// Pergunta que a pessoa fez no meio da reserva ("E o executivo?", "tem estacionamento?").
+// Só é chamada quando a resposta não serviu pro passo da reserva.
+export function isQuestion(text) {
+  const raw = String(text || '');
+  if (raw.includes('?')) return true;
+  return /^(qual|quais|quanto|quantos|quantas|como|onde|quando|porque|por que|e o|e a|e os|e as|voces tem|tem como)/.test(clean(raw));
+}

@@ -479,6 +479,36 @@ test('"Quero ver cardápio" no meio da reserva fica pras respostas automáticas 
   assert.equal(await say('2'), 'asked_day');
 });
 
+test('"E o executivo?" com o executivo nas perguntas frequentes fica pras respostas automáticas', async () => {
+  const info = { enabled: true, faq: [{ keywords: 'executivo, executivos', answer: 'Executivo em 3 tempos.' }] };
+  const { say, sent, conversations } = setup({ settings: { ...MALIBU, info } });
+  await say('Quero fazer uma reserva (cód. RESERVA)');
+  assert.equal(await say('E o executivo?'), 'ignored');
+  assert.equal(conversations[0].attempts, 0);
+  assert.equal(sent.length, 1);
+  assert.equal(await say('2'), 'asked_day');
+});
+
+test('pergunta que o robô não sabe responder: avisa a equipe e segue a reserva sem gastar tentativa', async () => {
+  const { say, last, conversations, events } = setup();
+  await say('Quero fazer uma reserva (cód. RESERVA)');
+  assert.equal(await say('E o executivo?'), 'question_to_staff');
+  assert.equal(last(), 'Anotei sua pergunta e te respondo por aqui 🙂 Enquanto isso, vamos seguindo com a reserva:\nMe manda só o número de pessoas, por exemplo: 4');
+  assert.equal(conversations[0].attempts, 0);
+  assert.ok(events.some((e) => e.data?.needsAttention));
+  assert.equal(await say('tem estacionamento?'), 'question_to_staff');
+  assert.equal(conversations[0].status, 'active');
+  assert.equal(await say('2'), 'asked_day');
+});
+
+test('pergunta no lugar do nome não vira o nome da reserva', async () => {
+  const { say, conversations } = setup();
+  await say('RESERVA'); await say('2'); await say('amanhã'); await say('1');
+  assert.equal(await say('Tem estacionamento?'), 'question_to_staff');
+  assert.equal(conversations[0].step, 'name');
+  assert.equal(conversations[0].data.name, undefined);
+});
+
 test('sem respostas automáticas, pergunta de cardápio no meio da reserva conta como não entendida', async () => {
   const { say } = setup();
   await say('RESERVA');
