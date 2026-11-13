@@ -1209,3 +1209,5 @@ Conversa da Karla (contato 2453, ~10h06): no passo de pessoas ela perguntou "Qua
   - `infoBot.js`: se uma pergunta frequente bate, o assunto fixo `prices` sai ("qual o valor do executivo?" responde o executivo, não a tabela do rodízio).
   - Testes: 5 novos; backend 538/538.
 - **Visto de passagem:** os criativos do rodízio do almoço dizem "das 12h às 16h"; o texto de preços/horário no Balcão diz 15h30.
+
+**Deploy (13/11, 10h44), a pedido:** push `0550dda..f1490ce`. Às 10h45 o processo novo assumiu (`baileys_status.instance_id` `1060342-…`) e Recreio, Malibu e Mercearia seguiram `connected`.
