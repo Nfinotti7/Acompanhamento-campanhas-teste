@@ -85,16 +85,20 @@ export async function fireEvent({ clientId, contactId, eventName, eventId, value
 }
 
 // Contato entrou numa etapa: envia o evento Meta ligado a ela, se houver.
+// Só contato que veio de anúncio Meta (source 'ad': cartão do anúncio, número só de
+// anúncio ou Link Rastreável da Meta). Contato orgânico (Linktree, fornecedor, quem pede
+// vaga) mandado como Lead suja o pixel e ensina a Meta a buscar o público errado.
 export async function fireStageEvent({ clientId, contactId }, deps = {}) {
   const dbImpl = deps.db || db;
   const { rows } = await dbImpl.query(
-    `SELECT s.meta_event FROM whatsapp_contacts wc
+    `SELECT s.meta_event, wc.source FROM whatsapp_contacts wc
      JOIN crm_stages s ON s.id = wc.stage_id
      WHERE wc.id = ? AND wc.client_id = ?`,
     [contactId, clientId]
   );
   const eventName = rows[0]?.meta_event;
   if (!eventName) return { status: 'no_event' };
+  if (rows[0].source !== 'ad') return { status: 'not_from_ad' };
   return fireEvent({ clientId, contactId, eventName, eventId: `c${contactId}-${eventName}` }, deps);
 }
 

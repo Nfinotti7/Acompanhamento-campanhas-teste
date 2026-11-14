@@ -1211,3 +1211,13 @@ Conversa da Karla (contato 2453, ~10h06): no passo de pessoas ela perguntou "Qua
 - **Visto de passagem:** os criativos do rodízio do almoço dizem "das 12h às 16h"; o texto de preços/horário no Balcão diz 15h30.
 
 **Deploy (13/11, 10h44), a pedido:** push `0550dda..f1490ce`. Às 10h45 o processo novo assumiu (`baileys_status.instance_id` `1060342-…`) e Recreio, Malibu e Mercearia seguiram `connected`.
+
+### 2026-11-13 (noite) — Evento de etapa (Lead) só para contato que veio de anúncio
+
+O usuário notou que o Recreio "não registra as conversões do tráfego" e perguntou por conversas que começam com "Olá, tenho uma dúvida sobre o Recreio Bar!". Leitura no Postgres de produção (transação só leitura, a pedido):
+- Essa frase é a do botão Reservas do **Linktree**, não está em nenhum dos 83 anúncios da conta `act_1641105394012172`. Esses contatos entram como `organic` (certo).
+- Recreio desde a ligação (12/11): 33 contatos novos, 11 `ad`. Um veio da Cartela ("Link: … Olá! Posso ter mais informações sobre isso?") **sem** o cartão do anúncio e ficou orgânico.
+- `conversion_events` do Recreio: 28 Lead, todos `sent`, `action_source = 'chat'`; **18 de contatos orgânicos** (Linktree, fornecedor, pedido de vaga). Como é Baileys (sem WABA), nenhum vai como `business_messaging` com `ctwa_clid`: a Meta só casa pelo telefone, então quase nada aparece atribuído às campanhas. Isso só muda com o número na API oficial.
+- Meta 12–13/11: 39 conversas; a diferença para o Balcão vem de Confraternização (vai para o 4052) e de HH Semana/HH Sexta/Cartela com destino Direct/Messenger também.
+
+**Mudança (a pedido):** `fireStageEvent` só envia o evento da etapa se `whatsapp_contacts.source = 'ad'` (cartão do anúncio, número só de anúncio ou Link Rastreável da Meta); senão devolve `not_from_ad` e não grava em `conversion_events`. Purchase (venda lançada) continua indo para qualquer contato. Vale para todos os clientes com CAPI ligada (Recreio e Malibu hoje). Teste novo; backend 539/539. Os 18 Lead orgânicos já enviados não têm como ser desfeitos na Meta.

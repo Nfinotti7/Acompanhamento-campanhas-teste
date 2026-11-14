@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fireEvent, fireStageEvent, fireSaleEvent } from './conversionEvents.js';
 
-function fakeDb({ capi, contact = { id: 7, wa_id: '5511999998888', ctwa_clid: null }, stageEvent = 'Lead', duplicate = false }) {
+function fakeDb({ capi, contact = { id: 7, wa_id: '5511999998888', ctwa_clid: null }, stageEvent = 'Lead', source = 'ad', duplicate = false }) {
   const calls = [];
   return {
     calls,
@@ -10,7 +10,7 @@ function fakeDb({ capi, contact = { id: 7, wa_id: '5511999998888', ctwa_clid: nu
       calls.push({ sql, params });
       if (/FROM capi_settings/.test(sql)) return { rows: capi ? [capi] : [] };
       if (/LEFT JOIN tracking_clicks/.test(sql)) return { rows: contact ? [contact] : [] };
-      if (/JOIN crm_stages/.test(sql)) return { rows: [{ meta_event: stageEvent }] };
+      if (/JOIN crm_stages/.test(sql)) return { rows: [{ meta_event: stageEvent, source }] };
       if (/INSERT INTO conversion_events/.test(sql)) return { rows: duplicate ? [] : [{ id: 1 }] };
       return { rows: [] };
     }
@@ -71,6 +71,15 @@ test('etapa sem evento ligado nao envia', async () => {
   const db = fakeDb({ capi: enabled, stageEvent: null });
   const res = await fireStageEvent({ clientId: 9, contactId: 7 }, { db, send: async () => { throw new Error('nao devia'); } });
   assert.equal(res.status, 'no_event');
+});
+
+test('evento de etapa de contato que nao veio de anuncio nao vai pra Meta', async () => {
+  for (const source of ['organic', 'nao_rastreada', 'google_ads', 'outras', null]) {
+    const db = fakeDb({ capi: enabled, source });
+    const res = await fireStageEvent({ clientId: 5, contactId: 7 }, { db, send: async () => { throw new Error('nao devia'); } });
+    assert.equal(res.status, 'not_from_ad');
+    assert.ok(!db.calls.some((c) => /INSERT INTO conversion_events/.test(c.sql)));
+  }
 });
 
 test('venda envia Purchase com valor e event_id por venda', async () => {
