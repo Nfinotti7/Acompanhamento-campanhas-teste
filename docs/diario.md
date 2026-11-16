@@ -1235,3 +1235,11 @@ Pedido do usuário: tirar as orgânicas do Balcão do Recreio. A chave `whatsapp
 - **Pendente:** commit e deploy (a pedido); depois, ligar a chave no Recreio (Clientes → editar).
 
 **Deploy (16/11, 17:27), a pedido ("sobe agora"):** push `8e4ae48..92f37b3`, bundle `index-BTUDuN6A.js` no ar. Chave ligada no Recreio (client 5) direto no banco: `balcao_ads_only = true`. Hoje o Balcão do Recreio mostra 18 dos 66 contatos (o resto fica no botão). Recreio, Malibu e Mercearia `connected` no processo novo; o cliente demo (27) ficou `connecting`. Tela não conferida no navegador.
+
+### 2026-11-16 — Links Rastreáveis do Google para o Recreio
+
+A pedido, criados direto no banco (não existia nenhum link no sistema), número 5562981479128:
+- id 3 `furtherads.online/r/recreio-google`: "Google · Card do Google (GMN)", `utm_source=google`, `utm_medium=gmn`, mensagem "Olá! Vi o Recreio no Google e queria mais informações."
+- id 4 `furtherads.online/r/recreio-site`: "Google · Site", `utm_source=google`, `utm_medium=site`, mensagem "Olá! Vim pelo site do Recreio e queria mais informações."
+- `classifyClickSource` grava quem chega por eles como `google_ads`, então aparecem no Balcão só com anúncio. Testados com curl: 302 para o wa.me com "(cód. XXXXX)"; os 2 cliques de teste foram apagados.
+- Pendente (usuário): colocar os links no botão de WhatsApp do site e no card do Google Meu Negócio.
