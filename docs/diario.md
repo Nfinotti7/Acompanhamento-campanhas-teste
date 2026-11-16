@@ -1233,3 +1233,5 @@ Pedido do usuário: tirar as orgânicas do Balcão do Recreio. A chave `whatsapp
 - Google: o usuário vai trocar o botão do site e do card do GMN. Recomendado usar o Link Rastreável (`/r/<slug>` com `utm_source=google`), que grava o contato como `google_ads` pelo código "(cód. XXXXX)". Frase fixa no texto não é reconhecida pelo código.
 - **Testado:** backend 542/542 (3 novos), frontend 73/73, build ok. **Não testado:** tela no navegador e consulta no Postgres real.
 - **Pendente:** commit e deploy (a pedido); depois, ligar a chave no Recreio (Clientes → editar).
+
+**Deploy (16/11, 17:27), a pedido ("sobe agora"):** push `8e4ae48..92f37b3`, bundle `index-BTUDuN6A.js` no ar. Chave ligada no Recreio (client 5) direto no banco: `balcao_ads_only = true`. Hoje o Balcão do Recreio mostra 18 dos 66 contatos (o resto fica no botão). Recreio, Malibu e Mercearia `connected` no processo novo; o cliente demo (27) ficou `connecting`. Tela não conferida no navegador.
