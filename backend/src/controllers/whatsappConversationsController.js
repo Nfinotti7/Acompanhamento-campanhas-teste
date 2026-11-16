@@ -2,6 +2,7 @@ import db from '../config/db.js';
 import { sendToContact, sendMediaToContact, SendError } from '../services/whatsappSender.js';
 import { pauseBot } from '../services/botPause.js';
 import { RelayError } from '../services/processRelay.js';
+import { balcaoOriginFilter } from '../services/whatsappOrigin.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -15,6 +16,8 @@ export async function listConversations(req, res) {
     if (!clientId) {
       return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
     }
+
+    const filter = await balcaoOriginFilter(db, clientId, req.query.origin);
 
     // Não lidas = mensagens recebidas depois da última vez que alguém da equipe abriu a
     // conversa (last_read_at). created_at é gravado em UTC sem fuso, por isso a conversão.
@@ -34,7 +37,7 @@ export async function listConversations(req, res) {
          SELECT body, direction, media_type, status, sent_at FROM whatsapp_messages m
          WHERE m.contact_id = wc.id ORDER BY m.sent_at DESC, m.id DESC LIMIT 1
        ) lm ON true
-       WHERE wc.client_id = ?
+       WHERE wc.client_id = ?${filter.sql}
        ORDER BY wc.last_message_at DESC NULLS LAST
        LIMIT 100`,
       [clientId]
@@ -47,7 +50,7 @@ export async function listConversations(req, res) {
         : null
     }));
 
-    return res.json({ conversations });
+    return res.json({ conversations, adsOnly: filter.adsOnly });
   } catch (error) {
     console.error('List conversations error:', error);
     return res.status(500).json({ error: 'Erro ao listar conversas.' });

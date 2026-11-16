@@ -54,18 +54,18 @@ export async function listClients(req, res) {
 
 export async function createClient(req, res) {
   try {
-    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only, data_start_date, group_name } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, clientUserEmail, clientUserPassword, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only, balcao_ads_only, data_start_date, group_name } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
     }
 
     const { rows } = await db.query(
-      `INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only, data_start_date, group_name)
-       VALUES (?, ?, ?, ?, ?, COALESCE(?, true), COALESCE(?, false), COALESCE(?, false), COALESCE(?, false), ?, ?) RETURNING id`,
+      `INSERT INTO clients (name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only, balcao_ads_only, data_start_date, group_name)
+       VALUES (?, ?, ?, ?, ?, COALESCE(?, true), COALESCE(?, false), COALESCE(?, false), COALESCE(?, false), COALESCE(?, false), ?, ?) RETURNING id`,
       [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id),
         optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled), optionalBoolean(reservations_enabled),
-        optionalBoolean(whatsapp_ads_only), normalizeStartDate(data_start_date), normalizeOptionalText(group_name)]
+        optionalBoolean(whatsapp_ads_only), optionalBoolean(balcao_ads_only), normalizeStartDate(data_start_date), normalizeOptionalText(group_name)]
     );
     const newClientId = rows[0].id;
 
@@ -92,7 +92,7 @@ export async function createClient(req, res) {
 export async function updateClient(req, res) {
   try {
     const clientId = req.params.id;
-    const { name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only, data_start_date, group_name } = req.body;
+    const { name, company, logo_url, campaign_prefix, page_id, dashboard_enabled, waitlist_enabled, reservations_enabled, whatsapp_ads_only, balcao_ads_only, data_start_date, group_name } = req.body;
 
     if (!name || !company) {
       return res.status(400).json({ error: 'Nome e empresa são obrigatórios.' });
@@ -113,11 +113,11 @@ export async function updateClient(req, res) {
       `UPDATE clients SET name = ?, company = ?, logo_url = ?, campaign_prefix = ?, page_id = ?,
          dashboard_enabled = COALESCE(?, dashboard_enabled), waitlist_enabled = COALESCE(?, waitlist_enabled),
          reservations_enabled = COALESCE(?, reservations_enabled), whatsapp_ads_only = COALESCE(?, whatsapp_ads_only),
-         data_start_date = ?, group_name = ?
+         balcao_ads_only = COALESCE(?, balcao_ads_only), data_start_date = ?, group_name = ?
        WHERE id = ?`,
       [name, company, logo_url || null, normalizeOptionalText(campaign_prefix), normalizeOptionalText(page_id),
         optionalBoolean(dashboard_enabled), optionalBoolean(waitlist_enabled), optionalBoolean(reservations_enabled),
-        optionalBoolean(whatsapp_ads_only), startDate,
+        optionalBoolean(whatsapp_ads_only), optionalBoolean(balcao_ads_only), startDate,
         group_name === undefined ? rows[0].group_name : normalizeOptionalText(group_name), clientId]
     );
 

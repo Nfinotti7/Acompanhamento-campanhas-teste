@@ -35,17 +35,22 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
   const [showSettings, setShowSettings] = useState(false);
   const [dragOverStage, setDragOverStage] = useState(null);
 
+  // "Balcão só com anúncio": o funil vem só com Meta/Google; o botão traz as orgânicas.
+  const [adsOnly, setAdsOnly] = useState(false);
+  const [showOrganic, setShowOrganic] = useState(false);
+
   const params = clientId ? { clientId } : {};
 
   const fetchAll = async ({ quiet } = {}) => {
     if (!quiet) setLoading(true);
     try {
       const [kanbanRes, configRes] = await Promise.all([
-        apiClient.get('/api/whatsapp/kanban', { params }),
+        apiClient.get('/api/whatsapp/kanban', { params: showOrganic ? { ...params, origin: 'all' } : params }),
         apiClient.get('/api/crm/config', { params })
       ]);
       setStages(kanbanRes.data.stages || []);
       setContacts(kanbanRes.data.contacts || []);
+      setAdsOnly(Boolean(kanbanRes.data.adsOnly));
       setConfig(configRes.data);
     } catch (err) {
       console.error('Error fetching CRM board:', err);
@@ -58,6 +63,11 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
+
+  useEffect(() => {
+    if (adsOnly) fetchAll({ quiet: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOrganic]);
 
   useEffect(() => {
     if (lastEvent) fetchAll({ quiet: true });
@@ -105,6 +115,12 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
           <option value="none">Sem responsável</option>
           {config.team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
+        {adsOnly && (
+          <button type="button" onClick={() => setShowOrganic((v) => !v)} aria-pressed={showOrganic}
+            style={{ ...filterStyle, cursor: 'pointer', backgroundColor: showOrganic ? 'var(--surface-subtle)' : 'var(--bg-card)' }}>
+            {showOrganic ? 'Esconder orgânicas' : 'Mostrar orgânicas'}
+          </button>
+        )}
         <button type="button" onClick={() => setShowSettings(true)} style={{ ...filterStyle, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
           <Settings2 size={15} /> Configurar funil
         </button>

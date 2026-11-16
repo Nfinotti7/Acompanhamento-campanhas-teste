@@ -13,6 +13,7 @@ const EMPTY_FORM = {
   waitlist_enabled: false,
   reservations_enabled: false,
   whatsapp_ads_only: false,
+  balcao_ads_only: false,
   data_start_date: '',
   group_name: '',
   clientUserEmail: '',
@@ -63,6 +64,7 @@ export default function ClientsPage() {
       waitlist_enabled: Boolean(client.waitlist_enabled),
       reservations_enabled: Boolean(client.reservations_enabled),
       whatsapp_ads_only: Boolean(client.whatsapp_ads_only),
+      balcao_ads_only: Boolean(client.balcao_ads_only),
       data_start_date: client.data_start_date || '',
       group_name: client.group_name || '',
       clientUserEmail: '',
@@ -367,6 +369,17 @@ export default function ClientsPage() {
                 </label>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '12px' }}>
                   Contato novo que chegar sem o cartão do anúncio (o lead fechou a prévia, por exemplo) conta como Meta Ads, sem campanha. Não vale pra quem já conversou antes.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={formData.balcao_ads_only}
+                    onChange={(e) => setFormData({ ...formData, balcao_ads_only: e.target.checked })} />
+                  Balcão mostra só conversas de anúncio
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '12px' }}>
+                  A lista e o funil abrem só com Meta Ads e Google Ads. As orgânicas continuam gravadas e aparecem no botão "Mostrar orgânicas". Não muda a origem de ninguém.
                 </p>
               </div>
 

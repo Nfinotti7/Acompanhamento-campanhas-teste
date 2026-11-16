@@ -421,6 +421,9 @@ export async function initDb() {
   // Número de WhatsApp que só roda em anúncio: contato novo sem o cartão do anúncio conta
   // como Meta Ads, sem campanha (tracking_method 'ads_number').
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_ads_only BOOLEAN DEFAULT false`);
+  // Balcão mostra só conversa de anúncio (Meta ou Google); orgânicas ficam atrás do botão
+  // 'Mostrar orgânicas'. Não muda a origem de ninguém (diferente de whatsapp_ads_only).
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS balcao_ads_only BOOLEAN DEFAULT false`);
   // Cartão (externalAdReply) que veio na primeira mensagem mas não parece anúncio.
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_reply_unmatched_json JSONB`);
   // Respostas automáticas já mandadas (services/infoBot.js): o mesmo assunto não se repete

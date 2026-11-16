@@ -89,10 +89,15 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
   const [selectedContact, setSelectedContact] = useState(null);
   const [manualEntryName, setManualEntryName] = useState(null);
   const [liveSignal, setLiveSignal] = useState(null);
+  // Cliente com "Balcão só com anúncio": a lista vem só com Meta/Google e o botão
+  // "Mostrar orgânicas" traz o resto (adsOnly vem da API).
+  const [adsOnly, setAdsOnly] = useState(false);
+  const [showOrganic, setShowOrganic] = useState(false);
 
   useEffect(() => {
     fetchConversations();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOrganic]);
 
   // Conversas que o robô de reserva passou pra equipe: destaque até alguém abrir.
   const [needsAttention, setNeedsAttention] = useState(() => new Set());
@@ -111,8 +116,9 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
 
   const fetchConversations = async () => {
     try {
-      const res = await caixaApi.get('/api/whatsapp/conversations');
+      const res = await caixaApi.get('/api/whatsapp/conversations', { params: showOrganic ? { origin: 'all' } : {} });
       setConversations(res.data.conversations || []);
+      setAdsOnly(Boolean(res.data.adsOnly));
     } catch (err) {
       console.error('Error fetching conversations:', err);
     }
@@ -208,6 +214,16 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
             placeholder="Buscar nome ou telefone"
             style={{ ...fieldStyle, marginBottom: 0 }}
           />
+          {adsOnly && (
+            <button
+              type="button"
+              onClick={() => setShowOrganic((v) => !v)}
+              aria-pressed={showOrganic}
+              style={{ marginTop: '8px', width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: showOrganic ? 'var(--surface-subtle)' : 'transparent', color: 'var(--text-secondary)', fontSize: '0.78rem', cursor: 'pointer' }}
+            >
+              {showOrganic ? 'Mostrando todas · esconder orgânicas' : 'Só anúncios · mostrar orgânicas'}
+            </button>
+          )}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {listToShow.length === 0 && (

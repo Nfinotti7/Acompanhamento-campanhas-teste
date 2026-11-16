@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import { ensureStages, effectiveStageId, cardValue, moveToAutoStage } from '../services/crmStages.js';
+import { balcaoOriginFilter } from '../services/whatsappOrigin.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -20,6 +21,7 @@ export async function getKanban(req, res) {
       [clientId]
     );
 
+    const filter = await balcaoOriginFilter(db, clientId, req.query.origin);
     const { rows } = await db.query(
       `SELECT
          wc.id, wc.wa_id, wc.profile_name, wc.source, wc.ad_headline, wc.notes,
@@ -29,7 +31,7 @@ export async function getKanban(req, res) {
          COALESCE((SELECT array_agg(tag_id) FROM whatsapp_contact_tags t WHERE t.contact_id = wc.id), '{}') AS tag_ids
        FROM whatsapp_contacts wc
        LEFT JOIN crm_team_members tm ON tm.id = wc.responsible_id
-       WHERE wc.client_id = ?
+       WHERE wc.client_id = ?${filter.sql}
        ORDER BY wc.last_message_at DESC NULLS LAST, wc.id DESC`,
       [clientId]
     );
@@ -52,7 +54,7 @@ export async function getKanban(req, res) {
       tag_ids: r.tag_ids
     }));
 
-    return res.json({ stages, contacts });
+    return res.json({ stages, contacts, adsOnly: filter.adsOnly });
   } catch (error) {
     console.error('Get WhatsApp kanban error:', error);
     return res.status(500).json({ error: 'Erro ao montar o funil de WhatsApp.' });

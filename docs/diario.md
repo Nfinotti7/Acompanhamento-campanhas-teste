@@ -1221,3 +1221,15 @@ O usuário notou que o Recreio "não registra as conversões do tráfego" e perg
 - Meta 12–13/11: 39 conversas; a diferença para o Balcão vem de Confraternização (vai para o 4052) e de HH Semana/HH Sexta/Cartela com destino Direct/Messenger também.
 
 **Mudança (a pedido):** `fireStageEvent` só envia o evento da etapa se `whatsapp_contacts.source = 'ad'` (cartão do anúncio, número só de anúncio ou Link Rastreável da Meta); senão devolve `not_from_ad` e não grava em `conversion_events`. Purchase (venda lançada) continua indo para qualquer contato. Vale para todos os clientes com CAPI ligada (Recreio e Malibu hoje). Teste novo; backend 539/539. Os 18 Lead orgânicos já enviados não têm como ser desfeitos na Meta.
+
+### 2026-11-16 — Balcão só com conversas de anúncio (Recreio)
+
+Pedido do usuário: tirar as orgânicas do Balcão do Recreio. A chave `whatsapp_ads_only` **não** serve: ela marca todo contato novo sem cartão como Meta Ads (`ads_number`), o que transformaria Linktree, fornecedor e pedido de vaga em "anúncio" e voltaria a mandar Lead para o pixel (desfaz o ajuste de 13/11). Não foi ligada.
+
+- **Chave nova** `clients.balcao_ads_only` (criada no `initDb`), no cadastro do cliente: "Balcão mostra só conversas de anúncio". Só filtra a tela, não muda a origem de ninguém.
+- `balcaoOriginFilter` em `services/whatsappOrigin.js`: com a chave ligada, `GET /api/whatsapp/conversations` e `GET /api/whatsapp/kanban` trazem só `source IN ('ad', 'google_ads')`; com `origin=all` trazem tudo. As duas respostas levam `adsOnly`.
+- Tela: botão "Só anúncios · mostrar orgânicas" embaixo da busca do Balcão e "Mostrar orgânicas" no funil; só aparecem com a chave ligada. A busca por nome/telefone continua achando todos.
+- Efeito colateral aceito: com as orgânicas escondidas, as não lidas delas não entram no contador da aba/ícone, e o destaque "Precisa de atendimento" de uma conversa orgânica só aparece com o botão ligado.
+- Google: o usuário vai trocar o botão do site e do card do GMN. Recomendado usar o Link Rastreável (`/r/<slug>` com `utm_source=google`), que grava o contato como `google_ads` pelo código "(cód. XXXXX)". Frase fixa no texto não é reconhecida pelo código.
+- **Testado:** backend 542/542 (3 novos), frontend 73/73, build ok. **Não testado:** tela no navegador e consulta no Postgres real.
+- **Pendente:** commit e deploy (a pedido); depois, ligar a chave no Recreio (Clientes → editar).

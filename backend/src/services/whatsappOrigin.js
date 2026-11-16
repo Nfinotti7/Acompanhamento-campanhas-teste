@@ -16,3 +16,14 @@ export const ORIGIN_SQL = `CASE
   WHEN wc.source = 'ad' THEN 'meta_ads'
   WHEN wc.source IN ('google_ads', 'outras') THEN wc.source
   ELSE 'nao_rastreada' END`;
+
+// Balcão só com anúncio (clients.balcao_ads_only): a lista de conversas e o funil mostram
+// só Meta Ads e Google Ads. Orgânicas continuam gravadas e voltam com origin=all
+// (botão "Mostrar orgânicas"). adsOnly diz à tela se o botão deve aparecer.
+export const AD_SOURCES_SQL = `wc.source IN ('ad', 'google_ads')`;
+
+export async function balcaoOriginFilter(dbImpl, clientId, origin) {
+  const { rows } = await dbImpl.query(`SELECT balcao_ads_only FROM clients WHERE id = ?`, [clientId]);
+  const adsOnly = Boolean(rows[0]?.balcao_ads_only);
+  return { adsOnly, sql: adsOnly && origin !== 'all' ? ` AND ${AD_SOURCES_SQL}` : '' };
+}
