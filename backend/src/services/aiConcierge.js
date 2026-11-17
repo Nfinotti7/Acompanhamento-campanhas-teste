@@ -15,6 +15,7 @@ import { sendToContact } from './whatsappSender.js';
 import { sendTyping } from './baileysClient.js';
 import { broadcast } from './sseHub.js';
 import { firstName } from './waitlistText.js';
+import { isAiActiveFor } from './aiConfig.js';
 
 export const DEBOUNCE_MS = 6000;
 export const MAX_TOOL_ROUNDS = 3;
@@ -96,6 +97,42 @@ async function audit(d, { clientId, contactId, tokensIn, tokensOut, latency, too
 
 function alertStaff(d, clientId, contactId) {
   d.broadcast(clientId, 'reservation', { contactId: Number(contactId), needsAttention: true });
+}
+
+// A espera de 6 s fica só na memória: um reinício do app (deploy, queda) no meio dela deixa o
+// cliente sem resposta (visto em 17/11, 19:20). Na subida, responde quem escreveu há pouco e
+// ainda não recebeu nada (última mensagem da conversa é do cliente), se a IA está ligada pra ele.
+export const RECOVER_WINDOW_MS = 10 * 60e3;
+
+export async function recoverPendingAiReplies(deps = {}) {
+  const q = deps.db || db;
+  const now = deps.now ? deps.now() : new Date();
+  const loadSettings = deps.loadSettings || loadReservationSettings;
+  const enqueue = deps.enqueue || handleInboundForAi;
+  const { rows } = await q.query(
+    `SELECT c.id AS contact_id, c.client_id, c.wa_id, c.profile_name, cl.name AS restaurant_name
+     FROM whatsapp_contacts c
+     JOIN clients cl ON cl.id = c.client_id
+     JOIN LATERAL (
+       SELECT direction, sent_at FROM whatsapp_messages m WHERE m.contact_id = c.id ORDER BY m.sent_at DESC, m.id DESC LIMIT 1
+     ) last ON true
+     WHERE cl.reservations_enabled = true AND last.direction = 'inbound' AND last.sent_at > ?`,
+    [new Date(now.getTime() - RECOVER_WINDOW_MS)]
+  );
+  const settingsByClient = new Map();
+  let count = 0;
+  for (const row of rows) {
+    if (!/^\d{8,15}$/.test(String(row.wa_id))) continue; // grupo/lista de transmissão
+    const key = String(row.client_id);
+    if (!settingsByClient.has(key)) settingsByClient.set(key, await loadSettings(q, row.client_id));
+    if (!isAiActiveFor(settingsByClient.get(key), row.wa_id)) continue;
+    await enqueue({
+      clientId: row.client_id, contactId: row.contact_id, waId: row.wa_id,
+      profileName: row.profile_name, restaurantName: row.restaurant_name || ''
+    });
+    count += 1;
+  }
+  return count;
 }
 
 // Uma rodada: lê a conversa, fala com o Gemini (com ferramentas) e envia UMA resposta.

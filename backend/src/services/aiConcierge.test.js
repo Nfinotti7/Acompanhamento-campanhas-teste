@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  handleInboundForAi, runAiTurn, DEBOUNCE_MS, MAX_TOOL_ROUNDS, MAX_REPLIES_PER_HOUR
+  handleInboundForAi, runAiTurn, recoverPendingAiReplies, RECOVER_WINDOW_MS, DEBOUNCE_MS, MAX_TOOL_ROUNDS, MAX_REPLIES_PER_HOUR
 } from './aiConcierge.js';
 import { GeminiError } from './geminiClient.js';
 import { DEFAULT_AI_SETTINGS } from './aiConfig.js';
@@ -290,4 +290,43 @@ test('resposta que só tinha comentário interno vira falha e cai nos robôs ant
   assert.equal(await runAiTurn(args, deps), 'failed');
   assert.equal(state.sent.length, 0);
   assert.equal(state.failures, 1);
+});
+
+// --- Recuperar conversas que ficaram sem resposta por causa de um reinício ---
+const rowsFor = (...contacts) => contacts.map(([contact_id, client_id, wa_id]) => ({
+  contact_id, client_id, wa_id, profile_name: 'Fulano', restaurant_name: 'Malibu Sushibar'
+}));
+
+function recoverSetup({ rows, settingsByClient }) {
+  const queries = [];
+  const enqueued = [];
+  const deps = {
+    db: { query: async (sql, params) => { queries.push({ sql, params }); return { rows }; } },
+    now: () => NOW,
+    loadSettings: async (_db, clientId) => settingsByClient[clientId],
+    enqueue: async (args) => { enqueued.push(args); return 'queued'; }
+  };
+  return { deps, queries, enqueued };
+}
+
+test('recuperar: responde quem ficou sem resposta nos últimos minutos, só com a IA ligada para o contato', async () => {
+  const on = { ...SETTINGS, ai: { ...SETTINGS.ai, enabled: true, test_phones: [] } };
+  const off = { ...SETTINGS, ai: { ...SETTINGS.ai, enabled: false } };
+  const testMode = { ...SETTINGS, ai: { ...SETTINGS.ai, enabled: true, test_phones: ['62981479196'] } };
+  const { deps, queries, enqueued } = recoverSetup({
+    rows: rowsFor([1, 9, '5562981112222'], [2, 5, '5562983334444'], [3, 7, '556281479196'], [4, 7, '556281470000'], [5, 9, '120363025246125486']),
+    settingsByClient: { 9: on, 5: off, 7: testMode }
+  });
+  const n = await recoverPendingAiReplies(deps);
+  assert.equal(n, 2);
+  assert.deepEqual(enqueued.map((a) => a.contactId), [1, 3]); // cliente 5 desligado, 4 fora da lista de teste, 5 é grupo
+  assert.deepEqual(enqueued[0], { clientId: 9, contactId: 1, waId: '5562981112222', profileName: 'Fulano', restaurantName: 'Malibu Sushibar' });
+  assert.equal(queries.length, 1);
+  assert.deepEqual(queries[0].params, [new Date(NOW.getTime() - RECOVER_WINDOW_MS)]);
+});
+
+test('recuperar: sem conversas pendentes não faz nada', async () => {
+  const { deps, enqueued } = recoverSetup({ rows: [], settingsByClient: {} });
+  assert.equal(await recoverPendingAiReplies(deps), 0);
+  assert.equal(enqueued.length, 0);
 });

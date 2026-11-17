@@ -21,6 +21,7 @@ import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanb
 import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { startFollowupScheduler } from './services/followupScheduler.js';
+import { recoverPendingAiReplies } from './services/aiConcierge.js';
 import { offerVacancies } from './services/vacancyWaitlist.js';
 import { setReleaseHook, setArrivedHook } from './services/reservationStore.js';
 import { awardVisit } from './services/loyalty.js';
@@ -296,6 +297,13 @@ initDb()
       reconnectAllBaileysClients().catch((err) => {
         console.error('Erro ao reconectar clientes Baileys na subida:', err);
       });
+      // Atendente com IA: responde quem ficou sem resposta por causa deste reinício. Espera o
+      // WhatsApp reconectar antes (sem conexão a resposta falharia).
+      setTimeout(() => {
+        recoverPendingAiReplies()
+          .then((count) => { if (count > 0) console.log(`Atendente IA: ${count} conversa(s) retomada(s) depois do reinício`); })
+          .catch((err) => console.error('Atendente IA: erro ao retomar conversas na subida:', err.message));
+      }, 45000).unref();
     }
   })
   .catch((err) => {
