@@ -88,6 +88,12 @@ function toForm(s) {
     ad_fallback: Boolean(s.ad_fallback),
     messages: { ...(s.messages || {}) },
     info: { ...EMPTY_INFO, ...(s.info || {}), faq: (s.info?.faq || []).map((x) => ({ ...x })) },
+    ai: {
+      enabled: Boolean(s.ai?.enabled),
+      phones: (s.ai?.test_phones || []).join('\n'),
+      tone: s.ai?.tone || '',
+      extra: s.ai?.extra || ''
+    },
     followup: {
       ...EMPTY_FOLLOWUP, ...(s.followup || {}),
       reminder_hours_before: String(s.followup?.reminder_hours_before ?? 3),
@@ -117,6 +123,12 @@ function fromForm(f) {
     ad_fallback: f.ad_fallback,
     messages,
     info: { ...f.info, faq: f.info.faq.filter((x) => x.keywords.trim() && x.answer.trim()) },
+    ai: {
+      enabled: f.ai.enabled,
+      test_phones: f.ai.phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
+      tone: f.ai.tone.trim(),
+      extra: f.ai.extra.trim()
+    },
     followup: {
       ...f.followup,
       reminder_hours_before: Number(f.followup.reminder_hours_before),
@@ -323,6 +335,30 @@ export default function ReservationSettings({ api, onBack }) {
               onChange={(e) => set({ info: { ...form.info, [key]: e.target.value } })} />
           </label>
         ))}
+      </div>
+
+      <div className="nm-card" style={section}>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600 }}>
+          <input type="checkbox" checked={form.ai.enabled} onChange={(e) => set({ ai: { ...form.ai, enabled: e.target.checked } })} />
+          Atendente com IA
+        </label>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Conversa com o cliente de forma natural e responde com os textos cadastrados acima, no lugar do robô de reserva, das respostas automáticas e do aviso de fora do horário. Fecha reservas pelas regras de mesa e horário daqui; grupo maior, pedido especial e dúvidas que ela não sabe vão pra equipe. Para quando a equipe responde. Se a IA falhar, os robôs de hoje respondem.
+        </span>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Só responder pra estes números (modo teste)</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Um por linha, com DDD (ex.: 62 98147-9128). Sem nenhum número na lista, a IA responde todo mundo.</span>
+          <textarea className="nm-input" rows={3} value={form.ai.phones} onChange={(e) => set({ ai: { ...form.ai, phones: e.target.value } })} />
+        </label>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Tom de voz</span>
+          <textarea className="nm-input" rows={4} value={form.ai.tone} onChange={(e) => set({ ai: { ...form.ai, tone: e.target.value } })} />
+        </label>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Instruções extras</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Regras da casa que a IA deve seguir (ex.: o que dizer sobre aniversário).</span>
+          <textarea className="nm-input" rows={3} value={form.ai.extra} onChange={(e) => set({ ai: { ...form.ai, extra: e.target.value } })} />
+        </label>
       </div>
 
       <div className="nm-card" style={section}>
