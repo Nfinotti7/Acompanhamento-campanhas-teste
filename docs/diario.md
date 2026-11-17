@@ -1243,3 +1243,8 @@ A pedido, criados direto no banco (não existia nenhum link no sistema), número
 - id 4 `furtherads.online/r/recreio-site`: "Google · Site", `utm_source=google`, `utm_medium=site`, mensagem "Olá! Vim pelo site do Recreio e queria mais informações."
 - `classifyClickSource` grava quem chega por eles como `google_ads`, então aparecem no Balcão só com anúncio. Testados com curl: 302 para o wa.me com "(cód. XXXXX)"; os 2 cliques de teste foram apagados.
 - Pendente (usuário): colocar os links no botão de WhatsApp do site e no card do Google Meu Negócio.
+
+### 2026-11-17 — Refresh token do Google renovado de novo
+
+- Gerado token novo (`get-google-refresh-token.js`, autorização no Chrome Trabalho) e gravado nos clientes 5 (Recreio) e 7 (Alma) com `update-google-token-db.js`. Validado com `validate-google-token.js`: Recreio lista 4 campanhas, Alma 2. Arquivo temporário do token apagado.
+- Terceira renovação (19/10, 10/11, 17/11): venceu em 7 dias, o que confirma a hipótese do app OAuth em "Testing". **Ação do usuário ainda pendente:** publicar o app em "Production" (Google Cloud → APIs e serviços → Tela de consentimento OAuth), senão vence de novo ~24/11.
