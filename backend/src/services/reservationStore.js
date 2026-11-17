@@ -5,6 +5,7 @@ import { broadcast } from './sseHub.js';
 import { moveToAutoStage } from './crmStages.js';
 import { DEFAULT_RESERVATION_SETTINGS, pickTableSize, tablesForDay, dayOf } from './reservationSlots.js';
 import { DEFAULT_INFO_SETTINGS } from './infoText.js';
+import { DEFAULT_AI_SETTINGS, validateAiSettings } from './aiConfig.js';
 import { fireSaleEvent, inBackground } from './conversionEvents.js';
 import { DEFAULT_FOLLOWUP_SETTINGS, FOLLOWUP_MESSAGE_KEYS } from './followupText.js';
 
@@ -51,7 +52,9 @@ export async function loadReservationSettings(dbImpl, clientId) {
     // Respostas automáticas do Balcão (infoBot.js) moram aqui, junto dos textos do robô.
     info: { ...DEFAULT_INFO_SETTINGS, ...(config.info || {}) },
     // Lembrete, avaliação pós-visita e relatório do dono (followupBot.js, ownerReport.js).
-    followup: { ...DEFAULT_FOLLOWUP_SETTINGS, ...(config.followup || {}) }
+    followup: { ...DEFAULT_FOLLOWUP_SETTINGS, ...(config.followup || {}) },
+    // Atendente com IA (aiConcierge.js).
+    ai: { ...DEFAULT_AI_SETTINGS, ...(config.ai || {}) }
   };
 }
 
@@ -90,6 +93,8 @@ function validateSettings(s) {
     }
   }
   validateFollowup(s.followup);
+  const aiError = validateAiSettings(s.ai);
+  if (aiError) throw new ReservationSettingsError(aiError);
 }
 
 // Perguntas frequentes do restaurante (infoBot.js): palavras-chave + resposta.
@@ -141,7 +146,8 @@ export async function saveReservationSettings(dbImpl, clientId, patch) {
     ...current, ...patch,
     hours: { ...current.hours, ...(patch.hours || {}) },
     info: { ...current.info, ...(patch.info || {}) },
-    followup: { ...current.followup, ...(patch.followup || {}) }
+    followup: { ...current.followup, ...(patch.followup || {}) },
+    ai: { ...current.ai, ...(patch.ai || {}) }
   };
   validateSettings(next);
   await dbImpl.query(

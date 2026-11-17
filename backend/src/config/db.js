@@ -438,6 +438,23 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_info_replies_contact ON info_replies (contact_id, sent_at)`);
+  // Auditoria do atendente com IA (services/aiConcierge.js): custo, tempo, ferramentas e repasses.
+  await query(`
+    CREATE TABLE IF NOT EXISTS ai_replies (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+      model TEXT,
+      tokens_in INTEGER,
+      tokens_out INTEGER,
+      latency_ms INTEGER,
+      tools TEXT[],
+      handoff_reason TEXT,
+      status TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_ai_replies_contact ON ai_replies (contact_id, created_at)`);
   await query(`
     CREATE TABLE IF NOT EXISTS reservation_settings (
       client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
