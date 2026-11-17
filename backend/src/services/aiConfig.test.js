@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_AI_SETTINGS, isAiActiveFor, validateAiSettings } from './aiConfig.js';
+import { DEFAULT_AI_SETTINGS, isAiActiveFor, validateAiSettings, aiStateFor } from './aiConfig.js';
 import { loadReservationSettings, saveReservationSettings } from './reservationStore.js';
 
 test('IA desligada por padrão', () => {
@@ -72,4 +72,40 @@ test('a atendente tem nome padrão editável', () => {
   assert.equal(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: 'Duda' }), null);
   assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: 'x'.repeat(41) }), /Nome/);
   assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: 42 }), /Nome/);
+});
+
+test('pausa geral: com ai.paused ninguém fala com a IA, mesmo ligada', () => {
+  assert.equal(DEFAULT_AI_SETTINGS.paused, false);
+  const s = (extra) => ({ ai: { enabled: true, test_phones: [], paused: false, ...extra } });
+  assert.equal(isAiActiveFor(s({}), '5562981479128'), true);
+  assert.equal(isAiActiveFor(s({ paused: true }), '5562981479128'), false);
+  assert.equal(validateAiSettings({ ...DEFAULT_AI_SETTINGS, paused: true }), null);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, paused: 'sim' }), /IA/);
+});
+
+test('aiStateFor: on, paused (pausa da conversa) ou null', () => {
+  const NOW = new Date('2026-11-17T22:00:00Z');
+  const settings = { ai: { enabled: true, test_phones: ['62981479196'], paused: false } };
+  const mine = { wa_id: '556281479196', bot_paused_until: null };
+  assert.equal(aiStateFor(settings, mine, NOW), 'on');
+  assert.equal(aiStateFor(settings, { ...mine, bot_paused_until: '2026-11-18T10:00:00Z' }, NOW), 'paused');
+  assert.equal(aiStateFor(settings, { ...mine, bot_paused_until: '2026-11-17T10:00:00Z' }, NOW), 'on'); // pausa já venceu
+  assert.equal(aiStateFor(settings, { wa_id: '556281470000', bot_paused_until: null }, NOW), null); // fora da lista de teste
+  assert.equal(aiStateFor(settings, { wa_id: '120363025246125486', bot_paused_until: null }, NOW), null); // grupo
+  assert.equal(aiStateFor({ ai: { ...settings.ai, paused: true } }, mine, NOW), null); // pausa geral
+  assert.equal(aiStateFor({ ai: { ...settings.ai, enabled: false } }, mine, NOW), null);
+});
+
+test('o botão de pausa geral grava só ai.paused e mantém nome, lista de teste e tom', async () => {
+  const saved = [];
+  const stored = { ai: { enabled: true, name: 'Maria', test_phones: ['62981479196'], tone: 'Tom X', extra: 'Regra Y' } };
+  const db = {
+    query: async (sql, params) => {
+      if (/INSERT INTO reservation_settings/.test(sql)) { saved.push(JSON.parse(params[1])); return { rows: [] }; }
+      return { rows: [{ config: stored }] };
+    }
+  };
+  const next = await saveReservationSettings(db, 9, { ai: { paused: true } });
+  assert.equal(next.ai.paused, true);
+  assert.deepEqual(saved[0].ai, { ...DEFAULT_AI_SETTINGS, ...stored.ai, paused: true });
 });

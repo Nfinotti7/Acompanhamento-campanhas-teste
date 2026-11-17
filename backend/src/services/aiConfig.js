@@ -3,6 +3,8 @@
 
 export const DEFAULT_AI_SETTINGS = {
   enabled: false,
+  // Pausa geral (botão no Balcão): a IA continua configurada, mas ninguém fala com ela até retomar.
+  paused: false,
   // Nome da atendente: ela se apresenta por ele na primeira resposta de cada conversa.
   name: 'Maria',
   // Com números aqui, só eles falam com a IA (modo de teste); vazio = todo mundo.
@@ -26,16 +28,23 @@ function brPhoneKey(value) {
 
 export function isAiActiveFor(settings, waId) {
   const ai = settings?.ai;
-  if (!ai?.enabled) return false;
+  if (!ai?.enabled || ai.paused) return false;
   const phones = Array.isArray(ai.test_phones) ? ai.test_phones.map(brPhoneKey).filter(Boolean) : [];
   if (phones.length === 0) return true;
   const wa = brPhoneKey(waId);
   return phones.some((p) => wa === p || wa.endsWith(p) || p.endsWith(wa));
 }
 
+// Estado da IA numa conversa, pra lista do Balcão: 'on' (atendendo), 'paused' (pausada nessa
+// conversa: equipe respondeu ou ela chamou a equipe) ou null (não é atendida pela IA).
+export function aiStateFor(settings, { wa_id: waId, bot_paused_until: pausedUntil }, now = new Date()) {
+  if (!/^\d{8,15}$/.test(String(waId || '')) || !isAiActiveFor(settings, waId)) return null;
+  return pausedUntil && new Date(pausedUntil).getTime() > now.getTime() ? 'paused' : 'on';
+}
+
 // Devolve a mensagem de erro (pra tela) ou null. Quem salva transforma em erro de configuração.
 export function validateAiSettings(ai) {
-  if (typeof ai?.enabled !== 'boolean') return 'Atendente com IA: valor inválido.';
+  if (typeof ai?.enabled !== 'boolean' || typeof ai.paused !== 'boolean') return 'Atendente com IA: valor inválido.';
   if (!Array.isArray(ai.test_phones) || ai.test_phones.length > 20
       || ai.test_phones.some((p) => !/^\d{8,15}$/.test(String(p)))) {
     return 'Atendente com IA: use até 20 números, só com dígitos (ex.: 5562981479128).';

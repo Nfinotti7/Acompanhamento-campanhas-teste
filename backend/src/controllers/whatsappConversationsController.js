@@ -3,6 +3,8 @@ import { sendToContact, sendMediaToContact, SendError } from '../services/whatsa
 import { pauseBot } from '../services/botPause.js';
 import { RelayError } from '../services/processRelay.js';
 import { balcaoOriginFilter } from '../services/whatsappOrigin.js';
+import { loadReservationSettings } from '../services/reservationStore.js';
+import { aiStateFor } from '../services/aiConfig.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -43,14 +45,25 @@ export async function listConversations(req, res) {
       [clientId]
     );
 
+    // Atendente com IA: 'on' (atendendo) / 'paused' / null por conversa, pra etiqueta da lista.
+    // Falha ao ler a configuração nunca derruba a lista.
+    let aiSettings = null;
+    try {
+      aiSettings = await loadReservationSettings(db, clientId);
+    } catch (error) {
+      console.error('List conversations: erro ao ler a configuração da IA:', error.message);
+    }
+    const now = new Date();
+
     const conversations = rows.map((r) => ({
       ...r,
+      ai: aiSettings ? aiStateFor(aiSettings, r, now) : null,
       responseTimeSeconds: r.first_inbound_at && r.first_outbound_at && new Date(r.first_outbound_at) > new Date(r.first_inbound_at)
         ? Math.round((new Date(r.first_outbound_at) - new Date(r.first_inbound_at)) / 1000)
         : null
     }));
 
-    return res.json({ conversations, adsOnly: filter.adsOnly });
+    return res.json({ conversations, adsOnly: filter.adsOnly, aiName: aiSettings?.ai?.name || '' });
   } catch (error) {
     console.error('List conversations error:', error);
     return res.status(500).json({ error: 'Erro ao listar conversas.' });
