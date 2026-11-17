@@ -26,7 +26,8 @@ const SIDE_EFFECT_TOOLS = new Set(['create_reservation', 'cancel_reservation', '
 
 const PROMISES_STAFF = /só um momento|vou (chamar|verificar|confirmar|checar)|já (chamo|aviso)/i;
 
-const pending = new Map();
+const pending = new Map(); // espera de 6 s por contato
+const running = new Map(); // turno em andamento por contato
 
 function resolveDeps(deps) {
   return {
@@ -55,7 +56,12 @@ export function handleInboundForAi(args, deps = {}) {
   const entry = { args };
   entry.timer = schedule(() => {
     if (pending.get(key) === entry) pending.delete(key);
-    runAiTurn(entry.args, deps).catch((error) => console.error('Atendente IA: erro:', error.message));
+    // Um turno por vez em cada contato: se o cliente escreveu de novo enquanto o Gemini ainda
+    // respondia, o novo turno espera o anterior (e vê a resposta dele no histórico).
+    const run = (running.get(key) || Promise.resolve()).catch(() => {}).then(() => runAiTurn(entry.args, deps));
+    running.set(key, run);
+    run.catch(() => {}).finally(() => { if (running.get(key) === run) running.delete(key); });
+    return run.catch((error) => console.error('Atendente IA: erro:', error.message));
   }, DEBOUNCE_MS);
   pending.set(key, entry);
   return Promise.resolve('queued');

@@ -237,3 +237,25 @@ test('com repasse feito, a promessa não gera um segundo aviso', async () => {
   await runAiTurn(args, deps);
   assert.deepEqual(state.broadcasts, []); // quem avisa é a própria ferramenta de repasse (aiTools.js)
 });
+
+test('nova mensagem enquanto o Gemini ainda responde: os turnos do contato rodam um de cada vez', async () => {
+  const { deps, args, state } = setup({ results: [say('Primeira'), say('Segunda')] });
+  let active = 0;
+  let maxActive = 0;
+  const generate = deps.generate;
+  deps.generate = async (req) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    try { return await generate(req); } finally { active -= 1; }
+  };
+  const timers = fakeTimers();
+  const d = { ...deps, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout };
+  await handleInboundForAi(args, d);
+  const first = timers.timers[0].fn(); // o primeiro turno começa e demora
+  await handleInboundForAi({ ...args, body: 'e mais uma coisa' }, d);
+  const second = timers.timers[1].fn(); // a espera da nova mensagem acaba com o primeiro ainda rodando
+  await Promise.all([first, second]);
+  assert.equal(maxActive, 1);
+  assert.equal(state.generated.length, 2);
+});
