@@ -43,6 +43,13 @@ export default function BotStatusBar({ bot }) {
     try { await fn(); } catch { alert('Não foi possível mudar o robô agora.'); } finally { setBusy(false); }
   };
 
+  // Atendente com IA (ex.: "Maria"): mesmo selo e mesmos botões do robô de reserva.
+  const who = bot.ai ? `${bot.aiName || 'Atendente'} (IA)` : 'Robô';
+  const label = bot.paused
+    ? `${who} ${bot.ai ? 'pausada' : 'pausado'} até ${untilLabel(bot.pausedUntil)}`
+    : (bot.ai ? `${who} atendendo esta conversa` : 'Robô atendendo esta reserva');
+  const thing = bot.ai ? 'IA' : 'robô';
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px',
@@ -50,15 +57,15 @@ export default function BotStatusBar({ bot }) {
     }}>
       <Bot size={16} style={{ color: bot.paused ? 'var(--text-muted)' : 'var(--accent-link)', flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: '0.85rem', fontWeight: 600 }}>
-        {bot.paused ? `Robô pausado até ${untilLabel(bot.pausedUntil)}` : 'Robô atendendo esta reserva'}
+        {label}
       </span>
       {bot.paused ? (
         <button type="button" className="nm-btn nm-btn-muted" style={{ minHeight: '36px', padding: '6px 10px' }} disabled={busy} onClick={() => run(bot.resume)}>
-          <Play size={14} /> Retomar robô
+          <Play size={14} /> Retomar {thing}
         </button>
       ) : (
         <button type="button" className="nm-btn nm-btn-muted" style={{ minHeight: '36px', padding: '6px 10px' }} disabled={busy} onClick={() => run(bot.pause)}>
-          <Pause size={14} /> Pausar robô
+          <Pause size={14} /> Pausar {thing}
         </button>
       )}
     </div>

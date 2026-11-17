@@ -142,7 +142,7 @@ test('GET bot do contato: pausado e conversa ativa', async () => {
   });
   const res = fakeRes();
   await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
-  assert.deepEqual(res.body, { enabled: true, pausedUntil: '2026-10-23T06:00:00Z', paused: true, active: true });
+  assert.deepEqual(res.body, { enabled: true, pausedUntil: '2026-10-23T06:00:00Z', paused: true, active: true, ai: false, aiName: '' });
 });
 
 test('GET bot do contato com reservas desligadas devolve enabled:false', async () => {
@@ -151,4 +151,51 @@ test('GET bot do contato com reservas desligadas devolve enabled:false', async (
   await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.enabled, false);
+});
+
+// Selo do painel da conversa com a atendente com IA (ela não cria reservation_conversations).
+function botDb({ waId = '556281479196', paused = null, botActive = false } = {}) {
+  return {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ reservations_enabled: true }] };
+      if (/bot_paused_until/.test(sql)) return { rows: [{ bot_paused_until: paused, bot_active: botActive, wa_id: waId }] };
+      return { rows: [] };
+    }
+  };
+}
+const aiSettings = (ai) => async () => ({ ...SETTINGS, ai: { enabled: false, name: 'Maria', test_phones: [], ...ai } });
+
+test('GET bot do contato: a IA ligada para o contato aparece como atendendo', async () => {
+  const handlers = createReservationHandlers({ db: botDb(), now: () => new Date('2026-10-22T18:00:00Z'), loadSettings: aiSettings({ enabled: true }) });
+  const res = fakeRes();
+  await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
+  assert.deepEqual(res.body, { enabled: true, pausedUntil: null, paused: false, active: true, ai: true, aiName: 'Maria' });
+});
+
+test('GET bot do contato: IA em modo de teste só aparece para o número da lista (com ou sem o 9)', async () => {
+  const settings = aiSettings({ enabled: true, test_phones: ['62981479196'] });
+  const handlers = (waId) => createReservationHandlers({ db: botDb({ waId }), now: () => new Date('2026-10-22T18:00:00Z'), loadSettings: settings });
+  const inList = fakeRes();
+  await handlers('556281479196').contactBot(staffReq({ params: { id: '3' } }), inList);
+  assert.equal(inList.body.ai, true);
+  const outOfList = fakeRes();
+  await handlers('556281470000').contactBot(staffReq({ params: { id: '4' } }), outOfList);
+  assert.deepEqual(outOfList.body, { enabled: true, pausedUntil: null, paused: false, active: false, ai: false, aiName: '' });
+});
+
+test('GET bot do contato: IA pausada (repasse ou equipe) mostra pausada e continua marcada como IA', async () => {
+  const handlers = createReservationHandlers({
+    db: botDb({ paused: '2026-10-23T06:00:00Z' }), now: () => new Date('2026-10-22T18:00:00Z'), loadSettings: aiSettings({ enabled: true })
+  });
+  const res = fakeRes();
+  await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
+  assert.equal(res.body.paused, true);
+  assert.equal(res.body.ai, true);
+});
+
+test('GET bot do contato: conversa de grupo nunca é da IA', async () => {
+  const handlers = createReservationHandlers({ db: botDb({ waId: '120363025246125486' }), now: () => new Date('2026-10-22T18:00:00Z'), loadSettings: aiSettings({ enabled: true }) });
+  const res = fakeRes();
+  await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
+  assert.equal(res.body.ai, false);
 });

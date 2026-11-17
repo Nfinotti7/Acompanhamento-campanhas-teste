@@ -9,6 +9,7 @@ import { availableSlots, occupancyForDay, toInstant, dayOf } from '../services/r
 import { DEFAULT_RESERVATION_MESSAGES, RESERVATION_MESSAGE_KEYS, formatDayLabel, formatTime } from '../services/reservationText.js';
 import { DEFAULT_FOLLOWUP_MESSAGES, FOLLOWUP_MESSAGE_KEYS } from '../services/followupText.js';
 import { sendReportNow } from '../services/ownerReport.js';
+import { isAiActiveFor } from '../services/aiConfig.js';
 import {
   loadReservationSettings, saveReservationSettings, listReservations, createReservation, updateReservation,
   setReservationStatus, recordReservationSpend, SlotTakenError, ReservationSettingsError
@@ -236,18 +237,24 @@ export function createReservationHandlers(overrides = {}) {
     contactBot: handler(async (req, res, clientId, flags) => {
       if (!flags.reservations_enabled) return res.json({ enabled: false });
       const { rows } = await d.db.query(
-        `SELECT wc.bot_paused_until,
+        `SELECT wc.bot_paused_until, wc.wa_id,
                 EXISTS (SELECT 1 FROM reservation_conversations rc WHERE rc.contact_id = wc.id AND rc.status = 'active') AS bot_active
          FROM whatsapp_contacts wc WHERE wc.id = ? AND wc.client_id = ?`,
         [Number(req.params.id), clientId]
       );
       const row = rows[0] || {};
       const pausedUntil = row.bot_paused_until || null;
+      // A atendente com IA não cria reservation_conversations: sem isto o selo "atendendo" não
+      // aparecia enquanto ela respondia. Grupo/lista de transmissão nunca é atendido pela IA.
+      const settings = await d.loadSettings(d.db, clientId);
+      const ai = /^\d{8,15}$/.test(String(row.wa_id || '')) && isAiActiveFor(settings, row.wa_id);
       return res.json({
         enabled: true,
         pausedUntil,
         paused: Boolean(pausedUntil) && new Date(pausedUntil).getTime() > d.now().getTime(),
-        active: Boolean(row.bot_active)
+        active: Boolean(row.bot_active) || ai,
+        ai,
+        aiName: ai ? (settings.ai?.name || '') : ''
       });
     }, 'Erro ao consultar o robô', { requireEnabled: false }),
 
