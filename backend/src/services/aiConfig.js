@@ -3,6 +3,8 @@
 
 export const DEFAULT_AI_SETTINGS = {
   enabled: false,
+  // Nome da atendente: ela se apresenta por ele na primeira resposta de cada conversa.
+  name: 'Maria',
   // Com números aqui, só eles falam com a IA (modo de teste); vazio = todo mundo.
   test_phones: [],
   tone: 'Fale como alguém da casa recebendo o cliente com carinho: caloroso, simpático e natural, '
@@ -38,6 +40,7 @@ export function validateAiSettings(ai) {
       || ai.test_phones.some((p) => !/^\d{8,15}$/.test(String(p)))) {
     return 'Atendente com IA: use até 20 números, só com dígitos (ex.: 5562981479128).';
   }
+  if (typeof ai.name !== 'string' || ai.name.length > 40) return 'Nome da atendente: até 40 caracteres.';
   if (typeof ai.tone !== 'string' || ai.tone.length > 1500) return 'Tom de voz: até 1500 caracteres.';
   if (typeof ai.extra !== 'string' || ai.extra.length > 2000) return 'Instruções extras: até 2000 caracteres.';
   return null;

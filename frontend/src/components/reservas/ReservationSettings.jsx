@@ -90,6 +90,7 @@ function toForm(s) {
     info: { ...EMPTY_INFO, ...(s.info || {}), faq: (s.info?.faq || []).map((x) => ({ ...x })) },
     ai: {
       enabled: Boolean(s.ai?.enabled),
+      name: s.ai?.name ?? 'Maria',
       phones: (s.ai?.test_phones || []).join('\n'),
       tone: s.ai?.tone || '',
       extra: s.ai?.extra || ''
@@ -125,6 +126,7 @@ function fromForm(f) {
     info: { ...f.info, faq: f.info.faq.filter((x) => x.keywords.trim() && x.answer.trim()) },
     ai: {
       enabled: f.ai.enabled,
+      name: f.ai.name.trim(),
       test_phones: f.ai.phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
       tone: f.ai.tone.trim(),
       extra: f.ai.extra.trim()
@@ -345,6 +347,11 @@ export default function ReservationSettings({ api, onBack }) {
         <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
           Conversa com o cliente de forma natural e responde com os textos cadastrados acima, no lugar do robô de reserva, das respostas automáticas e do aviso de fora do horário. Fecha reservas pelas regras de mesa e horário daqui; grupo maior, pedido especial e dúvidas que ela não sabe vão pra equipe. Para quando a equipe responde. Se a IA falhar, os robôs de hoje respondem.
         </span>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Nome da atendente</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Ela se apresenta por esse nome na primeira resposta de cada conversa. Deixe vazio para não usar nome.</span>
+          <input className="nm-input" maxLength={40} value={form.ai.name} onChange={(e) => set({ ai: { ...form.ai, name: e.target.value } })} style={{ maxWidth: '240px' }} />
+        </label>
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Só responder pra estes números (modo teste)</span>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Um por linha, com DDD (ex.: 62 98147-9128). Sem nenhum número na lista, a IA responde todo mundo.</span>

@@ -65,3 +65,11 @@ test('isAiActiveFor: o 9 extra do celular não atrapalha (WhatsApp guarda o núm
   const comPais = { ai: { enabled: true, test_phones: ['5562981479128'] } };
   assert.equal(isAiActiveFor(comPais, '556281479128'), true);
 });
+
+test('a atendente tem nome padrão editável', () => {
+  assert.equal(DEFAULT_AI_SETTINGS.name, 'Maria');
+  assert.equal(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: '' }), null);
+  assert.equal(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: 'Duda' }), null);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: 'x'.repeat(41) }), /Nome/);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, name: 42 }), /Nome/);
+});

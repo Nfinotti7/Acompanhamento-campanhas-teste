@@ -103,3 +103,15 @@ test('toContents começa sempre em user e ignora mensagens vazias', () => {
 test('toContents com lista vazia devolve lista vazia', () => {
   assert.deepEqual(toContents([]), []);
 });
+
+test('o prompt dá nome à atendente e manda se apresentar só na primeira resposta', () => {
+  const p = buildSystemPrompt({ ...ARGS, settings: { ...SETTINGS, ai: { ...SETTINGS.ai, name: 'Maria' } } });
+  assert.match(p, /Você se chama Maria/);
+  assert.match(p, /primeira resposta da casa nesta conversa[^\n]*apresente-se pelo nome/i);
+  assert.match(p, /assistente virtual[^\n]*Maria/);
+});
+
+test('sem nome configurado, o prompt não inventa um', () => {
+  const p = buildSystemPrompt({ ...ARGS, settings: { ...SETTINGS, ai: { ...SETTINGS.ai, name: '' } } });
+  assert.doesNotMatch(p, /Você se chama/);
+});
