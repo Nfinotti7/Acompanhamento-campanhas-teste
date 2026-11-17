@@ -44,14 +44,14 @@ test('check_availability: grupo de 10 (limite 6) pede repasse e não consulta o 
   assert.equal(calls.listed, 0);
 });
 
-test('create_reservation válido grava com source ai, telefone do contato e sem force', async () => {
+test('create_reservation válido grava com source whatsapp, telefone do contato e sem force', async () => {
   const { ctx, calls } = setup();
   const r = await runTool('create_reservation', { name: 'Wender Vieira', date: FRIDAY, time: '19:00', party_size: 4 }, ctx);
   assert.equal(r.ok, true);
   assert.equal(r.id, 77);
   assert.equal(calls.created.length, 1);
   const c = calls.created[0];
-  assert.equal(c.source, 'ai');
+  assert.equal(c.source, 'whatsapp');
   assert.equal(c.phone, '5562981479128');
   assert.equal(c.contactId, 3561);
   assert.equal(c.clientId, 9);
@@ -162,4 +162,17 @@ test('create_reservation no mesmo horário de outra reserva do contato, com outr
   const r = await runTool('create_reservation', { name: 'Ana', date: FRIDAY, time: '19:00', party_size: 2 }, ctx);
   assert.equal(r.error, 'already_booked_at_that_time');
   assert.equal(calls.created.length, 0);
+});
+
+// A tabela reservations só aceita as origens do CHECK do banco. Uma origem fora da lista (foi o 'ai')
+// faz o INSERT falhar e a reserva nunca é gravada, e um createReservation falso não percebe.
+test('a origem que a IA grava é aceita pelo CHECK da tabela reservations', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ddl = readFileSync(new URL('../config/db.js', import.meta.url), 'utf8');
+  const match = ddl.match(/CREATE TABLE IF NOT EXISTS reservations \([\s\S]*?source TEXT NOT NULL CHECK \(source IN \(([^)]*)\)\)/);
+  assert.ok(match, 'não achei o CHECK de source em reservations');
+  const allowed = [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const { ctx, calls } = setup();
+  await runTool('create_reservation', { name: 'Ana', date: FRIDAY, time: '19:00', party_size: 2 }, ctx);
+  assert.ok(allowed.includes(calls.created[0].source), `source ${calls.created[0].source} fora de ${allowed}`);
 });

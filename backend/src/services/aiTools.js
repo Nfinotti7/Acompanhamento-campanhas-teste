@@ -147,7 +147,8 @@ async function createReservationTool(args, ctx, d) {
   try {
     const reservation = await d.createReservation(ctx.db, {
       clientId: ctx.clientId, contactId: ctx.contactId, name, phone: ctx.waId,
-      partySize: party, startsAt: slot.startsAt, source: 'ai', force: false
+      // 'whatsapp' é a origem das reservas pelo WhatsApp (a tabela só aceita 'whatsapp' ou 'manual').
+      partySize: party, startsAt: slot.startsAt, source: 'whatsapp', force: false
     });
     return { ok: true, id: reservation.id, date: day, time: args.time, party_size: party };
   } catch (error) {

@@ -259,3 +259,12 @@ test('nova mensagem enquanto o Gemini ainda responde: os turnos do contato rodam
   assert.equal(maxActive, 1);
   assert.equal(state.generated.length, 2);
 });
+
+test('a auditoria marca a ferramenta que deu erro (create_reservation!tool_error)', async () => {
+  const { deps, args, state } = setup({
+    results: [call('create_reservation', { name: 'Ana', date: '2026-11-20', time: '19:00', party_size: 2 }), say('Já aviso a equipe 😊')],
+    toolImpl: async () => ({ error: 'tool_error', message: 'x' })
+  });
+  await runAiTurn(args, deps);
+  assert.deepEqual(state.audits[0][6], ['create_reservation!tool_error']);
+});

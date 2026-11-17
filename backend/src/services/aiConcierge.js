@@ -135,7 +135,8 @@ export async function runAiTurn(args, deps = {}) {
       const responses = [];
       for (const call of res.functionCalls) {
         const result = await d.runTool(call.name, call.args, ctx);
-        toolsUsed.push(call.name);
+        // Na auditoria a ferramenta que deu erro aparece como "nome!codigo" (ex.: create_reservation!tool_error).
+        toolsUsed.push(result?.error ? `${call.name}!${result.error}` : call.name);
         if (call.name === 'handoff_to_staff') handoffReason = String(call.args?.reason || '').slice(0, 300) || 'sem motivo';
         responses.push({ functionResponse: { name: call.name, response: result } });
       }
@@ -144,7 +145,7 @@ export async function runAiTurn(args, deps = {}) {
   } catch (error) {
     console.error(`Atendente IA [contato ${contactId}]: ${error.message}`);
     await audit(d, { clientId, contactId, tokensIn, tokensOut, latency: Date.now() - startedAt, tools: toolsUsed, handoffReason, status: 'failed' });
-    if (toolsUsed.some((name) => SIDE_EFFECT_TOOLS.has(name))) {
+    if (toolsUsed.some((name) => SIDE_EFFECT_TOOLS.has(name.split('!')[0]))) {
       alertStaff(d, clientId, contactId);
     } else if (args.onFailure) {
       try { await args.onFailure(args); } catch (fallbackError) {
