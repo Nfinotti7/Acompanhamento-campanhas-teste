@@ -115,3 +115,11 @@ test('sem nome configurado, o prompt não inventa um', () => {
   const p = buildSystemPrompt({ ...ARGS, settings: { ...SETTINGS, ai: { ...SETTINGS.ai, name: '' } } });
   assert.doesNotMatch(p, /Você se chama/);
 });
+
+test('o prompt proíbe assumir o dia e afirmar políticas que não estão cadastradas', () => {
+  const p = buildSystemPrompt(ARGS);
+  assert.match(p, /Nunca assuma o dia/);
+  assert.match(p, /pergunte pra qual dia/i);
+  assert.match(p, /política da casa[^\n]*ordem de chegada[^\n]*handoff_to_staff/i);
+  assert.match(p, /não confirme nem negue/i);
+});
