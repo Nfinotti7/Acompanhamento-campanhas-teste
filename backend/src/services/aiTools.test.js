@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AI_TOOL_DECLARATIONS, runTool } from './aiTools.js';
+import { AI_TOOL_DECLARATIONS, runTool, HANDOFF_SAY } from './aiTools.js';
 import { SlotTakenError } from './reservationStore.js';
 import { DEFAULT_RESERVATION_SETTINGS } from './reservationSlots.js';
 
@@ -40,7 +40,8 @@ test('check_availability devolve os horários livres do dia', async () => {
 test('check_availability: grupo de 10 (limite 6) pede repasse e não consulta o banco', async () => {
   const { ctx, calls } = setup();
   const r = await runTool('check_availability', { date: FRIDAY, party_size: 10 }, ctx);
-  assert.deepEqual(r, { handoff: true, reason: 'group_too_large' });
+  assert.deepEqual(r, { handoff: true, reason: 'group_too_large', say: HANDOFF_SAY });
+  assert.match(r.say, /só um momento, vou verificar a disponibilidade de mesa/i);
   assert.equal(calls.listed, 0);
 });
 
@@ -65,6 +66,7 @@ test('create_reservation: grupo acima do limite não grava (injeção de "reserv
   const { ctx, calls } = setup();
   const r = await runTool('create_reservation', { name: 'Fulano', date: FRIDAY, time: '19:00', party_size: 30 }, ctx);
   assert.equal(r.error, 'group_too_large');
+  assert.equal(r.say, HANDOFF_SAY);
   assert.equal(calls.created.length, 0);
 });
 

@@ -26,6 +26,21 @@ const SIDE_EFFECT_TOOLS = new Set(['create_reservation', 'cancel_reservation', '
 
 const PROMISES_STAFF = /só um momento|vou (chamar|verificar|confirmar|checar)|já (chamo|aviso)/i;
 
+// Modelos pequenos às vezes escrevem comentário interno na resposta (ex.: "*(Handoff acionado...)*"
+// ou o nome de uma ferramenta). Isso nunca pode chegar ao cliente.
+const TOOL_NAMES = 'handoff_to_staff|check_availability|create_reservation|list_my_reservations|cancel_reservation';
+const INTERNAL_PAREN = new RegExp(`[*_]*\\([^)]*\\b(?:handoff|ferramenta|${TOOL_NAMES})[^)]*\\)[*_]*`, 'gi');
+const BARE_TOOL = new RegExp(`\\b(?:${TOOL_NAMES})\\b`, 'gi');
+export function cleanReply(text) {
+  return String(text || '')
+    .replace(INTERNAL_PAREN, '')
+    .replace(BARE_TOOL, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 const pending = new Map(); // espera de 6 s por contato
 const running = new Map(); // turno em andamento por contato
 
@@ -142,6 +157,8 @@ export async function runAiTurn(args, deps = {}) {
       }
       contents.push({ role: 'user', parts: responses });
     }
+    text = cleanReply(text);
+    if (!text) throw new Error('resposta vazia depois de tirar o comentário interno');
   } catch (error) {
     console.error(`Atendente IA [contato ${contactId}]: ${error.message}`);
     await audit(d, { clientId, contactId, tokensIn, tokensOut, latency: Date.now() - startedAt, tools: toolsUsed, handoffReason, status: 'failed' });

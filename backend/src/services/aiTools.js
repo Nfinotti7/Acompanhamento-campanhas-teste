@@ -68,6 +68,10 @@ export const AI_TOOL_DECLARATIONS = [
 
 const fail = (error, message, extra = {}) => ({ error, message, ...extra });
 
+// Frase do grupo grande. Só aparece no resultado da ferramenta (quando precisa): se ficasse no
+// prompt, o modelo pequeno a copiava até para grupos que cabem.
+export const HANDOFF_SAY = 'Só um momento, vou verificar a disponibilidade de mesa pra vocês 😊';
+
 function validDay(value) {
   if (typeof value !== 'string' || !DAY.test(value)) return false;
   return new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
@@ -105,7 +109,7 @@ function resolveDeps(deps = {}) {
 async function checkAvailability(args, ctx, d) {
   const party = partyOf(args.party_size);
   if (!party) return fail('invalid_party', 'Número de pessoas inválido.');
-  if (party > maxParty(ctx.settings)) return { handoff: true, reason: 'group_too_large' };
+  if (party > maxParty(ctx.settings)) return { handoff: true, reason: 'group_too_large', say: HANDOFF_SAY };
   if (!validDay(args.date)) return fail('invalid_date', 'Data inválida; use AAAA-MM-DD.');
   const day = args.date;
   if (day < dayOf(ctx.now)) return fail('past_date', 'Essa data já passou.');
@@ -120,7 +124,7 @@ async function createReservationTool(args, ctx, d) {
   const party = partyOf(args.party_size);
   if (!party) return fail('invalid_party', 'Número de pessoas inválido.');
   if (party > maxParty(ctx.settings)) {
-    return fail('group_too_large', 'Grupo acima do que fecho sozinha: chame a equipe com handoff_to_staff.');
+    return fail('group_too_large', 'Grupo acima do que fecho sozinha: diga a frase do campo say e chame handoff_to_staff.', { say: HANDOFF_SAY });
   }
   if (!validDay(args.date)) return fail('invalid_date', 'Data inválida; use AAAA-MM-DD.');
   if (typeof args.time !== 'string' || !HHMM.test(args.time)) return fail('invalid_time', 'Horário inválido; use HH:MM.');

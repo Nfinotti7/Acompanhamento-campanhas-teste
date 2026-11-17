@@ -268,3 +268,26 @@ test('a auditoria marca a ferramenta que deu erro (create_reservation!tool_error
   await runAiTurn(args, deps);
   assert.deepEqual(state.audits[0][6], ['create_reservation!tool_error']);
 });
+
+test('comentário interno do modelo não vai para o cliente', async () => {
+  const { deps, args, state } = setup({
+    results: [say('Vou verificar com a equipe, só um momento! 😊\n*(Handoff acionado devido a dúvida sobre política da casa)*')]
+  });
+  await runAiTurn(args, deps);
+  assert.equal(state.sent[0].body, 'Vou verificar com a equipe, só um momento! 😊');
+});
+
+test('nome de ferramenta solto e parênteses comuns: só o interno é removido', async () => {
+  const { deps, args, state } = setup({
+    results: [say('Posso confirmar (ex.: 18:15)? Usei check_availability para ver.')]
+  });
+  await runAiTurn(args, deps);
+  assert.equal(state.sent[0].body, 'Posso confirmar (ex.: 18:15)? Usei para ver.');
+});
+
+test('resposta que só tinha comentário interno vira falha e cai nos robôs antigos', async () => {
+  const { deps, args, state } = setup({ results: [say('*(handoff_to_staff acionado)*')] });
+  assert.equal(await runAiTurn(args, deps), 'failed');
+  assert.equal(state.sent.length, 0);
+  assert.equal(state.failures, 1);
+});
