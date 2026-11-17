@@ -127,6 +127,17 @@ async function createReservationTool(args, ctx, d) {
   const day = args.date;
   if (day < dayOf(ctx.now)) return fail('past_date', 'Essa data já passou.');
 
+  // O cliente confirma de novo ("sim, pode confirmar") depois de a reserva já estar feita: o
+  // modelo chama a ferramenta outra vez. Mesmo horário e mesmo tamanho = a mesma reserva.
+  const startsAtWanted = toInstant(day, args.time).getTime();
+  const sameTime = (await myReservations(ctx, d)).find((r) => new Date(r.starts_at).getTime() === startsAtWanted);
+  if (sameTime) {
+    if (Number(sameTime.party_size) === party) {
+      return { ok: true, already_booked: true, id: sameTime.id, date: day, time: args.time, party_size: party };
+    }
+    return fail('already_booked_at_that_time', 'Este cliente já tem uma reserva nesse horário com outro número de pessoas: chame a equipe com handoff_to_staff para alterar.');
+  }
+
   const reservations = await reservationsOfDay(ctx, d, day);
   const slots = availableSlots({ settings: ctx.settings, day, partySize: party, reservations, now: ctx.now });
   const slot = slots.find((s) => s.time === args.time);

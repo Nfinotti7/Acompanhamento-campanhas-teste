@@ -37,6 +37,7 @@ for (const [index, [title, rounds]] of SCENARIOS.entries()) {
   if (only && only !== index + 1) continue;
   console.log(`=== ${index + 1}. ${title} ===`);
   const history = [];
+  const booked = [];
   for (const burst of rounds) {
     for (const text of burst) { history.push({ direction: 'inbound', body: text }); console.log(`  CLIENTE: ${text}`); }
     const fakeDb = {
@@ -48,8 +49,8 @@ for (const [index, [title, rounds]] of SCENARIOS.entries()) {
     };
     const toolDeps = {
       listReservations: async () => [],
-      upcomingReservations: async () => [],
-      createReservation: async (_db, data) => { console.log('  [FERRAMENTA] gravaria reserva:', JSON.stringify({ ...data, startsAt: data.startsAt.toISOString() })); return { id: 999 }; },
+      upcomingReservations: async () => booked,
+      createReservation: async (_db, data) => { console.log('  [FERRAMENTA] gravaria reserva:', JSON.stringify({ ...data, startsAt: data.startsAt.toISOString() })); booked.push({ id: 999, starts_at: data.startsAt, party_size: data.partySize }); return { id: 999 }; },
       setReservationStatus: async () => ({}),
       pauseBot: async () => {},
       broadcast: (_c, _k, data) => console.log('  [AVISO À EQUIPE]', JSON.stringify(data))
@@ -59,7 +60,8 @@ for (const [index, [title, rounds]] of SCENARIOS.entries()) {
       {
         db: fakeDb,
         loadSettings: async () => settings,
-        upcomingReservations: async () => [],
+        upcomingReservations: async () => booked,
+        broadcast: (_c, _k, data) => console.log('  [AVISO À EQUIPE]', JSON.stringify(data)),
         isBotPaused: async () => false,
         toolDeps,
         runTool: async (name, args, ctx) => { const r = await runTool(name, args, ctx); console.log(`  [FERRAMENTA] ${name}(${JSON.stringify(args)}) →`, JSON.stringify(r)); return r; },

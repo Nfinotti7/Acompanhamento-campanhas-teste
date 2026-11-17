@@ -24,6 +24,8 @@ const HOUR_MS = 3600e3;
 // Ferramentas que mudam algo: se o Gemini cair depois delas, os robôs antigos não podem assumir.
 const SIDE_EFFECT_TOOLS = new Set(['create_reservation', 'cancel_reservation', 'handoff_to_staff']);
 
+const PROMISES_STAFF = /só um momento|vou (chamar|verificar|confirmar|checar)|já (chamo|aviso)/i;
+
 const pending = new Map();
 
 function resolveDeps(deps) {
@@ -39,7 +41,7 @@ function resolveDeps(deps) {
     send: deps.send || sendToContact,
     typing: deps.typing || ((clientId, waId, text) => sendTyping(clientId, waId, Math.min(1500 + text.length * 25, 6000))),
     broadcast: deps.broadcast || broadcast,
-    model: deps.model || process.env.GEMINI_MODEL || 'gemini-flash-latest'
+    model: deps.model || process.env.GEMINI_MODEL || 'gemini-flash-lite-latest'
   };
 }
 
@@ -162,6 +164,9 @@ export async function runAiTurn(args, deps = {}) {
     return 'failed';
   }
   const status = handoffReason ? 'handoff' : 'answered';
+  // O modelo às vezes promete chamar a equipe sem usar a ferramenta de repasse: o cliente fica
+  // esperando e ninguém sabe. Nesse caso avisa a equipe no Balcão (sem pausar a IA).
+  if (!handoffReason && PROMISES_STAFF.test(text)) alertStaff(d, clientId, contactId);
   await audit(d, { ...base, status });
   return status;
 }

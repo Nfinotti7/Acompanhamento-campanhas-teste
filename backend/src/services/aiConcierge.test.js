@@ -214,3 +214,26 @@ test('erro ao enviar: falha sem acionar os robôs antigos', async () => {
   assert.equal(await runAiTurn(args, deps), 'failed');
   assert.equal(state.failures, 0);
 });
+
+test('promessa de chamar a equipe sem repasse avisa a equipe mesmo assim', async () => {
+  const { deps, args, state, contactId } = setup({
+    results: [say('Pra grupos maiores eu preciso olhar com a equipe, só um momento 😊')]
+  });
+  assert.equal(await runAiTurn(args, deps), 'answered');
+  assert.equal(state.sent.length, 1);
+  assert.deepEqual(state.broadcasts, [[9, 'reservation', { contactId, needsAttention: true }]]);
+});
+
+test('resposta comum não avisa a equipe', async () => {
+  const { deps, args, state } = setup({ results: [say('Oi! Pra quantas pessoas?')] });
+  await runAiTurn(args, deps);
+  assert.deepEqual(state.broadcasts, []);
+});
+
+test('com repasse feito, a promessa não gera um segundo aviso', async () => {
+  const { deps, args, state } = setup({
+    results: [call('handoff_to_staff', { reason: 'grupo grande' }), say('Só um momento, vou chamar a equipe 😊')]
+  });
+  await runAiTurn(args, deps);
+  assert.deepEqual(state.broadcasts, []); // quem avisa é a própria ferramenta de repasse (aiTools.js)
+});

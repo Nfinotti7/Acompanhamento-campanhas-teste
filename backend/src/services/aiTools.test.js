@@ -147,3 +147,19 @@ test('ferramenta desconhecida devolve erro sem lançar', async () => {
   const r = await runTool('apagar_banco', {}, ctx);
   assert.equal(r.error, 'unknown_tool');
 });
+
+test('create_reservation repetido para a mesma reserva não duplica', async () => {
+  const existing = { id: 5, starts_at: new Date('2026-11-20T22:00:00Z'), party_size: 4 };
+  const { ctx, calls } = setup({ upcoming: [existing] });
+  const r = await runTool('create_reservation', { name: 'Ana', date: FRIDAY, time: '19:00', party_size: 4 }, ctx);
+  assert.deepEqual(r, { ok: true, already_booked: true, id: 5, date: FRIDAY, time: '19:00', party_size: 4 });
+  assert.equal(calls.created.length, 0);
+});
+
+test('create_reservation no mesmo horário de outra reserva do contato, com outro tamanho, vai para a equipe', async () => {
+  const existing = { id: 5, starts_at: new Date('2026-11-20T22:00:00Z'), party_size: 4 };
+  const { ctx, calls } = setup({ upcoming: [existing] });
+  const r = await runTool('create_reservation', { name: 'Ana', date: FRIDAY, time: '19:00', party_size: 2 }, ctx);
+  assert.equal(r.error, 'already_booked_at_that_time');
+  assert.equal(calls.created.length, 0);
+});

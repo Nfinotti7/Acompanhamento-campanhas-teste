@@ -1,11 +1,12 @@
 // Cliente do Gemini por fetch (API REST generateContent). Sem SDK: o pipeline do Hostinger
 // só instala o package.json da raiz. Chave e modelo vêm do ambiente, nunca do banco.
 //   GEMINI_API_KEY          chave (Google AI Studio)
-//   GEMINI_MODEL            modelo (padrão: alias gemini-flash-latest)
+//   GEMINI_MODEL            modelo (padrão: alias gemini-flash-lite-latest; os Flash maiores
+//                           deram 503 "alta demanda" na camada gratuita em 17/11/2026)
 //   GEMINI_THINKING_BUDGET  opcional; 0 desliga o "pensar" nos modelos que aceitam (mais barato/rápido)
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-flash-latest';
+const DEFAULT_MODEL = 'gemini-flash-lite-latest';
 const DEFAULT_TIMEOUT_MS = 20000;
 
 export class GeminiError extends Error {}
