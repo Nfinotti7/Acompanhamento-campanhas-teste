@@ -52,3 +52,16 @@ test('saveReservationSettings recusa IA inválida', async () => {
     /IA/
   );
 });
+
+test('isAiActiveFor: o 9 extra do celular não atrapalha (WhatsApp guarda o número com 12 ou 13 dígitos)', () => {
+  const comNove = { ai: { enabled: true, test_phones: ['62981479128'] } };
+  assert.equal(isAiActiveFor(comNove, '556281479128'), true); // wa_id sem o 9
+  assert.equal(isAiActiveFor(comNove, '5562981479128'), true); // wa_id com o 9
+  const semNove = { ai: { enabled: true, test_phones: ['6281479128'] } };
+  assert.equal(isAiActiveFor(semNove, '5562981479128'), true);
+  assert.equal(isAiActiveFor(semNove, '556281479128'), true);
+  assert.equal(isAiActiveFor(comNove, '556281479999'), false);
+  assert.equal(isAiActiveFor(comNove, '5511981479128'), false); // outro DDD
+  const comPais = { ai: { enabled: true, test_phones: ['5562981479128'] } };
+  assert.equal(isAiActiveFor(comPais, '556281479128'), true);
+});

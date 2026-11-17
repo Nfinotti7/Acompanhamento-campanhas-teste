@@ -13,13 +13,22 @@ export const DEFAULT_AI_SETTINGS = {
 
 const digits = (value) => String(value || '').replace(/\D/g, '');
 
+// Celular brasileiro: o WhatsApp guarda o mesmo número com ou sem o 9 extra (55 62 9 8147-9128
+// ou 55 62 8147-9128; no Malibu, 145 de 149 contatos estão sem). Compara sem o país e sem o 9.
+function brPhoneKey(value) {
+  let d = digits(value);
+  if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
+  if (d.length === 11 && d[2] === '9') d = d.slice(0, 2) + d.slice(3);
+  return d;
+}
+
 export function isAiActiveFor(settings, waId) {
   const ai = settings?.ai;
   if (!ai?.enabled) return false;
-  const phones = Array.isArray(ai.test_phones) ? ai.test_phones.map(digits).filter(Boolean) : [];
+  const phones = Array.isArray(ai.test_phones) ? ai.test_phones.map(brPhoneKey).filter(Boolean) : [];
   if (phones.length === 0) return true;
-  const wa = digits(waId);
-  return phones.some((p) => wa.endsWith(p) || p.endsWith(wa));
+  const wa = brPhoneKey(waId);
+  return phones.some((p) => wa === p || wa.endsWith(p) || p.endsWith(wa));
 }
 
 // Devolve a mensagem de erro (pra tela) ou null. Quem salva transforma em erro de configuração.
