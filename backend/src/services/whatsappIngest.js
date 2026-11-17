@@ -9,6 +9,9 @@ import { handleInboundForInfo } from './infoBot.js';
 import { handleInboundForFollowup } from './followupBot.js';
 import { handleInboundForLoyalty } from './loyalty.js';
 import { handleInboundForAfterHours } from './afterHoursBot.js';
+import { handleInboundForAi } from './aiConcierge.js';
+import { isAiActiveFor } from './aiConfig.js';
+import { loadReservationSettings } from './reservationStore.js';
 import { notifyInboundMessage } from './pushNotify.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
@@ -190,29 +193,42 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   if (event.direction === 'inbound' && isPhone && flags.reservations_enabled && messageRows.length > 0) {
     // Cada robô só segue pro próximo quando devolve 'ignored'; o primeiro que trata a
     // mensagem encerra a cadeia. Erro num deles nunca derruba os outros.
-    const chain = [
-      ['Reservas', deps.onReservation || handleInboundForReservation],
-      ['Lembrete/avaliação', deps.onFollowup || handleInboundForFollowup],
-      ['Fidelidade', deps.onLoyalty || handleInboundForLoyalty],
-      ['Respostas automáticas', deps.onInfo || handleInboundForInfo],
-      ['Fora do horário', deps.onAfterHours || handleInboundForAfterHours]
-    ];
+    const reservas = ['Reservas', deps.onReservation || handleInboundForReservation];
+    const followup = ['Lembrete/avaliação', deps.onFollowup || handleInboundForFollowup];
+    const loyalty = ['Fidelidade', deps.onLoyalty || handleInboundForLoyalty];
+    const info = ['Respostas automáticas', deps.onInfo || handleInboundForInfo];
+    const afterHours = ['Fora do horário', deps.onAfterHours || handleInboundForAfterHours];
     const args = {
       clientId, contactId, waId: event.waId, profileName: event.profileName, body: event.body,
       fromAd: fromAd || presumedAd, isNewContact, restaurantName: flags.name || ''
     };
     const botDeps = deps.db ? { db: dbImpl } : {};
-    (async () => {
+    const runChain = async (chain, chainArgs) => {
       for (const [label, handler] of chain) {
         let result;
         try {
-          result = await handler(args, botDeps);
+          result = await handler(chainArgs, botDeps);
         } catch (error) {
           console.error(`${label}: erro no robô:`, error.message);
           result = label === 'Reservas' ? 'error' : 'ignored';
         }
         if (result !== 'ignored') return;
       }
+    };
+    (async () => {
+      // Atendente com IA (aiConcierge.js): quando ligada pra esse contato, assume o lugar de
+      // Reservas, Respostas automáticas e Fora do horário. Se ela falhar, esses três rodam.
+      let aiOn = false;
+      try {
+        const settings = await (deps.loadSettings || loadReservationSettings)(dbImpl, clientId);
+        aiOn = isAiActiveFor(settings, event.waId);
+      } catch (error) {
+        console.error('Atendente IA: erro ao ler a configuração:', error.message);
+      }
+      if (!aiOn) return runChain([reservas, followup, loyalty, info, afterHours], args);
+      const ai = ['Atendente IA', deps.onAi || handleInboundForAi];
+      const onFailure = (failedArgs) => runChain([reservas, info, afterHours], failedArgs);
+      return runChain([followup, loyalty, ai], { ...args, onFailure });
     })().catch((error) => console.error('Robôs do WhatsApp: erro:', error.message));
   }
 

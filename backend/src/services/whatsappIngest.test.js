@@ -437,3 +437,99 @@ test('respostas automáticas só rodam quando o robô de reserva não tratou a m
     if (expectInfo) assert.equal(infoCalls[0].body, 'Quero ver o cardápio');
   }
 });
+
+// --- Atendente com IA na cadeia de robôs ---
+function aiChainDb(ai) {
+  return {
+    query: async (sql) => {
+      if (/FROM clients WHERE id/.test(sql)) return { rows: [{ name: 'Malibu', dashboard_enabled: true, reservations_enabled: true }] };
+      if (/FROM reservation_settings/.test(sql)) return { rows: [{ config: { ai } }] };
+      if (/INSERT INTO whatsapp_contacts/.test(sql)) return { rows: [{ id: 7, inserted: false }] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+}
+
+function aiChain(ai, overrides = {}) {
+  const seen = { reservation: [], followup: [], loyalty: [], info: [], afterHours: [], ai: [] };
+  const deps = {
+    db: aiChainDb(ai), broadcast: () => {}, notifyInbound: () => {},
+    onReservation: async (a) => { seen.reservation.push(a); return 'ignored'; },
+    onFollowup: async (a) => { seen.followup.push(a); return 'ignored'; },
+    onLoyalty: async (a) => { seen.loyalty.push(a); return 'ignored'; },
+    onInfo: async (a) => { seen.info.push(a); return 'answered'; },
+    onAfterHours: async (a) => { seen.afterHours.push(a); return 'ignored'; },
+    onAi: async (a) => { seen.ai.push(a); return 'queued'; },
+    ...overrides
+  };
+  return { seen, deps };
+}
+const settle = () => new Promise((r) => setTimeout(r, 15));
+
+test('IA desligada: a cadeia de robôs de hoje continua igual', async () => {
+  const { seen, deps } = aiChain({ enabled: false });
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero ver o cardápio' }), deps);
+  await settle();
+  assert.equal(seen.reservation.length, 1);
+  assert.equal(seen.info.length, 1);
+  assert.equal(seen.ai.length, 0);
+});
+
+test('IA ligada sem lista de teste: a IA assume o lugar de reservas, respostas e fora do horário', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: [] });
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero reservar' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 1);
+  assert.equal(typeof seen.ai[0].onFailure, 'function');
+  assert.equal(seen.ai[0].body, 'Quero reservar');
+  assert.equal(seen.reservation.length, 0);
+  assert.equal(seen.info.length, 0);
+  assert.equal(seen.afterHours.length, 0);
+  assert.equal(seen.followup.length, 1);
+  assert.equal(seen.loyalty.length, 1);
+});
+
+test('IA em modo de teste: número fora da lista segue com os robôs de hoje', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: ['62981479128'] });
+  await ingestWhatsAppEvent(9, baseEvent({ waId: '5511999998888', body: 'Oi' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 0);
+  assert.equal(seen.reservation.length, 1);
+});
+
+test('IA em modo de teste: número da lista fala com a IA', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: ['62981479128'] });
+  await ingestWhatsAppEvent(9, baseEvent({ waId: '5562981479128', body: 'Oi' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 1);
+  assert.equal(seen.reservation.length, 0);
+});
+
+test('resposta a lembrete/avaliação (followup) vem antes da IA', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: [] }, { onFollowup: async (a) => { seen.followup.push(a); return 'answered'; } });
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'SIM' }), deps);
+  await settle();
+  assert.equal(seen.followup.length, 1);
+  assert.equal(seen.ai.length, 0);
+});
+
+test('se a IA falha, onFailure roda reservas, respostas automáticas e fora do horário', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: [] }, {
+    onAi: async (a) => { seen.ai.push(a); await a.onFailure(a); return 'queued'; }
+  });
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero ver o cardápio' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 1);
+  assert.equal(seen.reservation.length, 1);
+  assert.equal(seen.info.length, 1);
+  assert.equal(seen.followup.length, 1); // não roda de novo
+});
+
+test('falha ao carregar a configuração da IA cai na cadeia de hoje', async () => {
+  const { seen, deps } = aiChain({ enabled: true }, { loadSettings: async () => { throw new Error('banco fora'); } });
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Oi' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 0);
+  assert.equal(seen.reservation.length, 1);
+});
