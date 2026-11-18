@@ -12,7 +12,10 @@ export const DEFAULT_AI_SETTINGS = {
   tone: 'Fale como alguém da casa recebendo o cliente com carinho: caloroso, simpático e natural, '
     + 'em português do Brasil. Mensagens curtas, no máximo um emoji por mensagem, sem listas longas '
     + 'e sem linguagem formal ("prezado", "informamos"). Chame o cliente pelo primeiro nome.',
-  extra: ''
+  extra: '',
+  // Cardápio detalhado (itens e preços) que a IA consulta pra responder "tem onigiri?". Fica
+  // no prompt, então textos longos custam mais tokens por resposta.
+  menu_details: ''
 };
 
 const digits = (value) => String(value || '').replace(/\D/g, '');
@@ -52,5 +55,6 @@ export function validateAiSettings(ai) {
   if (typeof ai.name !== 'string' || ai.name.length > 40) return 'Nome da atendente: até 40 caracteres.';
   if (typeof ai.tone !== 'string' || ai.tone.length > 1500) return 'Tom de voz: até 1500 caracteres.';
   if (typeof ai.extra !== 'string' || ai.extra.length > 2000) return 'Instruções extras: até 2000 caracteres.';
+  if (typeof ai.menu_details !== 'string' || ai.menu_details.length > 8000) return 'Cardápio detalhado: até 8000 caracteres.';
   return null;
 }

@@ -143,3 +143,36 @@ test('o prompt proíbe assumir o número de pessoas e vazar comentário interno'
   assert.match(p, /Nunca assuma o número de pessoas/);
   assert.match(p, /Nunca escreva comentários internos[^\n]*nome de ferramenta/i);
 });
+
+test('aniversário sozinho segue como reserva comum; a equipe fica para bolo, decoração e promoção', () => {
+  const p = buildSystemPrompt(ARGS);
+  assert.match(p, /Aniversário ou comemoração[^\n]*não é motivo de repasse/);
+  assert.match(p, /bolo, decoração[^\n]*promoção de aniversário[^\n]*handoff_to_staff|handoff_to_staff[^\n]*bolo, decoração[^\n]*promoção de aniversário/);
+});
+
+test('a IA altera dia, horário e número de pessoas sozinha, em vez de chamar a equipe', () => {
+  const p = buildSystemPrompt(ARGS);
+  assert.match(p, /update_reservation[^\n]*list_my_reservations/);
+  assert.match(p, /confirme o novo horário/i);
+  assert.doesNotMatch(p, /mudança de horário de uma reserva/);
+});
+
+test('cardápio detalhado entra no prompt e manda não afirmar o que não está nele', () => {
+  const menu = 'Rodízio Premium: R$ 159\nTemaki de salmão: incluso\nOnigiri de salmão: incluso no rodízio';
+  const p = buildSystemPrompt({ ...ARGS, settings: { ...SETTINGS, ai: { ...SETTINGS.ai, menu_details: menu } } });
+  assert.match(p, /Cardápio detalhado/);
+  assert.ok(p.includes('Onigiri de salmão: incluso no rodízio'));
+  assert.match(p, /Pratos e itens[^\n]*Cardápio detalhado[^\n]*não estiver[^\n]*handoff_to_staff/);
+});
+
+test('sem cardápio detalhado a seção não aparece, mas a regra de item desconhecido continua', () => {
+  const p = buildSystemPrompt(ARGS);
+  assert.doesNotMatch(p, /### Cardápio detalhado/);
+  assert.match(p, /Pratos e itens/);
+});
+
+test('a regra do cardápio traz exemplo de item que não está na lista', () => {
+  const p = buildSystemPrompt(ARGS);
+  assert.match(p, /ex\.:[^\n]*tem pizza[^\n]*não está[^\n]*vou confirmar com a equipe/i);
+  assert.match(p, /nunca diga "não temos"/i);
+});

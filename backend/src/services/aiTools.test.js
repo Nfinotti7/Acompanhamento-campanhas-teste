@@ -12,13 +12,14 @@ const SETTINGS = {
 };
 const FRIDAY = '2026-11-20';
 
-function setup({ upcoming = [], dayReservations = [], createImpl } = {}) {
-  const calls = { created: [], statuses: [], paused: [], broadcasts: [], listed: 0 };
+function setup({ upcoming = [], dayReservations = [], createImpl, updateImpl } = {}) {
+  const calls = { created: [], statuses: [], paused: [], broadcasts: [], updated: [], listed: 0 };
   const deps = {
     listReservations: async () => { calls.listed += 1; return dayReservations; },
     upcomingReservations: async () => upcoming,
     createReservation: createImpl || (async (db, data) => { calls.created.push(data); return { id: 77, ...data }; }),
     setReservationStatus: async (db, data) => { calls.statuses.push(data); return { id: data.id }; },
+    updateReservation: updateImpl || (async (db, data) => { calls.updated.push(data); return { id: data.id, ...data }; }),
     pauseBot: async (db, data) => { calls.paused.push(data); },
     broadcast: (...args) => { calls.broadcasts.push(args); }
   };
@@ -26,9 +27,9 @@ function setup({ upcoming = [], dayReservations = [], createImpl } = {}) {
   return { ctx, calls };
 }
 
-test('as 5 ferramentas estão declaradas', () => {
+test('as 6 ferramentas estão declaradas', () => {
   assert.deepEqual(AI_TOOL_DECLARATIONS.map((t) => t.name).sort(),
-    ['cancel_reservation', 'check_availability', 'create_reservation', 'handoff_to_staff', 'list_my_reservations']);
+    ['cancel_reservation', 'check_availability', 'create_reservation', 'handoff_to_staff', 'list_my_reservations', 'update_reservation']);
 });
 
 test('check_availability devolve os horários livres do dia', async () => {
@@ -177,4 +178,85 @@ test('a origem que a IA grava é aceita pelo CHECK da tabela reservations', asyn
   const { ctx, calls } = setup();
   await runTool('create_reservation', { name: 'Ana', date: FRIDAY, time: '19:00', party_size: 2 }, ctx);
   assert.ok(allowed.includes(calls.created[0].source), `source ${calls.created[0].source} fora de ${allowed}`);
+});
+
+// --- Alterar uma reserva do próprio cliente (horário ou número de pessoas) ---
+const MINE = { id: 5, starts_at: new Date('2026-11-20T22:00:00Z'), party_size: 4 }; // sexta 19:00
+
+test('update_reservation muda o horário da própria reserva', async () => {
+  const { ctx, calls } = setup({ upcoming: [MINE] });
+  const r = await runTool('update_reservation', { reservation_id: 5, time: '19:30' }, ctx);
+  assert.deepEqual(r, { ok: true, id: 5, date: FRIDAY, time: '19:30', party_size: 4 });
+  assert.deepEqual(calls.updated, [{ clientId: 9, id: 5, partySize: 4, startsAt: new Date('2026-11-20T22:30:00Z'), force: false }]);
+});
+
+test('update_reservation muda o número de pessoas mantendo o horário', async () => {
+  const { ctx, calls } = setup({ upcoming: [MINE] });
+  const r = await runTool('update_reservation', { reservation_id: 5, party_size: 6 }, ctx);
+  assert.equal(r.ok, true);
+  assert.equal(calls.updated[0].partySize, 6);
+  assert.equal(calls.updated[0].startsAt.toISOString(), '2026-11-20T22:00:00.000Z');
+});
+
+test('update_reservation: grupo acima do limite vai para a equipe e não altera', async () => {
+  const { ctx, calls } = setup({ upcoming: [MINE] });
+  const r = await runTool('update_reservation', { reservation_id: 5, party_size: 7 }, ctx);
+  assert.equal(r.error, 'group_too_large');
+  assert.equal(r.say, HANDOFF_SAY);
+  assert.equal(calls.updated.length, 0);
+});
+
+test('update_reservation: reserva de outro contato não existe para este cliente', async () => {
+  const { ctx, calls } = setup({ upcoming: [MINE] });
+  const r = await runTool('update_reservation', { reservation_id: 999, time: '19:30' }, ctx);
+  assert.equal(r.error, 'not_found');
+  assert.equal(calls.updated.length, 0);
+});
+
+test('update_reservation: horário fora do turno devolve alternativas e não altera', async () => {
+  const { ctx, calls } = setup({ upcoming: [MINE] });
+  const r = await runTool('update_reservation', { reservation_id: 5, time: '21:00' }, ctx);
+  assert.equal(r.error, 'slot_unavailable');
+  assert.deepEqual(r.alternatives, ['17:30', '18:00', '18:30', '19:00', '19:30']);
+  assert.equal(calls.updated.length, 0);
+});
+
+test('update_reservation: a própria reserva não ocupa a mesa que ela mesma vai usar', async () => {
+  const startsAt = new Date('2026-11-20T22:00:00Z');
+  const endsAt = new Date('2026-11-21T00:00:00Z');
+  const six = (id) => ({ id, status: 'confirmed', table_seats: 6, starts_at: startsAt, ends_at: endsAt });
+  // 4 mesas de 6: três de outros clientes + a própria (id 5). Para 5 pessoas só serve mesa de 6.
+  const { ctx, calls } = setup({ upcoming: [MINE], dayReservations: [six(1), six(2), six(3), six(5)] });
+  const r = await runTool('update_reservation', { reservation_id: 5, party_size: 5 }, ctx);
+  assert.equal(r.ok, true);
+  assert.equal(calls.updated.length, 1);
+});
+
+test('update_reservation sem mudança real não grava', async () => {
+  const { ctx, calls } = setup({ upcoming: [MINE] });
+  const same = await runTool('update_reservation', { reservation_id: 5, time: '19:00', party_size: 4 }, ctx);
+  assert.deepEqual(same, { ok: true, unchanged: true, id: 5, date: FRIDAY, time: '19:00', party_size: 4 });
+  const nothing = await runTool('update_reservation', { reservation_id: 5 }, ctx);
+  assert.equal(nothing.error, 'nothing_to_change');
+  assert.equal(calls.updated.length, 0);
+});
+
+test('update_reservation: dados inválidos viram erro', async () => {
+  for (const args of [
+    { reservation_id: 5, time: '7 da noite' },
+    { reservation_id: 5, date: 'amanhã' },
+    { reservation_id: 5, date: '2026-11-10' }, // passada
+    { reservation_id: 5, party_size: 0 }
+  ]) {
+    const { ctx, calls } = setup({ upcoming: [MINE] });
+    const r = await runTool('update_reservation', args, ctx);
+    assert.ok(r.error, JSON.stringify(args));
+    assert.equal(calls.updated.length, 0);
+  }
+});
+
+test('update_reservation: SlotTakenError vira slot_taken', async () => {
+  const { ctx } = setup({ upcoming: [MINE], updateImpl: async () => { throw new SlotTakenError(); } });
+  const r = await runTool('update_reservation', { reservation_id: 5, time: '19:30' }, ctx);
+  assert.equal(r.error, 'slot_taken');
 });

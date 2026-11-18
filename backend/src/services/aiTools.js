@@ -3,7 +3,7 @@
 // nunca pelo prompt. runTool nunca lança: erro vira { error, message } pra IA contar ao cliente.
 import { availableSlots, maxParty, toInstant, dayOf, addDays } from './reservationSlots.js';
 import {
-  createReservation, setReservationStatus, listReservations, upcomingReservationsForContact, SlotTakenError
+  createReservation, updateReservation, setReservationStatus, listReservations, upcomingReservationsForContact, SlotTakenError
 } from './reservationStore.js';
 import { pauseBot } from './botPause.js';
 import { broadcast } from './sseHub.js';
@@ -54,9 +54,24 @@ export const AI_TOOL_DECLARATIONS = [
     }
   },
   {
+    name: 'update_reservation',
+    description: 'Muda o dia, o horário e/ou o número de pessoas de uma reserva futura deste cliente. Informe só o que muda. '
+      + 'Confirme com o cliente o novo horário antes de chamar.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        reservation_id: { type: 'INTEGER', description: 'Id vindo de list_my_reservations (ou da reserva que você acabou de criar).' },
+        date: { type: 'STRING', description: 'Novo dia no formato AAAA-MM-DD (omita se não muda).' },
+        time: { type: 'STRING', description: 'Novo horário no formato HH:MM, 24h (omita se não muda).' },
+        party_size: { type: 'INTEGER', description: 'Novo número de pessoas (omita se não muda).' }
+      },
+      required: ['reservation_id']
+    }
+  },
+  {
     name: 'handoff_to_staff',
     description: 'Chama a equipe e para de responder esta conversa. Use para: grupo acima do limite, pedido especial '
-      + '(decoração, bolo, desconto, sala, pagamento), mudança de horário de uma reserva, reclamação, pergunta que '
+      + '(bolo, decoração, desconto ou promoção de aniversário, sala, pagamento), reclamação, pergunta que '
       + 'não está nos textos cadastrados, ou cliente pedindo para falar com uma pessoa.',
     parameters: {
       type: 'OBJECT',
@@ -100,6 +115,7 @@ function resolveDeps(deps = {}) {
     listReservations: deps.listReservations || listReservations,
     upcomingReservations: deps.upcomingReservations || upcomingReservationsForContact,
     createReservation: deps.createReservation || createReservation,
+    updateReservation: deps.updateReservation || updateReservation,
     setReservationStatus: deps.setReservationStatus || setReservationStatus,
     pauseBot: deps.pauseBot || pauseBot,
     broadcast: deps.broadcast || broadcast
@@ -165,6 +181,45 @@ async function myReservations(ctx, d) {
   return d.upcomingReservations(ctx.db, { clientId: ctx.clientId, contactId: ctx.contactId, now: ctx.now });
 }
 
+// Muda dia, horário e/ou número de pessoas de uma reserva do próprio contato, pelas mesmas
+// regras da reserva nova (limite de grupo, antecedência, mesa livre). A própria reserva não
+// conta como ocupando a mesa que ela vai usar.
+async function updateReservationTool(args, ctx, d) {
+  const id = Number(args.reservation_id);
+  const mine = (await myReservations(ctx, d)).find((r) => Number(r.id) === id);
+  if (!mine) return fail('not_found', 'Não achei essa reserva neste contato.');
+  const hasParty = args.party_size !== undefined && args.party_size !== null && args.party_size !== '';
+  if (!args.date && !args.time && !hasParty) {
+    return fail('nothing_to_change', 'Diga o que mudar: dia, horário ou número de pessoas.');
+  }
+  const current = localParts(mine.starts_at);
+  const party = hasParty ? partyOf(args.party_size) : Number(mine.party_size);
+  if (!party) return fail('invalid_party', 'Número de pessoas inválido.');
+  if (party > maxParty(ctx.settings)) {
+    return fail('group_too_large', 'Grupo acima do que fecho sozinha: diga a frase do campo say e chame handoff_to_staff.', { say: HANDOFF_SAY });
+  }
+  const day = args.date || current.date;
+  if (!validDay(day)) return fail('invalid_date', 'Data inválida; use AAAA-MM-DD.');
+  const time = args.time || current.time;
+  if (typeof time !== 'string' || !HHMM.test(time)) return fail('invalid_time', 'Horário inválido; use HH:MM.');
+  if (day < dayOf(ctx.now)) return fail('past_date', 'Essa data já passou.');
+  if (day === current.date && time === current.time && party === Number(mine.party_size)) {
+    return { ok: true, unchanged: true, id: mine.id, date: day, time, party_size: party };
+  }
+
+  const reservations = (await reservationsOfDay(ctx, d, day)).filter((r) => Number(r.id) !== Number(mine.id));
+  const slots = availableSlots({ settings: ctx.settings, day, partySize: party, reservations, now: ctx.now });
+  const slot = slots.find((s) => s.time === time);
+  if (!slot) return fail('slot_unavailable', 'Esse horário não está disponível.', { alternatives: slots.map((s) => s.time) });
+  try {
+    await d.updateReservation(ctx.db, { clientId: ctx.clientId, id: mine.id, partySize: party, startsAt: slot.startsAt, force: false });
+    return { ok: true, id: mine.id, date: day, time, party_size: party };
+  } catch (error) {
+    if (error instanceof SlotTakenError) return fail('slot_taken', 'Acabaram de ocupar esse horário.');
+    throw error;
+  }
+}
+
 async function handlers(name, args, ctx, d) {
   switch (name) {
     case 'check_availability': return checkAvailability(args, ctx, d);
@@ -173,6 +228,7 @@ async function handlers(name, args, ctx, d) {
       const rows = await myReservations(ctx, d);
       return { reservations: rows.map((r) => ({ id: r.id, ...localParts(r.starts_at), party_size: r.party_size })) };
     }
+    case 'update_reservation': return updateReservationTool(args, ctx, d);
     case 'cancel_reservation': {
       const id = Number(args.reservation_id);
       const mine = (await myReservations(ctx, d)).find((r) => Number(r.id) === id);

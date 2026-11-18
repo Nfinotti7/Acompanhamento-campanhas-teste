@@ -93,7 +93,8 @@ function toForm(s) {
       name: s.ai?.name ?? 'Maria',
       phones: (s.ai?.test_phones || []).join('\n'),
       tone: s.ai?.tone || '',
-      extra: s.ai?.extra || ''
+      extra: s.ai?.extra || '',
+      menu_details: s.ai?.menu_details || ''
     },
     followup: {
       ...EMPTY_FOLLOWUP, ...(s.followup || {}),
@@ -129,7 +130,8 @@ function fromForm(f) {
       name: f.ai.name.trim(),
       test_phones: f.ai.phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
       tone: f.ai.tone.trim(),
-      extra: f.ai.extra.trim()
+      extra: f.ai.extra.trim(),
+      menu_details: f.ai.menu_details.trim()
     },
     followup: {
       ...f.followup,
@@ -360,6 +362,13 @@ export default function ReservationSettings({ api, onBack }) {
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Tom de voz</span>
           <textarea className="nm-input" rows={4} value={form.ai.tone} onChange={(e) => set({ ai: { ...form.ai, tone: e.target.value } })} />
+        </label>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Cardápio detalhado (itens e preços)</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Cole aqui os pratos, o que o rodízio inclui e os preços (ex.: "Rodízio Premium: R$ 159 · Onigiri de salmão: incluso"). A atendente responde "tem tal prato?" só com o que estiver aqui e nas perguntas frequentes; o que não estiver, ela confirma com a equipe. Quanto maior o texto, maior o custo de cada resposta. Até 8000 caracteres ({form.ai.menu_details.length} usados).
+          </span>
+          <textarea className="nm-input" rows={8} maxLength={8000} value={form.ai.menu_details} onChange={(e) => set({ ai: { ...form.ai, menu_details: e.target.value } })} />
         </label>
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Instruções extras</span>

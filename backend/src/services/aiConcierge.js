@@ -23,7 +23,7 @@ export const MAX_REPLIES_PER_HOUR = 20;
 const HISTORY_LIMIT = 30;
 const HOUR_MS = 3600e3;
 // Ferramentas que mudam algo: se o Gemini cair depois delas, os robôs antigos não podem assumir.
-const SIDE_EFFECT_TOOLS = new Set(['create_reservation', 'cancel_reservation', 'handoff_to_staff']);
+const SIDE_EFFECT_TOOLS = new Set(['create_reservation', 'update_reservation', 'cancel_reservation', 'handoff_to_staff']);
 
 const PROMISES_STAFF = /só um momento|vou (chamar|verificar|confirmar|checar)|já (chamo|aviso)/i;
 

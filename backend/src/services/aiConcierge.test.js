@@ -330,3 +330,12 @@ test('recuperar: sem conversas pendentes não faz nada', async () => {
   assert.equal(await recoverPendingAiReplies(deps), 0);
   assert.equal(enqueued.length, 0);
 });
+
+test('falha depois de update_reservation também não cai nos robôs: avisa a equipe', async () => {
+  const { deps, args, state, contactId } = setup({
+    results: [call('update_reservation', { reservation_id: 5, time: '19:30' }), new GeminiError('Gemini: erro HTTP 429.')]
+  });
+  assert.equal(await runAiTurn(args, deps), 'failed');
+  assert.equal(state.failures, 0);
+  assert.deepEqual(state.broadcasts, [[9, 'reservation', { contactId, needsAttention: true }]]);
+});

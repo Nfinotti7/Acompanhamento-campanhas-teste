@@ -109,3 +109,10 @@ test('o botão de pausa geral grava só ai.paused e mantém nome, lista de teste
   assert.equal(next.ai.paused, true);
   assert.deepEqual(saved[0].ai, { ...DEFAULT_AI_SETTINGS, ...stored.ai, paused: true });
 });
+
+test('cardápio detalhado da IA: padrão vazio, aceita até 8000 caracteres', () => {
+  assert.equal(DEFAULT_AI_SETTINGS.menu_details, '');
+  assert.equal(validateAiSettings({ ...DEFAULT_AI_SETTINGS, menu_details: 'x'.repeat(8000) }), null);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, menu_details: 'x'.repeat(8001) }), /Cardápio detalhado/);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, menu_details: 42 }), /Cardápio detalhado/);
+});
