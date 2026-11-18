@@ -34,7 +34,8 @@ const SCENARIOS = [
     ['O acompanhante pode ser uma criança?', 'No dia de meu aniversário'],
     ['No caso, pago o dela como adulto.', 'E criança paga?', 'Kkkk'],
     ['Ela tem 7 anos', 'Obrigado.']
-  ]]
+  ]],
+  ['Aniversário: só eu e uma criança', [['No meu aniversário posso ir só eu e minha filha de 7 anos? Ela paga e eu não?']]]
 ];
 
 const settings = await loadReservationSettings(db, clientId);

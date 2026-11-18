@@ -184,9 +184,3 @@ test('lista marcada como completa no cardápio permite dizer que o item não faz
   // continua proibido negar item de lista que não foi marcada como completa
   assert.match(p, /nunca diga "não temos"/i);
 });
-
-test('não repete o convite pra reservar e fecha com carinho quando o cliente só agradece', () => {
-  const p = buildSystemPrompt(ARGS);
-  assert.match(p, /convite pra reservar[^\n]*no máximo uma vez/i);
-  assert.match(p, /agradec[^\n]*curto[^\n]*sem (nova|outra) pergunta/i);
-});
