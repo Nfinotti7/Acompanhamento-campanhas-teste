@@ -154,11 +154,11 @@ test('GET bot do contato com reservas desligadas devolve enabled:false', async (
 });
 
 // Selo do painel da conversa com a atendente com IA (ela não cria reservation_conversations).
-function botDb({ waId = '556281479196', paused = null, botActive = false } = {}) {
+function botDb({ waId = '556281479196', paused = null, botActive = false, source = 'ad' } = {}) {
   return {
     query: async (sql) => {
       if (/FROM clients WHERE id/.test(sql)) return { rows: [{ reservations_enabled: true }] };
-      if (/bot_paused_until/.test(sql)) return { rows: [{ bot_paused_until: paused, bot_active: botActive, wa_id: waId }] };
+      if (/bot_paused_until/.test(sql)) return { rows: [{ bot_paused_until: paused, bot_active: botActive, wa_id: waId, source }] };
       return { rows: [] };
     }
   };
@@ -198,4 +198,16 @@ test('GET bot do contato: conversa de grupo nunca é da IA', async () => {
   const res = fakeRes();
   await handlers.contactBot(staffReq({ params: { id: '3' } }), res);
   assert.equal(res.body.ai, false);
+});
+
+test('GET bot do contato: com só anúncio, contato orgânico não aparece como atendido pela IA', async () => {
+  const mk = (source) => createReservationHandlers({
+    db: botDb({ source }), now: () => new Date('2026-10-22T18:00:00Z'), loadSettings: aiSettings({ enabled: true, only_ad_leads: true })
+  });
+  const organic = fakeRes();
+  await mk('organic').contactBot(staffReq({ params: { id: '3' } }), organic);
+  assert.equal(organic.body.ai, false);
+  const ad = fakeRes();
+  await mk('ad').contactBot(staffReq({ params: { id: '3' } }), ad);
+  assert.equal(ad.body.ai, true);
 });

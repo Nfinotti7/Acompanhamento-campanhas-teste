@@ -116,3 +116,41 @@ test('cardápio detalhado da IA: padrão vazio, aceita até 8000 caracteres', ()
   assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, menu_details: 'x'.repeat(8001) }), /Cardápio detalhado/);
   assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, menu_details: 42 }), /Cardápio detalhado/);
 });
+
+test('só leads de anúncio é o padrão', () => {
+  assert.equal(DEFAULT_AI_SETTINGS.only_ad_leads, true);
+});
+
+test('isAiActiveFor: com só anúncio, atende lead de anúncio e ninguém mais', () => {
+  const s = { ai: { enabled: true, only_ad_leads: true, test_phones: [] } };
+  assert.equal(isAiActiveFor(s, '5562981479128', 'ad'), true);
+  assert.equal(isAiActiveFor(s, '5562981479128', 'organic'), false);
+  assert.equal(isAiActiveFor(s, '5562981479128', undefined), false);
+  assert.equal(isAiActiveFor(s, '5562981479128', null), false);
+});
+
+test('isAiActiveFor: sem a regra de anúncio, atende qualquer origem', () => {
+  const s = { ai: { enabled: true, only_ad_leads: false, test_phones: [] } };
+  assert.equal(isAiActiveFor(s, '5562981479128', 'organic'), true);
+});
+
+test('isAiActiveFor: a regra de anúncio soma com a lista de teste e com a pausa', () => {
+  const base = { enabled: true, only_ad_leads: true };
+  assert.equal(isAiActiveFor({ ai: { ...base, test_phones: ['5562999990000'] } }, '5562981479128', 'ad'), false);
+  assert.equal(isAiActiveFor({ ai: { ...base, paused: true, test_phones: [] } }, '5562981479128', 'ad'), false);
+});
+
+test('validateAiSettings: only_ad_leads precisa ser booleano, ausente vale', () => {
+  const ok = { ...DEFAULT_AI_SETTINGS };
+  assert.equal(validateAiSettings(ok), null);
+  const legacy = { ...DEFAULT_AI_SETTINGS }; delete legacy.only_ad_leads;
+  assert.equal(validateAiSettings(legacy), null);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, only_ad_leads: 'sim' }), /inválido/);
+});
+
+test('aiStateFor: lead que não é de anúncio não ganha selo da IA', () => {
+  const s = { ai: { ...DEFAULT_AI_SETTINGS, enabled: true } };
+  const row = { wa_id: '5562981479128', bot_paused_until: null };
+  assert.equal(aiStateFor(s, { ...row, source: 'organic' }), null);
+  assert.equal(aiStateFor(s, { ...row, source: 'ad' }), 'on');
+});

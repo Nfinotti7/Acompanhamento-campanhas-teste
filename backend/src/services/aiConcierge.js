@@ -111,7 +111,7 @@ export async function recoverPendingAiReplies(deps = {}) {
   const loadSettings = deps.loadSettings || loadReservationSettings;
   const enqueue = deps.enqueue || handleInboundForAi;
   const { rows } = await q.query(
-    `SELECT c.id AS contact_id, c.client_id, c.wa_id, c.profile_name, cl.name AS restaurant_name
+    `SELECT c.id AS contact_id, c.client_id, c.wa_id, c.source, c.profile_name, cl.name AS restaurant_name
      FROM whatsapp_contacts c
      JOIN clients cl ON cl.id = c.client_id
      JOIN LATERAL (
@@ -126,7 +126,7 @@ export async function recoverPendingAiReplies(deps = {}) {
     if (!/^\d{8,15}$/.test(String(row.wa_id))) continue; // grupo/lista de transmissão
     const key = String(row.client_id);
     if (!settingsByClient.has(key)) settingsByClient.set(key, await loadSettings(q, row.client_id));
-    if (!isAiActiveFor(settingsByClient.get(key), row.wa_id)) continue;
+    if (!isAiActiveFor(settingsByClient.get(key), row.wa_id, row.source)) continue;
     await enqueue({
       clientId: row.client_id, contactId: row.contact_id, waId: row.wa_id,
       profileName: row.profile_name, restaurantName: row.restaurant_name || ''

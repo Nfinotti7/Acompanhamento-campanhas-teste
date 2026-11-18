@@ -439,9 +439,10 @@ test('respostas automáticas só rodam quando o robô de reserva não tratou a m
 });
 
 // --- Atendente com IA na cadeia de robôs ---
-function aiChainDb(ai) {
+function aiChainDb(ai, source = 'ad') {
   return {
     query: async (sql) => {
+      if (/SELECT source FROM whatsapp_contacts/.test(sql)) return { rows: [{ source }] };
       if (/FROM clients WHERE id/.test(sql)) return { rows: [{ name: 'Malibu', dashboard_enabled: true, reservations_enabled: true }] };
       if (/FROM reservation_settings/.test(sql)) return { rows: [{ config: { ai } }] };
       if (/INSERT INTO whatsapp_contacts/.test(sql)) return { rows: [{ id: 7, inserted: false }] };
@@ -451,10 +452,10 @@ function aiChainDb(ai) {
   };
 }
 
-function aiChain(ai, overrides = {}) {
+function aiChain(ai, overrides = {}, source = 'ad') {
   const seen = { reservation: [], followup: [], loyalty: [], info: [], afterHours: [], ai: [] };
   const deps = {
-    db: aiChainDb(ai), broadcast: () => {}, notifyInbound: () => {},
+    db: aiChainDb(ai, source), broadcast: () => {}, notifyInbound: () => {},
     onReservation: async (a) => { seen.reservation.push(a); return 'ignored'; },
     onFollowup: async (a) => { seen.followup.push(a); return 'ignored'; },
     onLoyalty: async (a) => { seen.loyalty.push(a); return 'ignored'; },
@@ -528,6 +529,42 @@ test('se a IA falha, onFailure roda reservas, respostas automáticas e fora do h
 
 test('falha ao carregar a configuração da IA cai na cadeia de hoje', async () => {
   const { seen, deps } = aiChain({ enabled: true }, { loadSettings: async () => { throw new Error('banco fora'); } });
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Oi' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 0);
+  assert.equal(seen.reservation.length, 1);
+});
+
+test('só anúncio (padrão): contato orgânico segue com os robôs de hoje', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: [] }, {}, 'organic');
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero reservar' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 0);
+  assert.equal(seen.reservation.length, 1);
+});
+
+test('só anúncio (padrão): lead de anúncio fala com a IA', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: [] }, {}, 'ad');
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero reservar' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 1);
+  assert.equal(seen.reservation.length, 0);
+});
+
+test('sem a regra de anúncio, contato orgânico também fala com a IA', async () => {
+  const { seen, deps } = aiChain({ enabled: true, only_ad_leads: false, test_phones: [] }, {}, 'organic');
+  await ingestWhatsAppEvent(9, baseEvent({ body: 'Quero reservar' }), deps);
+  await settle();
+  assert.equal(seen.ai.length, 1);
+});
+
+test('só anúncio: erro ao ler a origem do contato cai nos robôs de hoje', async () => {
+  const { seen, deps } = aiChain({ enabled: true, test_phones: [] });
+  const original = deps.db.query;
+  deps.db.query = async (sql, p) => {
+    if (/SELECT source FROM whatsapp_contacts/.test(sql)) throw new Error('banco fora');
+    return original(sql, p);
+  };
   await ingestWhatsAppEvent(9, baseEvent({ body: 'Oi' }), deps);
   await settle();
   assert.equal(seen.ai.length, 0);

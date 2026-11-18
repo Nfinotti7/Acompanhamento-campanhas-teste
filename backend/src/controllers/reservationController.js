@@ -237,7 +237,7 @@ export function createReservationHandlers(overrides = {}) {
     contactBot: handler(async (req, res, clientId, flags) => {
       if (!flags.reservations_enabled) return res.json({ enabled: false });
       const { rows } = await d.db.query(
-        `SELECT wc.bot_paused_until, wc.wa_id,
+        `SELECT wc.bot_paused_until, wc.wa_id, wc.source,
                 EXISTS (SELECT 1 FROM reservation_conversations rc WHERE rc.contact_id = wc.id AND rc.status = 'active') AS bot_active
          FROM whatsapp_contacts wc WHERE wc.id = ? AND wc.client_id = ?`,
         [Number(req.params.id), clientId]
@@ -247,7 +247,7 @@ export function createReservationHandlers(overrides = {}) {
       // A atendente com IA não cria reservation_conversations: sem isto o selo "atendendo" não
       // aparecia enquanto ela respondia. Grupo/lista de transmissão nunca é atendido pela IA.
       const settings = await d.loadSettings(d.db, clientId);
-      const ai = /^\d{8,15}$/.test(String(row.wa_id || '')) && isAiActiveFor(settings, row.wa_id);
+      const ai = /^\d{8,15}$/.test(String(row.wa_id || '')) && isAiActiveFor(settings, row.wa_id, row.source);
       return res.json({
         enabled: true,
         pausedUntil,

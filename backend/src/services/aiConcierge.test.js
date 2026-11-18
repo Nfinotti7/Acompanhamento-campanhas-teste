@@ -293,8 +293,8 @@ test('resposta que só tinha comentário interno vira falha e cai nos robôs ant
 });
 
 // --- Recuperar conversas que ficaram sem resposta por causa de um reinício ---
-const rowsFor = (...contacts) => contacts.map(([contact_id, client_id, wa_id]) => ({
-  contact_id, client_id, wa_id, profile_name: 'Fulano', restaurant_name: 'Malibu Sushibar'
+const rowsFor = (...contacts) => contacts.map(([contact_id, client_id, wa_id, source = 'ad']) => ({
+  contact_id, client_id, wa_id, source, profile_name: 'Fulano', restaurant_name: 'Malibu Sushibar'
 }));
 
 function recoverSetup({ rows, settingsByClient }) {
@@ -351,4 +351,14 @@ test('runAiTurn: telefone e CPF do cliente não vão ao Gemini, mas a resposta s
   assert.match(sentToGemini, /\[CPF\]/);
   assert.doesNotMatch(sentToGemini, /62981479128|123\.456\.789-09/);
   assert.equal(state.sent.length, 1);
+});
+
+test('recuperar: com só anúncio, contato orgânico não é enfileirado', async () => {
+  const on = { ...SETTINGS, ai: { ...SETTINGS.ai, enabled: true, only_ad_leads: true, test_phones: [] } };
+  const { deps, enqueued } = recoverSetup({
+    rows: rowsFor([1, 9, '5562981112222', 'ad'], [2, 9, '5562983334444', 'organic'], [3, 9, '5562985556666', null]),
+    settingsByClient: { 9: on }
+  });
+  assert.equal(await recoverPendingAiReplies(deps), 1);
+  assert.deepEqual(enqueued.map((a) => a.contactId), [1]);
 });

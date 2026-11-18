@@ -221,7 +221,14 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       let aiOn = false;
       try {
         const settings = await (deps.loadSettings || loadReservationSettings)(dbImpl, clientId);
-        aiOn = isAiActiveFor(settings, event.waId);
+        // Só atende lead de anúncio (padrão): a origem vem do contato já gravado, que o bloco
+        // acima atualiza pra 'ad' nos números só de anúncio.
+        let source = null;
+        if (settings.ai?.only_ad_leads) {
+          const { rows } = await dbImpl.query('SELECT source FROM whatsapp_contacts WHERE id = ?', [contactId]);
+          source = rows[0]?.source ?? null;
+        }
+        aiOn = isAiActiveFor(settings, event.waId, source);
       } catch (error) {
         console.error('Atendente IA: erro ao ler a configuração:', error.message);
       }
