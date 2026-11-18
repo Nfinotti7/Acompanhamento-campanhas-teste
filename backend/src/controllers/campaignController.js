@@ -21,6 +21,8 @@ function withDerivedMetrics(row) {
   const roi = spend > 0 ? ((conversionValue - spend) / spend) * 100 : 0;
   const eventContacts = Number(row.event_contacts) || 0;
   const eventSpend = Number(row.event_spend) || 0;
+  const storeVisits = Math.round(Number(row.store_visits) || 0);
+  const googleSpend = Number(row.google_spend) || 0;
 
   return {
     ...row,
@@ -33,6 +35,9 @@ function withDerivedMetrics(row) {
     event_contacts: eventContacts,
     event_spend: Number(eventSpend.toFixed(2)),
     cost_per_event_contact: eventContacts > 0 ? Number((eventSpend / eventContacts).toFixed(2)) : 0,
+    store_visits: storeVisits,
+    google_spend: Number(googleSpend.toFixed(2)),
+    cost_per_store_visit: storeVisits > 0 ? Number((googleSpend / storeVisits).toFixed(2)) : 0,
     ctr: Number(ctr.toFixed(2)),
     cpc: Number(cpc.toFixed(2)),
     cpm: Number(cpm.toFixed(2)),
@@ -101,6 +106,8 @@ export async function getMetricsSummary(req, res) {
         COALESCE(SUM(conversions), 0) as conversions,
         COALESCE(SUM(event_contacts), 0) as event_contacts,
         COALESCE(SUM(CASE WHEN campaign_id IN (SELECT id FROM campaigns WHERE ${EVENT_CAMPAIGN_SQL}) THEN spend ELSE 0 END), 0) as event_spend,
+        COALESCE(SUM(store_visits), 0) as store_visits,
+        COALESCE(SUM(CASE WHEN platform = 'google' THEN spend ELSE 0 END), 0) as google_spend,
         COALESCE(SUM(conversion_value), 0) as conversion_value
       FROM daily_metrics
       WHERE ${whereSql}
@@ -119,6 +126,7 @@ export async function getMetricsSummary(req, res) {
         SUM(reach) as reach,
         SUM(conversions) as conversions,
         SUM(event_contacts) as event_contacts,
+        SUM(store_visits) as store_visits,
         SUM(conversion_value) as conversion_value
       FROM daily_metrics
       WHERE ${whereSql}

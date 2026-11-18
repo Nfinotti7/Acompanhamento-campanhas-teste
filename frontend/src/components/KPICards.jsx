@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, MousePointerClick, Eye, ShoppingCart, TrendingUp, Award, Target, Percent, CalendarHeart } from 'lucide-react';
+import { DollarSign, MousePointerClick, Eye, ShoppingCart, TrendingUp, Award, Target, Percent, CalendarHeart, Store } from 'lucide-react';
 
 export default function KPICards({ summary }) {
   if (!summary) return null;
@@ -50,6 +50,20 @@ export default function KPICards({ summary }) {
       color: 'var(--chart-3)',
       bgGlow: 'color-mix(in srgb, var(--chart-3) 12%, transparent)',
       subtext: `Cliques no WhatsApp de eventos · R$ ${costPer.toFixed(2)} cada`
+    });
+  }
+
+  // Só aparece quando o Google estimou visitas no período (hoje, o Alma).
+  const storeVisits = Number(summary.store_visits) || 0;
+  if (storeVisits > 0) {
+    const costPerVisit = Number(summary.cost_per_store_visit) || 0;
+    cards.push({
+      title: 'Visitas ao restaurante',
+      value: storeVisits.toLocaleString('pt-BR'),
+      icon: Store,
+      color: 'var(--accent-google)',
+      bgGlow: 'color-mix(in srgb, var(--accent-google) 12%, transparent)',
+      subtext: `Estimativa do Google · R$ ${costPerVisit.toFixed(2)} por visita`
     });
   }
 

@@ -256,6 +256,18 @@ export default function PresentationView({
                     R$ {summary?.cpa?.toFixed(2)}
                   </div>
                 </div>
+
+                {Number(summary?.store_visits) > 0 && (
+                  <div style={{ backgroundColor: 'var(--border-color)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Visitas ao restaurante</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-google)' }}>
+                      {Number(summary.store_visits).toLocaleString('pt-BR')}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Estimativa do Google · R$ {Number(summary.cost_per_store_visit || 0).toFixed(2)} cada
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>

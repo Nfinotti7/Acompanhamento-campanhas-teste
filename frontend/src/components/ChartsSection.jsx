@@ -27,6 +27,7 @@ export const METRIC_CATALOG = {
   reach: { label: 'Alcance', color: 'var(--chart-1)', format: 'number' },
   conversions: { label: 'Conversões (Resultados)', color: 'var(--accent-success)', format: 'number' },
   event_contacts: { label: 'Contatos de eventos', color: 'var(--chart-3)', format: 'number' },
+  store_visits: { label: 'Visitas ao restaurante (Google)', color: 'var(--chart-1)', format: 'number' },
   cpa: { label: 'Custo por Resultado (CPA)', color: 'var(--accent-warning)', format: 'currency' },
   cpc: { label: 'CPC', color: 'var(--chart-5)', format: 'currency' },
   cpm: { label: 'CPM', color: 'var(--chart-3)', format: 'currency' },

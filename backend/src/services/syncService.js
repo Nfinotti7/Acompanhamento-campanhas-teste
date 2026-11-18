@@ -168,7 +168,7 @@ async function upsertHiddenCampaign(tx, { platform, campaignId, campaignName, st
   return rows[0].id;
 }
 
-async function upsertDailyMetric(tx, { campaignInternalId, clientId, platform, date, spend, clicks, impressions, reach, conversions, conversionValue, eventContacts }) {
+async function upsertDailyMetric(tx, { campaignInternalId, clientId, platform, date, spend, clicks, impressions, reach, conversions, conversionValue, eventContacts, storeVisits }) {
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
   const cpc = clicks > 0 ? spend / clicks : 0;
   const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
@@ -176,8 +176,8 @@ async function upsertDailyMetric(tx, { campaignInternalId, clientId, platform, d
 
   await tx.query(
     `INSERT INTO daily_metrics
-       (campaign_id, client_id, platform, date, spend, clicks, impressions, reach, conversions, conversion_value, ctr, cpc, cpm, roas, event_contacts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (campaign_id, client_id, platform, date, spend, clicks, impressions, reach, conversions, conversion_value, ctr, cpc, cpm, roas, event_contacts, store_visits)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(campaign_id, date) DO UPDATE SET
        spend = excluded.spend,
        clicks = excluded.clicks,
@@ -189,8 +189,9 @@ async function upsertDailyMetric(tx, { campaignInternalId, clientId, platform, d
        cpc = excluded.cpc,
        cpm = excluded.cpm,
        roas = excluded.roas,
-       event_contacts = excluded.event_contacts`,
-    [campaignInternalId, clientId, platform, date, spend, clicks, impressions, reach || 0, conversions, conversionValue, ctr, cpc, cpm, roas, eventContacts || 0]
+       event_contacts = excluded.event_contacts,
+       store_visits = excluded.store_visits`,
+    [campaignInternalId, clientId, platform, date, spend, clicks, impressions, reach || 0, conversions, conversionValue, ctr, cpc, cpm, roas, eventContacts || 0, storeVisits || 0]
   );
 }
 
@@ -225,7 +226,8 @@ export async function storeRows(clientId, platform, rows) {
           reach: r.reach,
           conversions: r.conversions,
           conversionValue: r.conversionValue,
-          eventContacts: r.eventContacts || 0
+          eventContacts: r.eventContacts || 0,
+          storeVisits: r.storeVisits || 0
         });
       }
     }
@@ -334,7 +336,8 @@ export async function storeClassifiedRows(platform, classifiedRows, deps = {}) {
           reach: r.reach,
           conversions: r.conversions,
           conversionValue: r.conversionValue,
-          eventContacts: r.eventContacts || 0
+          eventContacts: r.eventContacts || 0,
+          storeVisits: r.storeVisits || 0
         });
       }
 
