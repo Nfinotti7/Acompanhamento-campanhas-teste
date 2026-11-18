@@ -154,3 +154,9 @@ test('aiStateFor: lead que não é de anúncio não ganha selo da IA', () => {
   assert.equal(aiStateFor(s, { ...row, source: 'organic' }), null);
   assert.equal(aiStateFor(s, { ...row, source: 'ad' }), 'on');
 });
+
+test('isAiActiveFor: número da lista de teste fala com a IA mesmo sem ser lead de anúncio', () => {
+  const s = { ai: { enabled: true, only_ad_leads: true, test_phones: ['62981479128'] } };
+  assert.equal(isAiActiveFor(s, '5562981479128', 'organic'), true);
+  assert.equal(isAiActiveFor(s, '5511999998888', 'ad'), false);
+});

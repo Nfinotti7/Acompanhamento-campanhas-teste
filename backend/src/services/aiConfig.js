@@ -34,9 +34,9 @@ function brPhoneKey(value) {
 export function isAiActiveFor(settings, waId, source) {
   const ai = settings?.ai;
   if (!ai?.enabled || ai.paused) return false;
-  if (ai.only_ad_leads && source !== 'ad') return false;
   const phones = Array.isArray(ai.test_phones) ? ai.test_phones.map(brPhoneKey).filter(Boolean) : [];
-  if (phones.length === 0) return true;
+  // Com lista de teste, só valem os números dela (mesmo sem ser lead de anúncio: é como se testa).
+  if (phones.length === 0) return !ai.only_ad_leads || source === 'ad';
   const wa = brPhoneKey(waId);
   return phones.some((p) => wa === p || wa.endsWith(p) || p.endsWith(wa));
 }

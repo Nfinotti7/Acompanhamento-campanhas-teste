@@ -15,7 +15,7 @@
 - Branch nova a partir de `main`: `feat/ia-piloto`. Eu não dou push em `main`; o usuário faz o merge.
 - Nada pode enviar mensagem a ninguém durante os testes: testes usam fakes (`deps`); scripts só leem.
 - Texto de interface e mensagens em português do Brasil.
-- `only_ad_leads` padrão `false`; configs antigas sem o campo continuam valendo como `false`.
+- `only_ad_leads` padrão `true` (decisão do usuário: sempre só anúncio); configs antigas sem o campo herdam o padrão ao carregar. Com números em `test_phones`, só eles falam com a IA e o filtro de anúncio não vale pra eles.
 - Com `only_ad_leads` ligado e `source` ausente/diferente de `'ad'`, a IA fica DESLIGADA (falha segura).
 - Redação nunca altera datas (`25/11`), horários (`19:30`, `19h30`) nem contagens ("somos 8").
 - Testes: backend `cd backend && node --test <arquivo>`; frontend como já usado no projeto (73 testes existentes devem continuar passando).

@@ -356,7 +356,7 @@ export default function ReservationSettings({ api, onBack }) {
           Só leads de anúncio
         </label>
         <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-          A atendente só responde quem chegou por anúncio. Os demais contatos seguem nos robôs de sempre. Telefone, CPF, CNPJ e e-mail que o cliente escrever são escondidos antes de a conversa ir pro Google.
+          A atendente só responde quem chegou por anúncio. Os demais contatos seguem nos robôs de sempre. Se houver números em "Só responder pra estes números", só eles falam com a atendente (anúncio ou não). Telefone, CPF, CNPJ e e-mail que o cliente escrever são escondidos antes de a conversa ir pro Google.
         </span>
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Nome da atendente</span>

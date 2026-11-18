@@ -44,3 +44,24 @@ test('redactContents: reescreve só o texto, sem mutar o original', () => {
   assert.deepEqual(out[1].parts[0], call);
   assert.equal(input[0].parts[0].text, 'meu email é a@b.com');
 });
+
+test('redactPii: data com ano seguida de hora não vira telefone', () => {
+  for (const text of ['quero 25.11.2026 20h', 'dia 25-11-2026 19h', '2026-11-25 19:30:00', 'mesas 12 14 16 18 20']) {
+    assert.equal(redactPii(text), text);
+  }
+});
+
+test('redactPii: celular sem DDD também some', () => {
+  assert.equal(redactPii('liga 98147-9128'), 'liga [telefone]');
+  assert.equal(redactPii('981479128'), '[telefone]');
+  assert.equal(redactPii('9 8147-9128'), '[telefone]');
+});
+
+test('redactContents: só esconde o que o cliente escreveu, não a fala da casa', () => {
+  const out = redactContents([
+    { role: 'user', parts: [{ text: 'meu cel 62981479128' }] },
+    { role: 'model', parts: [{ text: 'Nosso fone é (62) 3333-4444' }] }
+  ]);
+  assert.equal(out[0].parts[0].text, 'meu cel [telefone]');
+  assert.equal(out[1].parts[0].text, 'Nosso fone é (62) 3333-4444');
+});
