@@ -176,3 +176,11 @@ test('a regra do cardápio traz exemplo de item que não está na lista', () => 
   assert.match(p, /ex\.:[^\n]*tem pizza[^\n]*não está[^\n]*vou confirmar com a equipe/i);
   assert.match(p, /nunca diga "não temos"/i);
 });
+
+test('lista marcada como completa no cardápio permite dizer que o item não faz parte dela', () => {
+  const p = buildSystemPrompt(ARGS);
+  assert.match(p, /exceto[^\n]*Cardápio detalhado[^\n]*lista é completa[^\n]*não faz parte/i);
+  assert.match(p, /ex\.:[^\n]*oniguiri[^\n]*não faz parte do rodízio[^\n]*à la carte/i);
+  // continua proibido negar item de lista que não foi marcada como completa
+  assert.match(p, /nunca diga "não temos"/i);
+});
