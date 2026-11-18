@@ -339,3 +339,16 @@ test('falha depois de update_reservation também não cai nos robôs: avisa a eq
   assert.equal(state.failures, 0);
   assert.deepEqual(state.broadcasts, [[9, 'reservation', { contactId, needsAttention: true }]]);
 });
+
+test('runAiTurn: telefone e CPF do cliente não vão ao Gemini, mas a resposta sai normal', async () => {
+  const { deps, args, state } = setup({
+    history: [{ direction: 'inbound', body: 'meu telefone é 62981479128, CPF 123.456.789-09' }]
+  });
+  const result = await runAiTurn(args, deps);
+  assert.equal(result, 'answered');
+  const sentToGemini = JSON.stringify(state.generated[0].contents);
+  assert.match(sentToGemini, /\[telefone\]/);
+  assert.match(sentToGemini, /\[CPF\]/);
+  assert.doesNotMatch(sentToGemini, /62981479128|123\.456\.789-09/);
+  assert.equal(state.sent.length, 1);
+});

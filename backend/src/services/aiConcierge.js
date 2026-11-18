@@ -9,6 +9,7 @@ import db from '../config/db.js';
 import { generate } from './geminiClient.js';
 import { AI_TOOL_DECLARATIONS, runTool } from './aiTools.js';
 import { buildSystemPrompt, toContents } from './aiPrompt.js';
+import { redactContents } from './aiRedact.js';
 import { loadReservationSettings, upcomingReservationsForContact } from './reservationStore.js';
 import { isBotPaused } from './botPause.js';
 import { sendToContact } from './whatsappSender.js';
@@ -161,7 +162,8 @@ export async function runAiTurn(args, deps = {}) {
      ) recent ORDER BY sent_at ASC, id ASC`,
     [contactId]
   );
-  const contents = toContents(history);
+  // O Gemini nunca vê telefone, CPF, CNPJ ou e-mail do cliente (aiRedact.js).
+  const contents = redactContents(toContents(history));
   if (contents.length === 0 || contents.at(-1).role !== 'user') return 'skipped';
 
   const settings = await d.loadSettings(q, clientId);
