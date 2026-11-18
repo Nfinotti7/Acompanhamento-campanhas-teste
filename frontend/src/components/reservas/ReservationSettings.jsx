@@ -90,6 +90,7 @@ function toForm(s) {
     info: { ...EMPTY_INFO, ...(s.info || {}), faq: (s.info?.faq || []).map((x) => ({ ...x })) },
     ai: {
       enabled: Boolean(s.ai?.enabled),
+      only_ad_leads: s.ai?.only_ad_leads !== false,
       name: s.ai?.name ?? 'Maria',
       phones: (s.ai?.test_phones || []).join('\n'),
       tone: s.ai?.tone || '',
@@ -127,6 +128,7 @@ function fromForm(f) {
     info: { ...f.info, faq: f.info.faq.filter((x) => x.keywords.trim() && x.answer.trim()) },
     ai: {
       enabled: f.ai.enabled,
+      only_ad_leads: f.ai.only_ad_leads,
       name: f.ai.name.trim(),
       test_phones: f.ai.phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
       tone: f.ai.tone.trim(),
@@ -348,6 +350,13 @@ export default function ReservationSettings({ api, onBack }) {
         </label>
         <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
           Conversa com o cliente de forma natural e responde com os textos cadastrados acima, no lugar do robô de reserva, das respostas automáticas e do aviso de fora do horário. Fecha reservas pelas regras de mesa e horário daqui; grupo maior, pedido especial e dúvidas que ela não sabe vão pra equipe. Para quando a equipe responde. Se a IA falhar, os robôs de hoje respondem.
+        </span>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input type="checkbox" checked={form.ai.only_ad_leads} onChange={(e) => set({ ai: { ...form.ai, only_ad_leads: e.target.checked } })} />
+          Só leads de anúncio
+        </label>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          A atendente só responde quem chegou por anúncio. Os demais contatos seguem nos robôs de sempre. Telefone, CPF, CNPJ e e-mail que o cliente escrever são escondidos antes de a conversa ir pro Google.
         </span>
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Nome da atendente</span>
