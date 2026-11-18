@@ -1285,3 +1285,12 @@ Pedido: o robô de reserva atropelava a conversa (caso Wender Vieira, contato 35
 - Quarta renovação (19/10, 10/11, 17/11, 18/11). O app OAuth segue em "Testing". **Ação do usuário ainda pendente:** publicar em "Production".
 - Fora do repositório (Meta/Google Ads, registrado na memória do Claude): no Alma, 30 dias de Meta deram 123 conversas iniciadas e só 25 com 2ª mensagem; Facebook e mulheres 65+ geram conversa que morre no primeiro "olá". Executivo, Pratos e a nova Seleção de Drinks passaram para só Instagram 25-54. Na PMax do Alma, 96% das conversões são "como chegar"; visitas à loja passaram a contar como meta de lance.
 - Ideia não feita: mostrar no Alma a 2ª mensagem (`messaging_user_depth_2_message_send`) ao lado da conversa iniciada, e as visitas à loja estimadas do Google.
+
+### 2026-11-18 (tarde) — Visitas ao restaurante (Google) na dashboard (no ar)
+
+- Pedido do usuário, para a reunião do Alma: mostrar as visitas à loja estimadas pelo Google.
+- `googleAdsSync.js`: segunda consulta (`segments.conversion_action_category = 'STORE_VISIT'`, `metrics.all_conversions`; a categoria precisa estar no SELECT) e `mergeStoreVisits` junta por campanha+dia em `storeVisits`. Se a consulta falhar, só avisa no log e grava 0, sem derrubar o sync. Testes em `googleAdsStoreVisits.test.js`.
+- Banco: `daily_metrics.store_visits NUMERIC DEFAULT 0` (`initDb`). `upsertDailyMetric` grava; o importador de CSV grava 0 (sobrescreve o dia se reimportar).
+- Resumo (`getMetricsSummary`): `store_visits`, `google_spend` e `cost_per_store_visit` (gasto do Google / visitas); diário com `store_visits`. Tela: card "Visitas ao restaurante" (só aparece com visitas no período), 4º quadro no slide de capa do modo apresentação e métrica no seletor do gráfico.
+- Testado: backend 631/631, frontend 73/73, build ok; busca real no Google do Alma (31 linhas, 256 visitas em 30 dias) e SQL no Postgres real em transação desfeita.
+- **Deploy (18/11, ~14h50):** push `c6de397..da225cf`, bundle `index-B6KfYZvd.js` com o texto novo; a coluna foi criada pelo deploy. Sync rodado em seguida: últimos 30 dias, Alma 249 visitas (R$ 1.335 no Google, ~R$ 5,36 por visita) e Recreio 124 (R$ 1.101). As visitas chegam com ~4 dias de atraso. **Não conferido na tela** (precisa de login).
