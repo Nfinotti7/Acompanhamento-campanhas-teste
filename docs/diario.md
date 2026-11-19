@@ -62,6 +62,8 @@
 
 **ATUALIZAÇÃO 18/11 — Atendente com IA (Maria) no Malibu:** em produção desde 17–18/11 (modo teste, 3 números, pausa geral **ligada** até alguém clicar "Retomar" no Balcão). Piloto de uma semana pronto na branch `feat/ia-piloto` (não enviada): a IA só atende leads de anúncio, o Gemini nunca vê telefone/CPF/CNPJ/e-mail, e há relatório. Ver Registro 2026-11-18 (piloto). O parágrafo abaixo é o histórico da primeira versão.
 
+**Transcrição de áudio (19/11, branch `feat/transcricao-audio`, commit `78fc673`, não enviada):** botão "Transcrever" no Balcão e leitura de áudio pela IA (só quando ela está atendendo). Falta conferir o SQL no Postgres real e testar com áudio de verdade. Ver Registro 2026-11-19 (tarde).
+
 **Atendente com IA (Gemini) no Balcão (17/11, branch `feat/atendente-ia`, não enviada, desligada por padrão):** código pronto e testado (606 testes), com Gemini real só em simulação. Falta: push, `GEMINI_API_KEY` (e opcional `GEMINI_MODEL`) nas variáveis do Hostinger, ligar em Balcão → Reservas → Configurar com o número de teste do usuário e conversar pelo celular. Spec `docs/superpowers/specs/2026-11-17-atendente-ia-malibu-design.md`, plano `docs/superpowers/plans/2026-11-17-atendente-ia-malibu.md`. Ver Registro 2026-11-17 (IA).
 
 **Google (10/11):** refresh token renovado nos clientes 5 e 7; provável app OAuth em "Testing" (vence a cada ~7 dias), publicar em Production. Ver Registro 2026-11-10 (tarde).
@@ -1324,3 +1326,14 @@ Spec `docs/superpowers/specs/2026-11-18-piloto-ia-malibu-design.md`, plano `docs
 - **Como ficou:** `backend/src/controllers/userController.js` — `GET /api/users` (só `role='client'`, sem hash) e `POST /api/users/:id/reset-password` (admin; gera senha aleatória de 10 caracteres legíveis, grava só o hash e devolve a senha **uma única vez**). Frontend: seção "Acessos dos clientes" na tela Clientes, com botão "Redefinir senha" e modal que mostra/copia a senha. Senha de admin não se redefine por aqui.
 - Testes: 682 passando; build do Vite ok. Não testado no navegador contra produção.
 - **Pendente:** commit + deploy; depois usar o botão pra gerar a senha nova do `grupojf` e passar ao cliente. Ainda não existe "trocar a própria senha" pelo cliente.
+
+### 2026-11-19 (tarde) — Transcrição de áudio no Balcão (branch `feat/transcricao-audio`, commit `78fc673`, não enviada)
+
+- **Pedido:** a IA precisa entender áudio, e o atendente humano precisa de um "Transcrever" como o do WhatsApp. Decisão do usuário: **transcrição automática só para a IA**; com humano atendendo, só quando alguém clica.
+- **Como ficou:** sem biblioteca nova, o Gemini aceita o áudio direto (`inlineData`), com a mesma `GEMINI_API_KEY`. `services/audioTranscriber.js`: `transcribeMessage` (confere o cliente, só áudio, limite de 5 MB, grava em `whatsapp_messages.transcript`, segunda chamada devolve o texto gravado sem chamar o Gemini) e `ensureTranscripts` (os até 5 áudios recebidos mais recentes sem texto). Coluna nova `transcript` no bloco aditivo do `initDb`.
+  - **IA:** `runAiTurn` chama `ensureTranscripts` só depois de passar pela pausa e pelo limite por hora, ou seja, só com a IA atendendo. Falha da transcrição não derruba o turno (o áudio fica com o rótulo). O histórico usa `[Mensagem de voz transcrita] texto`, e a redação de telefone/CPF/e-mail vale também para esse texto.
+  - **Balcão:** `POST /api/whatsapp/messages/:messageId/transcribe` (`whatsappTranscribeController.js`, vale para admin, cliente e staff/PIN; erros viram 404/400/413/502). `whatsappMedia.jsx` ganhou o botão "Transcrever" embaixo do player; o texto fica salvo e aparece sozinho depois, inclusive o que a IA transcreveu.
+- **Testes:** backend 700/700 (+18), frontend 73/73, build ok. Sem teste de componente para o botão (o front não tem esse tipo de teste); conferido só por build.
+- **Não conferido:** o SQL no Postgres real em transação desfeita (script `verify-transcript-sql` bloqueado pelo modo automático por acessar produção) e o Gemini real com áudio. Fazer antes do deploy ou logo depois: mandar um áudio de verdade pelo número de teste.
+- **Privacidade:** o áudio em si vai ao Google quando a IA atende ou alguém clica. Na camada gratuita o Google pode usar o conteúdo para melhorar produtos (decidir isso antes de abrir a IA a todos os leads).
+- **Fora desta branch:** a redefinição de senha pelo admin (`userController`, `ClientsPage.jsx`, 2 rotas no `server.js`) continua na árvore de trabalho, sem commit.
