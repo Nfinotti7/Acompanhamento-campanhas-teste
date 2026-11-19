@@ -31,6 +31,7 @@ import { listQuickFiles, createQuickFile, deleteQuickFile, sendQuickFile } from 
 import { setContactNotes, getContactTimeline, deleteContact, getContactAttribution } from './controllers/whatsappContactController.js';
 import { streamWhatsAppEvents } from './controllers/whatsappEventsController.js';
 import { getMedia } from './controllers/whatsappMediaController.js';
+import { transcribeMessageHandler } from './controllers/whatsappTranscribeController.js';
 import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
 import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, saveGoogleConversionSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
@@ -164,6 +165,7 @@ app.delete('/api/whatsapp/contacts/:contactId', deleteContact);
 app.get('/api/whatsapp/contacts/:contactId/attribution', getContactAttribution);
 app.get('/api/whatsapp/events', streamWhatsAppEvents);
 app.get('/api/whatsapp/media/:mediaId', getMedia);
+app.post('/api/whatsapp/messages/:messageId/transcribe', transcribeMessageHandler);
 app.get('/api/whatsapp/dashboard', getWhatsappDashboard);
 
 // Links rastreáveis e Meta Conversions API -- só painel (admin/cliente), não o /caixa.

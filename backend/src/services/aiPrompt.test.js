@@ -101,6 +101,21 @@ test('toContents começa sempre em user e ignora mensagens vazias', () => {
   assert.deepEqual(c, [{ role: 'user', parts: [{ text: 'Oi' }] }]);
 });
 
+test('toContents usa a transcrição do áudio do cliente no lugar do rótulo', () => {
+  const c = toContents([
+    { direction: 'inbound', body: '🎤 Mensagem de voz', media_type: 'audio', transcript: 'Queria uma mesa pra sábado, somos seis.' },
+    { direction: 'inbound', body: 'pode ser?' }
+  ]);
+  assert.deepEqual(c, [
+    { role: 'user', parts: [{ text: '[Mensagem de voz transcrita] Queria uma mesa pra sábado, somos seis.\npode ser?' }] }
+  ]);
+});
+
+test('toContents mantém o rótulo do áudio quando não há transcrição', () => {
+  const c = toContents([{ direction: 'inbound', body: '🎤 Mensagem de voz', media_type: 'audio', transcript: null }]);
+  assert.deepEqual(c, [{ role: 'user', parts: [{ text: '🎤 Mensagem de voz' }] }]);
+});
+
 test('toContents com lista vazia devolve lista vazia', () => {
   assert.deepEqual(toContents([]), []);
 });

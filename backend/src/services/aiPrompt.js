@@ -89,7 +89,9 @@ export function buildSystemPrompt({ settings, restaurantName, now, firstName, up
 export function toContents(messages) {
   const contents = [];
   for (const m of messages) {
-    const text = String(m.body || '').trim();
+    // Áudio do cliente já transcrito (audioTranscriber.js): a IA lê o que ele falou, não o rótulo.
+    const spoken = m.direction === 'inbound' && m.media_type === 'audio' ? String(m.transcript || '').trim() : '';
+    const text = spoken ? `[Mensagem de voz transcrita] ${spoken}` : String(m.body || '').trim();
     if (!text) continue;
     const role = m.direction === 'inbound' ? 'user' : 'model';
     if (contents.length === 0 && role === 'model') continue;

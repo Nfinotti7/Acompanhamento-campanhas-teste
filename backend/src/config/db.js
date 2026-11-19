@@ -241,6 +241,8 @@ export async function initDb() {
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_type TEXT`);
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_filename TEXT`);
+  // Texto de uma mensagem de voz (botão "Transcrever" do Balcão ou turno da IA); ver audioTranscriber.js.
+  await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS transcript TEXT`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS profile_pic_media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS profile_pic_checked_at TIMESTAMPTZ`);
   // Atribuição: dados do clique no anúncio (referral do webhook oficial). Primeiro toque --

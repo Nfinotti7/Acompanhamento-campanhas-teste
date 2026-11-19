@@ -10,6 +10,7 @@ import { generate } from './geminiClient.js';
 import { AI_TOOL_DECLARATIONS, runTool } from './aiTools.js';
 import { buildSystemPrompt, toContents } from './aiPrompt.js';
 import { redactContents } from './aiRedact.js';
+import { ensureTranscripts } from './audioTranscriber.js';
 import { loadReservationSettings, upcomingReservationsForContact } from './reservationStore.js';
 import { isBotPaused } from './botPause.js';
 import { sendToContact } from './whatsappSender.js';
@@ -54,6 +55,7 @@ function resolveDeps(deps) {
     upcomingReservations: deps.upcomingReservations || upcomingReservationsForContact,
     isBotPaused: deps.isBotPaused || isBotPaused,
     generate: deps.generate || generate,
+    ensureTranscripts: deps.ensureTranscripts || ensureTranscripts,
     runTool: deps.runTool || runTool,
     toolDeps: deps.toolDeps,
     send: deps.send || sendToContact,
@@ -155,9 +157,17 @@ export async function runAiTurn(args, deps = {}) {
     return 'throttled';
   }
 
+  // Só aqui, com a IA atendendo, o áudio do cliente vai ao Google pra virar texto. Falha não derruba
+  // o turno: o áudio segue com o rótulo "Mensagem de voz".
+  try {
+    await d.ensureTranscripts(q, { contactId, clientId });
+  } catch (error) {
+    console.error(`Atendente IA [contato ${contactId}]: transcrição: ${error.message}`);
+  }
+
   const { rows: history } = await q.query(
-    `SELECT direction, body FROM (
-       SELECT direction, body, sent_at, id FROM whatsapp_messages
+    `SELECT direction, body, media_type, transcript FROM (
+       SELECT direction, body, media_type, transcript, sent_at, id FROM whatsapp_messages
        WHERE contact_id = ? ORDER BY sent_at DESC, id DESC LIMIT ${HISTORY_LIMIT}
      ) recent ORDER BY sent_at ASC, id ASC`,
     [contactId]

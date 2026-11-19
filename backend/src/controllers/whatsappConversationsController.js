@@ -76,7 +76,7 @@ export async function getMessages(req, res) {
     const { contactId } = req.params;
 
     const { rows } = await db.query(
-      'SELECT id, direction, body, sent_at, media_id, media_type, media_filename, status FROM whatsapp_messages WHERE contact_id = ? AND client_id = ? ORDER BY sent_at ASC, id ASC',
+      'SELECT id, direction, body, sent_at, media_id, media_type, media_filename, transcript, status FROM whatsapp_messages WHERE contact_id = ? AND client_id = ? ORDER BY sent_at ASC, id ASC',
       [contactId, clientId]
     );
 

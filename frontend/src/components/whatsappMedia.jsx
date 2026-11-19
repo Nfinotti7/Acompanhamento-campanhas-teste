@@ -48,6 +48,52 @@ export function isPlaceholderBody(body) {
   return PLACEHOLDER_PREFIXES.some((prefix) => (body || '').startsWith(prefix));
 }
 
+// "Transcrever" embaixo do áudio, como no WhatsApp. O texto fica gravado no servidor: depois de
+// transcrito (por aqui ou pela IA) aparece direto, sem custo de novo.
+function AudioTranscript({ message, apiClient, clientId, onBubble, onLoad }) {
+  const [text, setText] = React.useState(message.transcript || '');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const color = onBubble ? 'var(--on-accent)' : 'var(--text-secondary)';
+
+  // A conversa recarrega as mensagens (tempo real); se o texto chegou de lá, acompanha.
+  React.useEffect(() => {
+    if (message.transcript) setText(message.transcript);
+  }, [message.transcript]);
+  // O texto muda a altura do balão: avisa quem rola a conversa pro fim.
+  React.useEffect(() => { if (text && onLoad) onLoad(); }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function transcribe() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiClient.post(`/api/whatsapp/messages/${message.id}/transcribe`, { clientId });
+      setText(res.data.transcript);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Não consegui transcrever agora.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (text) {
+    return <div style={{ marginTop: 6, fontSize: '0.85rem', whiteSpace: 'pre-wrap', maxWidth: 260 }}>{text}</div>;
+  }
+  return (
+    <div style={{ marginTop: 4 }}>
+      <button
+        type="button"
+        onClick={transcribe}
+        disabled={loading}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: loading ? 'default' : 'pointer', fontSize: '0.78rem', fontWeight: 600, color: onBubble ? 'var(--on-accent)' : 'var(--accent-link)', textDecoration: 'underline' }}
+      >
+        {loading ? 'Transcrevendo…' : 'Transcrever'}
+      </button>
+      {error && <div style={{ fontSize: '0.75rem', color, marginTop: 2 }}>{error}</div>}
+    </div>
+  );
+}
+
 // onLoad: a imagem só ganha altura quando carrega -- avisa quem rola a conversa pro fim.
 export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad }) {
   if (!message.media_type) return null;
@@ -71,7 +117,12 @@ export function MessageMedia({ message, apiClient, clientId, onOpenImage, onLoad
     );
   }
   if (message.media_type === 'audio') {
-    return <audio controls preload="none" src={src} style={{ maxWidth: 260 }} />;
+    return (
+      <div>
+        <audio controls preload="none" src={src} style={{ maxWidth: 260 }} />
+        <AudioTranscript message={message} apiClient={apiClient} clientId={clientId} onBubble={onBubble} onLoad={onLoad} />
+      </div>
+    );
   }
   if (message.media_type === 'video') {
     return <video controls preload="metadata" src={src} onLoadedMetadata={onLoad} style={{ display: 'block', maxWidth: 280, maxHeight: 280, borderRadius: 8 }} />;

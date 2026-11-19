@@ -26,7 +26,8 @@ function setup({
   pausedSequence = null,
   recentReplies = 0,
   toolImpl = async () => ({ ok: true }),
-  sendImpl = null
+  sendImpl = null,
+  ensureImpl = null
 } = {}) {
   const contactId = nextContact++;
   const state = { generated: [], sent: [], audits: [], tools: [], broadcasts: [], failures: 0, handoffDone: false, pauseChecks: 0 };
@@ -63,7 +64,8 @@ function setup({
     typing: async () => {},
     send: sendImpl || (async (m) => { state.sent.push(m); return 'wa-1'; }),
     broadcast: (...a) => state.broadcasts.push(a),
-    model: 'gemini-teste'
+    model: 'gemini-teste',
+    ensureTranscripts: ensureImpl || (async () => 0)
   };
   const args = {
     clientId: 9, contactId, waId: '5562981479128', profileName: 'Wender Vieira', body: 'Oi', restaurantName: 'Malibu Sushibar',
@@ -82,6 +84,31 @@ function fakeTimers() {
   };
 }
 const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test('antes de ler a conversa, a IA transcreve os áudios do contato', async () => {
+  const order = [];
+  const { deps, args } = setup({
+    ensureImpl: async (_q, ids) => { order.push(['ensure', ids]); return 1; }
+  });
+  const origGenerate = deps.generate;
+  deps.generate = async (req) => { order.push(['generate']); return origGenerate(req); };
+  assert.equal(await runAiTurn(args, deps), 'answered');
+  assert.deepEqual(order[0], ['ensure', { contactId: args.contactId, clientId: 9 }]);
+  assert.equal(order[1][0], 'generate');
+});
+
+test('conversa pausada (equipe atendendo) não transcreve nada', async () => {
+  let called = 0;
+  const { deps, args } = setup({ pausedSequence: [true], ensureImpl: async () => { called += 1; return 0; } });
+  assert.equal(await runAiTurn(args, deps), 'paused');
+  assert.equal(called, 0);
+});
+
+test('falha ao transcrever não derruba o turno da IA', async () => {
+  const { deps, args, state } = setup({ ensureImpl: async () => { throw new Error('boom'); } });
+  assert.equal(await runAiTurn(args, deps), 'answered');
+  assert.equal(state.sent.length, 1);
+});
 
 test('5 mensagens seguidas viram uma só resposta', async () => {
   const { deps, args, state } = setup();
