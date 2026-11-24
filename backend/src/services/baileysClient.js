@@ -19,6 +19,7 @@ import db from '../config/db.js';
 import { ingestWhatsAppEvent } from './whatsappIngest.js';
 import { mapBaileysMessageToEvent, isUsableMessage, UNKNOWN_MESSAGE_LABEL, messageTypes } from './baileysMapper.js';
 import { refreshProfilePicture } from './profilePicture.js';
+import { importHistoryMessages, applyHistoryContactNames } from './historyImport.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
 import { normalizePhone, phoneVariants } from './waitlistText.js';
@@ -261,10 +262,19 @@ export async function connectClient(clientId, deps = {}) {
 
 async function doConnect(clientId, state, deps) {
   // Import dinamico: a lib so e necessaria quando alguem de fato usa o modo Baileys.
-  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = deps.baileys || await import('@whiskeysockets/baileys');
+  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, Browsers } = deps.baileys || await import('@whiskeysockets/baileys');
 
   const { state: authState, saveCreds } = await useMultiFileAuthState(path.join(SESSIONS_DIR, String(clientId)));
-  const sock = makeWASocket({ auth: authState, printQRInTerminal: false });
+  const sock = makeWASocket({
+    auth: authState,
+    printQRInTerminal: false,
+    // Histórico completo do celular ao conectar por QR (ver historyImport.js). O WhatsApp só
+    // manda o histórico completo para aparelho "desktop"; o padrão do Baileys descarta o FULL.
+    // A identidade desktop só vale pra pareamento novo: sessão já conectada fica como está.
+    ...(Browsers && !authState.creds?.me ? { browser: Browsers.macOS('Desktop') } : {}),
+    syncFullHistory: true,
+    shouldSyncHistoryMessage: () => true,
+  });
   const now = deps.now || Date.now;
   state.sock = sock;
   state.status = 'connecting';
@@ -320,6 +330,20 @@ async function doConnect(clientId, state, deps) {
         const wait = deps.setTimeout || setTimeout;
         wait(() => connectClient(clientId, deps), RECONNECT_DELAY_MS);
       }
+    }
+  });
+
+  // Histórico do celular (chega logo depois de ler o QR, em vários lotes). Só grava; não
+  // dispara funil, robôs, notificação, conversão nem download de mídia.
+  sock.ev.on('messaging-history.set', async ({ messages, contacts, syncType, progress }) => {
+    markActivity();
+    try {
+      const r = await (deps.importHistoryMessages || importHistoryMessages)(db, Number(clientId), messages);
+      const names = await (deps.applyHistoryContactNames || applyHistoryContactNames)(db, Number(clientId), contacts);
+      console.log(`Histórico [client ${clientId}]: tipo ${syncType}, progresso ${progress ?? '-'}%, `
+        + `${r.messages} mensagem(ns) nova(s) em ${r.contacts} contato(s), ${names} nome(s) preenchido(s)`);
+    } catch (error) {
+      console.error(`Histórico [client ${clientId}]: erro ao importar:`, error.message);
     }
   });
 
