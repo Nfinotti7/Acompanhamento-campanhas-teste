@@ -48,6 +48,15 @@ function MainApp() {
   // Report Modal state
   const [isReportOpen, setIsReportOpen] = useState(false);
 
+  // Aviso de banco enchendo (só admin): o Supabase grátis trava quando o disco enche.
+  const [dbHealth, setDbHealth] = useState(null);
+  useEffect(() => {
+    if (user?.role !== 'admin') return undefined;
+    const load = () => axios.get('/api/admin/db-health').then((r) => setDbHealth(r.data)).catch(() => {});
+    load();
+    const id = setInterval(load, 15 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [user]);
 
   useEffect(() => {
     if (user && (user.role === 'admin' || user.clients?.length)) {
@@ -228,6 +237,26 @@ function MainApp() {
         />
 
         <main className="main-content page-pad">
+          {dbHealth?.warn && (
+            <div
+              role="alert"
+              className="glass-card"
+              style={{
+                padding: '14px 20px',
+                marginBottom: '20px',
+                border: '1px solid color-mix(in srgb, var(--accent-danger) 45%, transparent)',
+                background: 'color-mix(in srgb, var(--accent-danger) 10%, transparent)',
+              }}
+            >
+              <strong style={{ color: 'var(--accent-danger)' }}>
+                Banco de dados em {dbHealth.percent}% do limite ({dbHealth.sizeMb} MB de {dbHealth.limitMb} MB).
+              </strong>{' '}
+              Se encher, o Balcão sai do ar e não dá para apagar nada sem pagar o Supabase.
+              {dbHealth.biggest?.length > 0 && (
+                <> Maiores tabelas: {dbHealth.biggest.map((t) => `${t.name} (${t.sizeMb} MB)`).join(', ')}.</>
+              )}
+            </div>
+          )}
           {syncResult && (
             <div
               className="glass-card"

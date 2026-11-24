@@ -39,6 +39,7 @@ import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tag
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
 import { purgeOldMedia, MEDIA_RETENTION_HOURS } from './services/mediaRetention.js';
+import { checkDbHealth, lastDbHealth } from './services/dbHealth.js';
 import { reservationHandlers } from './controllers/reservationController.js';
 import { getPushPublicKey, subscribePush, unsubscribePush } from './controllers/pushController.js';
 import db from './config/db.js';
@@ -93,6 +94,15 @@ app.get('/r/:slug', redirectTrackingLink);
 app.use('/api', authenticateToken);
 
 app.get('/api/auth/me', getMe);
+
+// Tamanho do banco (aviso no painel do admin a partir de 70% do limite do plano grátis).
+app.get('/api/admin/db-health', requireAdmin, async (_req, res) => {
+  try {
+    res.json(lastDbHealth() || await checkDbHealth(db));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Clients
 app.get('/api/clients', listClients);
@@ -294,6 +304,11 @@ initDb()
       .catch((err) => console.error('Erro ao apagar mídia antiga:', err.message));
     purgeMedia();
     setInterval(purgeMedia, 60 * 60 * 1000).unref();
+
+    // Confere o tamanho do banco de hora em hora (ver dbHealth.js).
+    const checkDb = () => checkDbHealth(db).catch((err) => console.error('Erro ao medir o banco:', err.message));
+    checkDb();
+    setInterval(checkDb, 60 * 60 * 1000).unref();
 
     // Lembrete de reserva, avaliação pós-visita e relatório do dono. Desligado junto com
     // o BAILEYS_AUTOCONNECT=false, pra o backend local não mandar mensagem de verdade.
