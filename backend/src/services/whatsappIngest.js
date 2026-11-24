@@ -22,6 +22,10 @@ export const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
 // (saudação/ausência do WhatsApp Business), não atendente: não pausa o robô de reserva.
 export const AUTO_REPLY_WINDOW_MS = 10 * 1000;
 async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
+  // Vídeo não vai pro banco (nem é baixado): os vídeos encheram o disco do Supabase em
+  // 20/11 e em 24/11. A conversa mostra só o rótulo. O resto da mídia some em 24h
+  // (ver mediaRetention.js).
+  if (String(media.mimeType || '').startsWith('video/')) return;
   let data;
   try {
     data = await media.download();

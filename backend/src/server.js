@@ -38,6 +38,7 @@ import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, ge
 import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
+import { purgeOldMedia, MEDIA_RETENTION_HOURS } from './services/mediaRetention.js';
 import { reservationHandlers } from './controllers/reservationController.js';
 import { getPushPublicKey, subscribePush, unsubscribePush } from './controllers/pushController.js';
 import db from './config/db.js';
@@ -286,6 +287,13 @@ initDb()
       .catch((err) => console.error('Erro ao apagar entradas antigas da fila:', err));
     purgeWaitlist();
     setInterval(purgeWaitlist, 6 * 60 * 60 * 1000).unref();
+
+    // Mídia do WhatsApp só fica 24h no banco (ver mediaRetention.js). Roda de hora em hora.
+    const purgeMedia = () => purgeOldMedia(db)
+      .then((count) => { if (count > 0) console.log(`Mídia: ${count} arquivo(s) com mais de ${MEDIA_RETENTION_HOURS}h apagado(s)`); })
+      .catch((err) => console.error('Erro ao apagar mídia antiga:', err.message));
+    purgeMedia();
+    setInterval(purgeMedia, 60 * 60 * 1000).unref();
 
     // Lembrete de reserva, avaliação pós-visita e relatório do dono. Desligado junto com
     // o BAILEYS_AUTOCONNECT=false, pra o backend local não mandar mensagem de verdade.

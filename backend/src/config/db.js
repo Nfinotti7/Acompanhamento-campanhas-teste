@@ -650,6 +650,9 @@ export async function initDb() {
 }
 
 async function seedData() {
+  // Dados de exemplo só quando pedido: num banco de produção novo (migração de 24/11/2026)
+  // eles criariam clientes falsos nos ids 1-3 e um admin com senha conhecida.
+  if (process.env.SEED_DEMO_DATA !== 'true') return;
   const { rows } = await query('SELECT COUNT(*) as count FROM clients');
   if (rows[0].count > 0) return; // Already seeded
 
