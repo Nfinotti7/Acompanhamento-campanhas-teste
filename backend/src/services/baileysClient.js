@@ -262,16 +262,15 @@ export async function connectClient(clientId, deps = {}) {
 
 async function doConnect(clientId, state, deps) {
   // Import dinamico: a lib so e necessaria quando alguem de fato usa o modo Baileys.
-  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, Browsers } = deps.baileys || await import('@whiskeysockets/baileys');
+  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = deps.baileys || await import('@whiskeysockets/baileys');
 
   const { state: authState, saveCreds } = await useMultiFileAuthState(path.join(SESSIONS_DIR, String(clientId)));
   const sock = makeWASocket({
     auth: authState,
     printQRInTerminal: false,
-    // Histórico completo do celular ao conectar por QR (ver historyImport.js). O WhatsApp só
-    // manda o histórico completo para aparelho "desktop"; o padrão do Baileys descarta o FULL.
-    // A identidade desktop só vale pra pareamento novo: sessão já conectada fica como está.
-    ...(Browsers && !authState.creds?.me ? { browser: Browsers.macOS('Desktop') } : {}),
+    // Histórico do celular ao conectar por QR (ver historyImport.js): o padrão do Baileys
+    // descarta o lote FULL; aqui aceita todos. NÃO trocar o browser pra Browsers.macOS('Desktop'):
+    // em 24/11/2026 todo pareamento novo caiu na hora com 428 (Connection Terminated).
     syncFullHistory: true,
     shouldSyncHistoryMessage: () => true,
   });
