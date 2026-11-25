@@ -173,3 +173,17 @@ test('validateAiSettings: eventos especiais', () => {
   assert.match(validateAiSettings({ ...base, events: [{ ...ok, details: 'x'.repeat(1501) }] }), /Eventos/);
   assert.match(validateAiSettings({ ...base, events: Array(21).fill(ok) }), /Eventos/);
 });
+
+test('isAiActiveFor: números liberados falam com a IA sem tirar os leads de anúncio', () => {
+  const s = { ai: { enabled: true, only_ad_leads: true, test_phones: [], extra_phones: ['6281847190'] } };
+  assert.equal(isAiActiveFor(s, '556281847190', 'organic'), true);
+  assert.equal(isAiActiveFor(s, '5562981847190', null), true);
+  assert.equal(isAiActiveFor(s, '5562981479128', 'ad'), true);
+  assert.equal(isAiActiveFor(s, '5562981479128', 'organic'), false);
+  assert.equal(isAiActiveFor({ ai: { ...s.ai, paused: true } }, '556281847190', 'organic'), false);
+});
+
+test('validateAiSettings: números liberados', () => {
+  assert.equal(validateAiSettings({ ...DEFAULT_AI_SETTINGS, extra_phones: ['5562981847190'] }), null);
+  assert.match(validateAiSettings({ ...DEFAULT_AI_SETTINGS, extra_phones: ['abc'] }), /liberados/);
+});

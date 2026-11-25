@@ -11,6 +11,9 @@ export const DEFAULT_AI_SETTINGS = {
   name: 'Maria',
   // Com números aqui, só eles falam com a IA (modo de teste); vazio = todo mundo.
   test_phones: [],
+  // Números que falam com a IA além dos leads de anúncio (dono, gerente, quem quer ver ela
+  // funcionando). Diferente de test_phones, não tira a IA de mais ninguém.
+  extra_phones: [],
   tone: 'Fale como alguém da casa recebendo o cliente com carinho: caloroso, simpático e natural, '
     + 'em português do Brasil. Mensagens curtas, no máximo um emoji por mensagem, sem listas longas '
     + 'e sem linguagem formal ("prezado", "informamos"). Chame o cliente pelo primeiro nome.',
@@ -47,14 +50,21 @@ function brPhoneKey(value) {
   return d;
 }
 
+const phoneKeys = (list) => (Array.isArray(list) ? list.map(brPhoneKey).filter(Boolean) : []);
+const inPhoneList = (keys, waId) => {
+  const wa = brPhoneKey(waId);
+  return Boolean(wa) && keys.some((p) => wa === p || wa.endsWith(p) || p.endsWith(wa));
+};
+
 export function isAiActiveFor(settings, waId, source) {
   const ai = settings?.ai;
   if (!ai?.enabled || ai.paused) return false;
-  const phones = Array.isArray(ai.test_phones) ? ai.test_phones.map(brPhoneKey).filter(Boolean) : [];
+  const phones = phoneKeys(ai.test_phones);
   // Com lista de teste, só valem os números dela (mesmo sem ser lead de anúncio: é como se testa).
-  if (phones.length === 0) return !ai.only_ad_leads || source === 'ad';
-  const wa = brPhoneKey(waId);
-  return phones.some((p) => wa === p || wa.endsWith(p) || p.endsWith(wa));
+  if (phones.length > 0) return inPhoneList(phones, waId);
+  if (!ai.only_ad_leads || source === 'ad') return true;
+  // Números liberados: falam com a IA mesmo sem ser lead de anúncio, sem tirar ninguém.
+  return inPhoneList(phoneKeys(ai.extra_phones), waId);
 }
 
 // Estado da IA numa conversa, pra lista do Balcão: 'on' (atendendo), 'paused' (pausada nessa
@@ -71,6 +81,10 @@ export function validateAiSettings(ai) {
   if (!Array.isArray(ai.test_phones) || ai.test_phones.length > 20
       || ai.test_phones.some((p) => !/^\d{8,15}$/.test(String(p)))) {
     return 'Atendente com IA: use até 20 números, só com dígitos (ex.: 5562981479128).';
+  }
+  if (ai.extra_phones !== undefined && (!Array.isArray(ai.extra_phones) || ai.extra_phones.length > 20
+      || ai.extra_phones.some((p) => !/^\d{8,15}$/.test(String(p))))) {
+    return 'Números liberados: até 20, só com dígitos (ex.: 5562981479128).';
   }
   if (typeof ai.name !== 'string' || ai.name.length > 40) return 'Nome da atendente: até 40 caracteres.';
   if (typeof ai.tone !== 'string' || ai.tone.length > 1500) return 'Tom de voz: até 1500 caracteres.';

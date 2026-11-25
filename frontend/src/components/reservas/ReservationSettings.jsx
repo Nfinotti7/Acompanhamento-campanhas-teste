@@ -93,6 +93,7 @@ function toForm(s) {
       only_ad_leads: s.ai?.only_ad_leads !== false,
       name: s.ai?.name ?? 'Maria',
       phones: (s.ai?.test_phones || []).join('\n'),
+      extra_phones: (s.ai?.extra_phones || []).join('\n'),
       tone: s.ai?.tone || '',
       extra: s.ai?.extra || '',
       menu_details: s.ai?.menu_details || '',
@@ -132,6 +133,7 @@ function fromForm(f) {
       only_ad_leads: f.ai.only_ad_leads,
       name: f.ai.name.trim(),
       test_phones: f.ai.phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
+      extra_phones: f.ai.extra_phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
       tone: f.ai.tone.trim(),
       extra: f.ai.extra.trim(),
       menu_details: f.ai.menu_details.trim(),
@@ -371,6 +373,11 @@ export default function ReservationSettings({ api, onBack }) {
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Só responder pra estes números (modo teste)</span>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Um por linha, com DDD (ex.: 62 98147-9128). Sem nenhum número na lista, a IA responde todo mundo.</span>
           <textarea className="nm-input" rows={3} value={form.ai.phones} onChange={(e) => set({ ai: { ...form.ai, phones: e.target.value } })} />
+        </label>
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Responder também estes números</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Um por linha, com DDD. A atendente responde esses números mesmo sem terem vindo de anúncio (ex.: o dono quer ver ela funcionando), e continua respondendo os leads de anúncio normalmente.</span>
+          <textarea className="nm-input" rows={2} value={form.ai.extra_phones} onChange={(e) => set({ ai: { ...form.ai, extra_phones: e.target.value } })} />
         </label>
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Tom de voz</span>
