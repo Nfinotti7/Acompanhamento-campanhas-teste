@@ -1345,3 +1345,4 @@ Para o Malibu (client 9): **Black Malibu**, sexta 27/11/2026, almoço R$ 99 e ja
 - **Deploy (25/11), a pedido ("sobe e preenche"):** push `1a07f00..e2efdcc`, bundle `index-DG-gfzuG.js` no ar. Evento gravado direto no banco novo: `reservation_settings.config.ai.events` do client 9 (IA ligada). Tela não conferida com login.
 
 - **Números liberados da IA (25/11), a pedido:** o 62 8184-7190 (gente do Malibu que quer ver a Maria funcionando) tinha sido posto em `test_phones`, o que tirava a IA de todos os leads de anúncio. Criado `ai.extra_phones` ("Responder também estes números" no Configurar): soma aos leads de anúncio, não restringe. Deploy `a501179` (bundle `index-BkWHIkZG.js`); no client 9 `test_phones` foi esvaziado e o número foi para `extra_phones`. Não testado com mensagem real.
+- **Texto da Black ajustado (25/11), a pedido:** é rodízio, por pessoa, sem bebidas (almoço R$ 99, jantar R$ 129). Só o `details` do evento mudou no banco.
