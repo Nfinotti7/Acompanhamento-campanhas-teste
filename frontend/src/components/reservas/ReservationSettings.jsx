@@ -95,7 +95,8 @@ function toForm(s) {
       phones: (s.ai?.test_phones || []).join('\n'),
       tone: s.ai?.tone || '',
       extra: s.ai?.extra || '',
-      menu_details: s.ai?.menu_details || ''
+      menu_details: s.ai?.menu_details || '',
+      events: (s.ai?.events || []).map((e) => ({ ...e }))
     },
     followup: {
       ...EMPTY_FOLLOWUP, ...(s.followup || {}),
@@ -133,7 +134,10 @@ function fromForm(f) {
       test_phones: f.ai.phones.split(/[\n,;]+/).map((p) => p.replace(/\D/g, '')).filter(Boolean),
       tone: f.ai.tone.trim(),
       extra: f.ai.extra.trim(),
-      menu_details: f.ai.menu_details.trim()
+      menu_details: f.ai.menu_details.trim(),
+      events: f.ai.events
+        .filter((e) => e.title.trim() || e.details.trim())
+        .map((e) => ({ title: e.title.trim(), starts_on: e.starts_on, ends_on: e.ends_on || e.starts_on, details: e.details.trim() }))
     },
     followup: {
       ...f.followup,
@@ -379,6 +383,34 @@ export default function ReservationSettings({ api, onBack }) {
           </span>
           <textarea className="nm-input" rows={8} maxLength={8000} value={form.ai.menu_details} onChange={(e) => set({ ai: { ...form.ai, menu_details: e.target.value } })} />
         </label>
+        <div style={{ display: 'grid', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Eventos especiais</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Promoção, Black Friday, feriado, show: o que muda e quando. A atendente só fala do evento durante o período (e nos 14 dias antes, pra quem pergunta com antecedência); depois do fim ele sai sozinho do que ela sabe.
+          </span>
+          {form.ai.events.map((ev, i) => {
+            const setEvent = (patch) => set({ ai: { ...form.ai, events: form.ai.events.map((x, j) => (j === i ? { ...x, ...patch } : x)) } });
+            return (
+              <div key={i} style={{ display: 'grid', gap: '8px', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input className="nm-input" maxLength={80} placeholder="Nome do evento" value={ev.title} onChange={(e) => setEvent({ title: e.target.value })} style={{ flex: '1 1 180px' }} aria-label="Nome do evento" />
+                  <label style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    De <input className="nm-input" type="date" value={ev.starts_on} onChange={(e) => setEvent({ starts_on: e.target.value, ends_on: !ev.ends_on || ev.ends_on < e.target.value ? e.target.value : ev.ends_on })} style={{ width: 'auto' }} />
+                  </label>
+                  <label style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    até <input className="nm-input" type="date" min={ev.starts_on || undefined} value={ev.ends_on} onChange={(e) => setEvent({ ends_on: e.target.value })} style={{ width: 'auto' }} />
+                  </label>
+                  <button type="button" className="nm-btn nm-btn-ghost" onClick={() => set({ ai: { ...form.ai, events: form.ai.events.filter((_, j) => j !== i) } })} aria-label="Remover evento"><Trash2 size={16} /></button>
+                </div>
+                <textarea className="nm-input" rows={4} maxLength={1500} placeholder="O que muda nesse período: preços, horários, o que está incluso, regras." value={ev.details} onChange={(e) => setEvent({ details: e.target.value })} aria-label="Detalhes do evento" />
+              </div>
+            );
+          })}
+          <button type="button" className="nm-btn nm-btn-muted" style={{ justifySelf: 'start' }}
+            onClick={() => set({ ai: { ...form.ai, events: [...form.ai.events, { title: '', starts_on: '', ends_on: '', details: '' }] } })}>
+            <Plus size={16} /> Evento
+          </button>
+        </div>
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Instruções extras</span>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Regras da casa que a IA deve seguir (ex.: o que dizer sobre aniversário).</span>

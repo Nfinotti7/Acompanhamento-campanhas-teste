@@ -199,3 +199,37 @@ test('lista marcada como completa no cardápio permite dizer que o item não faz
   // continua proibido negar item de lista que não foi marcada como completa
   assert.match(p, /nunca diga "não temos"/i);
 });
+
+const BLACK = {
+  title: 'Black Malibu',
+  starts_on: '2026-11-27',
+  ends_on: '2026-11-27',
+  details: 'Rodízio por preço especial: almoço R$ 99 e jantar R$ 129.'
+};
+
+test('evento especial em vigor ou próximo entra no prompt com o período', () => {
+  const p = buildSystemPrompt({ ...ARGS, now: new Date('2026-11-25T15:00:00Z'), settings: { ...SETTINGS, ai: { ...SETTINGS.ai, events: [BLACK] } } });
+  assert.match(p, /## Eventos especiais/);
+  assert.match(p, /Black Malibu/);
+  assert.match(p, /27\/11\/2026 \(sexta-feira\)/);
+  assert.match(p, /almoço R\$ 99 e jantar R\$ 129/);
+  assert.match(p, /só valem no período/i);
+});
+
+test('no dia do evento o prompt marca que ele está acontecendo hoje', () => {
+  const p = buildSystemPrompt({ ...ARGS, now: new Date('2026-11-27T15:00:00Z'), settings: { ...SETTINGS, ai: { ...SETTINGS.ai, events: [BLACK] } } });
+  assert.match(p, /acontecendo hoje/i);
+});
+
+test('evento que já acabou ou ainda está longe não entra no prompt', () => {
+  const ended = buildSystemPrompt({ ...ARGS, now: new Date('2026-11-28T15:00:00Z'), settings: { ...SETTINGS, ai: { ...SETTINGS.ai, events: [BLACK] } } });
+  assert.doesNotMatch(ended, /Black Malibu/);
+  assert.doesNotMatch(ended, /## Eventos especiais/);
+  const far = buildSystemPrompt({ ...ARGS, now: new Date('2026-10-01T15:00:00Z'), settings: { ...SETTINGS, ai: { ...SETTINGS.ai, events: [BLACK] } } });
+  assert.doesNotMatch(far, /Black Malibu/);
+});
+
+test('evento de vários dias mostra o intervalo', () => {
+  const p = buildSystemPrompt({ ...ARGS, settings: { ...SETTINGS, ai: { ...SETTINGS.ai, events: [{ ...BLACK, starts_on: '2026-11-17', ends_on: '2026-11-20' }] } } });
+  assert.match(p, /de 17\/11\/2026 \(terça-feira\) a 20\/11\/2026 \(sexta-feira\)/);
+});

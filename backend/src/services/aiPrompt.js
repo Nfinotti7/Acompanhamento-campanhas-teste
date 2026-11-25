@@ -12,6 +12,23 @@ function local(date) {
   return { date: `${d}/${m}/${y}`, time: iso.slice(11, 16), weekday: new Date(`${iso.slice(0, 10)}T12:00:00Z`).getUTCDay() };
 }
 
+// Evento especial entra no prompt enquanto vale e nos dias antes dele (pra quem pergunta com antecedência).
+export const EVENT_LOOKAHEAD_DAYS = 14;
+
+function isoToBr(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y} (${WEEKDAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()]})`;
+}
+
+export function relevantEvents(events, now) {
+  const todayIso = new Date(new Date(now).getTime() - OFFSET_MS).toISOString().slice(0, 10);
+  const limitIso = new Date(new Date(`${todayIso}T12:00:00Z`).getTime() + EVENT_LOOKAHEAD_DAYS * 864e5).toISOString().slice(0, 10);
+  return (Array.isArray(events) ? events : [])
+    .filter((e) => e?.title?.trim() && e.starts_on && e.ends_on && e.ends_on >= todayIso && e.starts_on <= limitIso)
+    .sort((a, b) => a.starts_on.localeCompare(b.starts_on))
+    .map((e) => ({ ...e, today: e.starts_on <= todayIso }));
+}
+
 const INFO_LABELS = [
   ['menu', 'Cardápio'],
   ['prices', 'Preços'],
@@ -46,6 +63,17 @@ export function buildSystemPrompt({ settings, restaurantName, now, firstName, up
     for (const f of faq) lines.push(`- Quando perguntarem sobre ${f.keywords}: ${f.answer.trim()}`);
   }
   if ((settings.ai?.menu_details || '').trim()) lines.push('### Cardápio detalhado (itens e preços)', settings.ai.menu_details.trim());
+
+  const events = relevantEvents(settings.ai?.events, now);
+  if (events.length) {
+    lines.push('', '## Eventos especiais');
+    lines.push('Datas atípicas da casa. Essas condições só valem no período de cada evento: dentro dele, valem no lugar dos preços e condições normais para o que estiver descrito; fora dele, não ofereça nem prometa. Se o cliente perguntar por desconto ou promoção, fale do evento só se a data dele bater. O que não estiver descrito no evento segue as regras normais (na dúvida, confirme com a equipe).');
+    for (const e of events) {
+      const when = e.starts_on === e.ends_on ? `em ${isoToBr(e.starts_on)}` : `de ${isoToBr(e.starts_on)} a ${isoToBr(e.ends_on)}`;
+      lines.push(`### ${e.title.trim()} (${when}${e.today ? ', acontecendo hoje' : ''})`);
+      if ((e.details || '').trim()) lines.push(e.details.trim());
+    }
+  }
 
   lines.push('', '## Reservas');
   lines.push(`Você fecha reservas de até ${maxParty(settings)} pessoas. Turnos de reserva por dia:`);

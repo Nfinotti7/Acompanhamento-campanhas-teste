@@ -160,3 +160,16 @@ test('isAiActiveFor: número da lista de teste fala com a IA mesmo sem ser lead 
   assert.equal(isAiActiveFor(s, '5562981479128', 'organic'), true);
   assert.equal(isAiActiveFor(s, '5511999998888', 'ad'), false);
 });
+
+test('validateAiSettings: eventos especiais', () => {
+  const base = { ...DEFAULT_AI_SETTINGS };
+  const ok = { title: 'Black Malibu', starts_on: '2026-11-27', ends_on: '2026-11-27', details: 'Almoço R$ 99.' };
+  assert.deepEqual(DEFAULT_AI_SETTINGS.events, []);
+  assert.equal(validateAiSettings({ ...base, events: [ok] }), null);
+  assert.equal(validateAiSettings({ ...base, events: undefined }), null);
+  assert.match(validateAiSettings({ ...base, events: [{ ...ok, title: '' }] }), /Eventos/);
+  assert.match(validateAiSettings({ ...base, events: [{ ...ok, starts_on: '27/11/2026' }] }), /Eventos/);
+  assert.match(validateAiSettings({ ...base, events: [{ ...ok, ends_on: '2026-11-26' }] }), /Eventos/);
+  assert.match(validateAiSettings({ ...base, events: [{ ...ok, details: 'x'.repeat(1501) }] }), /Eventos/);
+  assert.match(validateAiSettings({ ...base, events: Array(21).fill(ok) }), /Eventos/);
+});

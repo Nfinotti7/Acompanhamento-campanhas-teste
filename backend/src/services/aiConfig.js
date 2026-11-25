@@ -17,8 +17,24 @@ export const DEFAULT_AI_SETTINGS = {
   extra: '',
   // Cardápio detalhado (itens e preços) que a IA consulta pra responder "tem onigiri?". Fica
   // no prompt, então textos longos custam mais tokens por resposta.
-  menu_details: ''
+  menu_details: '',
+  // Eventos especiais (Black Friday, feriado, show): [{ title, starts_on, ends_on, details }], datas
+  // AAAA-MM-DD. Só entram no prompt enquanto valem ou faltando até EVENT_LOOKAHEAD_DAYS (aiPrompt.js).
+  events: []
 };
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+function validateEvents(events) {
+  if (events === undefined) return null;
+  const msg = 'Eventos especiais: até 20, cada um com nome (até 80), início e fim (fim no mesmo dia ou depois) e detalhes até 1500 caracteres.';
+  if (!Array.isArray(events) || events.length > 20) return msg;
+  for (const e of events) {
+    if (typeof e?.title !== 'string' || !e.title.trim() || e.title.length > 80) return msg;
+    if (!ISO_DATE.test(String(e.starts_on)) || !ISO_DATE.test(String(e.ends_on)) || e.ends_on < e.starts_on) return msg;
+    if (typeof e.details !== 'string' || e.details.length > 1500) return msg;
+  }
+  return null;
+}
 
 const digits = (value) => String(value || '').replace(/\D/g, '');
 
@@ -60,5 +76,5 @@ export function validateAiSettings(ai) {
   if (typeof ai.tone !== 'string' || ai.tone.length > 1500) return 'Tom de voz: até 1500 caracteres.';
   if (typeof ai.extra !== 'string' || ai.extra.length > 2000) return 'Instruções extras: até 2000 caracteres.';
   if (typeof ai.menu_details !== 'string' || ai.menu_details.length > 8000) return 'Cardápio detalhado: até 8000 caracteres.';
-  return null;
+  return validateEvents(ai.events);
 }

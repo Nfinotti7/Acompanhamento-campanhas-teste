@@ -1337,3 +1337,8 @@ Spec `docs/superpowers/specs/2026-11-18-piloto-ia-malibu-design.md`, plano `docs
 - **Não conferido:** o SQL no Postgres real em transação desfeita (script `verify-transcript-sql` bloqueado pelo modo automático por acessar produção) e o Gemini real com áudio. Fazer antes do deploy ou logo depois: mandar um áudio de verdade pelo número de teste.
 - **Privacidade:** o áudio em si vai ao Google quando a IA atende ou alguém clica. Na camada gratuita o Google pode usar o conteúdo para melhorar produtos (decidir isso antes de abrir a IA a todos os leads).
 - **Fora desta branch:** a redefinição de senha pelo admin (`userController`, `ClientsPage.jsx`, 2 rotas no `server.js`) continua na árvore de trabalho, sem commit.
+
+## 25/11/2026 · Eventos especiais na atendente com IA
+
+A pedido: campo **Eventos especiais** no Configurar do Balcão (seção Atendente com IA). Cada evento tem nome, início, fim e detalhes (`reservation_settings.config.ai.events`). Só entra no prompt da Maria enquanto vale e nos 14 dias antes; depois do fim sai sozinho. Dentro do período, as condições do evento valem no lugar das normais; fora dele, a IA não oferece. Testado com o Gemini real e as configurações do Malibu: "tem promoção essa semana?" → Black na sexta; "e no sábado?" → só sexta, preço normal.
+Para o Malibu (client 9): **Black Malibu**, sexta 27/11/2026, almoço R$ 99 e jantar R$ 129 (arte da campanha `120254099425450652`).
