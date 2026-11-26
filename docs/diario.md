@@ -22,7 +22,7 @@
 
 ## Estado atual
 
-**No ar desde 26/11 14:44 (push `4568071..e05f925`): nomes estranhos e funil automático.** Nome de perfil com emoji ou caractere estranho não é usado por robô nem IA. O funil passa pra "Em atendimento" na 2ª resposta da casa e pra "Remarketing" depois de 5 dias parado. Ver Registro 2026-11-26. **Banco atual:** o que vale é o do `backend/.env.novo` (us-west-2); o `backend/.env` aponta pro banco antigo, que não autentica mais. **Sem commit na árvore de trabalho:** redefinição de senha pelo admin, 3 índices no `db.js` (já existem no banco atual) e `scripts/migrate-db.mjs`.
+**No ar desde 26/11 14:44 (push `4568071..e05f925`): nomes estranhos e funil automático.** Nome de perfil com emoji ou caractere estranho não é usado por robô nem IA. O funil passa pra "Em atendimento" na 2ª resposta da casa e pra "Remarketing" depois de 5 dias parado. Ver Registro 2026-11-26. **Banco atual:** o que vale é o do `backend/.env.novo` (us-west-2); o `backend/.env` aponta pro banco antigo, que não autentica mais. **Redefinição de senha pelo admin: no ar desde 26/11 14:53** (push `74ddfd6`, tela Clientes → "Acessos dos clientes"); falta gerar a senha nova do `grupojf`. **Sem commit na árvore de trabalho:** 3 índices no `db.js` (já existem no banco atual) e `scripts/migrate-db.mjs`.
 
 **Em produção (main, já deployado e confirmado no ar):**
 - Tracking de campanhas Google Ads + Meta Ads, multi-cliente (Recreio, Alma Boutique Bar, Giulí Osteria, Malibu Sushibar), com suporte a cliente com múltiplas contas de anúncio / múltiplas Páginas do Facebook.
@@ -1361,3 +1361,5 @@ Para o Malibu (client 9): **Black Malibu**, sexta 27/11/2026, almoço R$ 99 e ja
 - **Resultado em produção (14:47):** Giulí 6.766 e Malibu 186 no Remarketing. Recreio e Alma ainda com 0 (as conversas deles no banco novo começam em 24/11). Os 5 WhatsApps seguiram `connected`, sem QR, num processo só.
 - **Testes:** backend 743/743, frontend 73/73, build ok. **Não conferido:** a tela Configurar funil no navegador e uma conversa real andando no funil.
 - **Observar:** card em "Agendado" com data passada continua lá (não há regra pra isso).
+
+**Deploy da redefinição de senha (26/11, 14:53), a pedido:** push `e05f925..74ddfd6` (código de 19/11), bundle `index-jJX2-Hsx.js` com a seção "Acessos dos clientes"; `/api/users` sem login responde 401; os 5 WhatsApps seguiram `connected`. Backend 745/745, frontend 73/73. **Não conferido:** o botão com login de admin. Segue sem confirmação se o Hostinger define `JWT_SECRET` (pendência de 13/10: o código tem um valor padrão).
