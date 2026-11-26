@@ -15,7 +15,9 @@ function fromCacheRow(row) {
     campaignId: row.campaign_id,
     campaignName: row.campaign_name,
     accountId: row.account_id,
-    accountName: row.account_name
+    accountName: row.account_name,
+    adStatus: row.ad_status,
+    lastSpendDate: row.last_spend_date
   };
 }
 
@@ -42,6 +44,28 @@ async function graphGet(fetchImpl, path, fields, accessToken) {
   return body;
 }
 
+// Situação do anúncio e último dia com gasto (pra saber se é anúncio antigo). Se a Meta não
+// responder o gasto, devolve tudo vazio: melhor não afirmar nada.
+async function loadDelivery(fetchImpl, adId, effectiveStatus, accessToken, today) {
+  try {
+    const since = new Date(today.getTime() - 730 * 86400000).toISOString().slice(0, 10);
+    const params = new URLSearchParams({
+      fields: 'spend', time_increment: '1', limit: '1000',
+      time_range: JSON.stringify({ since, until: today.toISOString().slice(0, 10) }), access_token: accessToken
+    });
+    const res = await fetchImpl(`https://graph.facebook.com/${API_VERSION}/${adId}/insights?${params.toString()}`);
+    const body = await res.json();
+    if (!res.ok || body?.error) {
+      console.error(`Sem o gasto do anúncio ${adId}:`, body?.error?.message || `HTTP ${res.status}`);
+      return { adStatus: null, lastSpendDate: null };
+    }
+    const days = (body.data || []).filter((d) => Number(d.spend) > 0).map((d) => d.date_start).sort();
+    return { adStatus: effectiveStatus || null, lastSpendDate: days.at(-1) || null };
+  } catch {
+    return { adStatus: null, lastSpendDate: null };
+  }
+}
+
 // Resolve o ad_id que vem no "referral" do WhatsApp (clique em anúncio) em
 // conta/campanha/conjunto/anúncio, via Marketing API, com o token Meta do cliente.
 // Nunca lança: o referral pode ser de um post impulsionado (não é ad id), o token pode
@@ -51,7 +75,9 @@ export async function resolveAd({ adId, clientId, db: dbImpl = db, fetchImpl = f
 
   const { rows: cachedRows } = await dbImpl.query(`SELECT * FROM meta_ad_cache WHERE ad_id = ?`, [adId]);
   const cached = cachedRows[0];
-  if (cached && now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS) {
+  // Anúncio fora do ar pode voltar: confere de novo em 1 dia. ad_status NULL = cache de antes.
+  const ttl = cached?.ad_status && cached.ad_status !== 'ACTIVE' ? 24 * 60 * 60 * 1000 : CACHE_TTL_MS;
+  if (cached && cached.ad_status !== null && now() - new Date(cached.fetched_at).getTime() < ttl) {
     return fromCacheRow(cached);
   }
 
@@ -59,7 +85,7 @@ export async function resolveAd({ adId, clientId, db: dbImpl = db, fetchImpl = f
   if (!accessToken) return cached ? fromCacheRow(cached) : null;
 
   try {
-    const ad = await graphGet(fetchImpl, adId, 'name,account_id,adset{id,name},campaign{id,name}', accessToken);
+    const ad = await graphGet(fetchImpl, adId, 'name,account_id,effective_status,adset{id,name},campaign{id,name}', accessToken);
     let accountName = null;
     if (ad.account_id) {
       try {
@@ -69,6 +95,7 @@ export async function resolveAd({ adId, clientId, db: dbImpl = db, fetchImpl = f
       }
     }
 
+    const delivery = await loadDelivery(fetchImpl, adId, ad.effective_status, accessToken, new Date(now()));
     const resolved = {
       adId,
       adName: ad.name || null,
@@ -77,17 +104,19 @@ export async function resolveAd({ adId, clientId, db: dbImpl = db, fetchImpl = f
       campaignId: ad.campaign?.id || null,
       campaignName: ad.campaign?.name || null,
       accountId: ad.account_id || null,
-      accountName
+      accountName,
+      ...delivery
     };
 
     await dbImpl.query(
-      `INSERT INTO meta_ad_cache (ad_id, ad_name, adset_id, adset_name, campaign_id, campaign_name, account_id, account_name, fetched_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO meta_ad_cache (ad_id, ad_name, adset_id, adset_name, campaign_id, campaign_name, account_id, account_name, fetched_at, ad_status, last_spend_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (ad_id) DO UPDATE SET
          ad_name = excluded.ad_name, adset_id = excluded.adset_id, adset_name = excluded.adset_name,
          campaign_id = excluded.campaign_id, campaign_name = excluded.campaign_name,
-         account_id = excluded.account_id, account_name = excluded.account_name, fetched_at = excluded.fetched_at`,
-      [resolved.adId, resolved.adName, resolved.adsetId, resolved.adsetName, resolved.campaignId, resolved.campaignName, resolved.accountId, resolved.accountName, new Date(now()).toISOString()]
+         account_id = excluded.account_id, account_name = excluded.account_name, fetched_at = excluded.fetched_at,
+         ad_status = excluded.ad_status, last_spend_date = excluded.last_spend_date`,
+      [resolved.adId, resolved.adName, resolved.adsetId, resolved.adsetName, resolved.campaignId, resolved.campaignName, resolved.accountId, resolved.accountName, new Date(now()).toISOString(), resolved.adStatus, resolved.lastSpendDate]
     );
     return resolved;
   } catch (error) {
@@ -103,7 +132,7 @@ export async function resolveMissingAds({ db: dbImpl = db, fetchImpl = fetch } =
     `SELECT DISTINCT wc.ad_id, wc.client_id
      FROM whatsapp_contacts wc
      LEFT JOIN meta_ad_cache c ON c.ad_id = wc.ad_id
-     WHERE wc.ad_id IS NOT NULL AND c.ad_id IS NULL`
+     WHERE wc.ad_id IS NOT NULL AND (c.ad_id IS NULL OR c.ad_status IS NULL)`
   );
   let resolved = 0;
   for (const row of rows) {

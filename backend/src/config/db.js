@@ -272,6 +272,10 @@ export async function initDb() {
       fetched_at TIMESTAMPTZ NOT NULL
     )
   `);
+  // Situação do anúncio na Meta e último dia com gasto (originCategory: anúncio antigo).
+  // Data como texto 'AAAA-MM-DD', no fuso da conta de anúncio.
+  await query(`ALTER TABLE meta_ad_cache ADD COLUMN IF NOT EXISTS ad_status TEXT`);
+  await query(`ALTER TABLE meta_ad_cache ADD COLUMN IF NOT EXISTS last_spend_date TEXT`);
   // CRM estilo Kommo (ver services/crmStages.js): etapas, equipe e tags por cliente.
   await query(`
     CREATE TABLE IF NOT EXISTS crm_stages (
@@ -436,6 +440,12 @@ export async function initDb() {
   // Balcão mostra só conversa de anúncio (Meta ou Google); orgânicas ficam atrás do botão
   // 'Mostrar orgânicas'. Não muda a origem de ninguém (diferente de whatsapp_ads_only).
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS balcao_ads_only BOOLEAN DEFAULT false`);
+  // Contatos de evento (services/eventLeads.js): etiqueta Empresa/Aniversário e andamento.
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS events_tracking BOOLEAN DEFAULT false`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS event_type TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS event_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS event_status TEXT`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS event_locked BOOLEAN DEFAULT false`);
   // Cartão (externalAdReply) que veio na primeira mensagem mas não parece anúncio.
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS ad_reply_unmatched_json JSONB`);
   // Respostas automáticas já mandadas (services/infoBot.js): o mesmo assunto não se repete
@@ -450,6 +460,11 @@ export async function initDb() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_info_replies_contact ON info_replies (contact_id, sent_at)`);
+  // Sem estes índices a lista do Balcão varre a tabela de mensagens inteira por contato
+  // (Giulí com 92 mil mensagens: 81 s para carregar, a tela desistia).
+  await query(`CREATE INDEX IF NOT EXISTS idx_wa_messages_contact_sent ON whatsapp_messages (contact_id, sent_at DESC, id DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_wa_messages_client_sent ON whatsapp_messages (client_id, sent_at)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_wa_contacts_client_last ON whatsapp_contacts (client_id, last_message_at DESC NULLS LAST)`);
   // Auditoria do atendente com IA (services/aiConcierge.js): custo, tempo, ferramentas e repasses.
   await query(`
     CREATE TABLE IF NOT EXISTS ai_replies (

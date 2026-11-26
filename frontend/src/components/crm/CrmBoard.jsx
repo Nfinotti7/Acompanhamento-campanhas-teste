@@ -6,6 +6,7 @@ import ContactDetailPanel from '../ContactDetailPanel';
 import { Avatar } from '../whatsappMedia';
 import CrmSettings from './CrmSettings';
 import { brl, TagChip } from './crmUi';
+import { PERIOD_OPTIONS, ORIGIN_BADGES, filterByPeriod, filterByOrigin, countByOrigin } from './originFilter';
 
 // Funil estilo Kommo, usado no painel admin (axios + clientId) e no /caixa (caixaApi,
 // cliente fixo no token). Arrastar um card muda a etapa na hora.
@@ -31,6 +32,8 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [responsibleFilter, setResponsibleFilter] = useState('');
+  const [originFilter, setOriginFilter] = useState('');
+  const [periodFilter, setPeriodFilter] = useState('');
   const [openContact, setOpenContact] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [dragOverStage, setDragOverStage] = useState(null);
@@ -76,7 +79,8 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
 
   const tagsById = Object.fromEntries(config.tags.map((t) => [t.id, t]));
 
-  const visible = contacts.filter((c) => {
+  // As contagens da origem respeitam o período e os outros filtros, não a própria origem.
+  const beforeOrigin = filterByPeriod(contacts, periodFilter).filter((c) => {
     if (search) {
       const q = search.toLowerCase();
       if (!(c.profile_name || '').toLowerCase().includes(q) && !(c.wa_id || '').includes(q)) return false;
@@ -86,6 +90,8 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
     if (responsibleFilter && responsibleFilter !== 'none' && c.responsible_id !== Number(responsibleFilter)) return false;
     return true;
   });
+  const originCounts = countByOrigin(beforeOrigin);
+  const visible = filterByOrigin(beforeOrigin, originFilter);
 
   const moveCard = async (contactId, stageId) => {
     const previous = contacts;
@@ -106,10 +112,21 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px', flexShrink: 0 }}>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nome ou telefone" style={{ ...filterStyle, flex: '1 1 200px', maxWidth: 280 }} />
-        <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={filterStyle}>
-          <option value="">Todas as tags</option>
-          {config.tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        <select value={originFilter} onChange={(e) => { if (adsOnly && e.target.value === 'organico') setShowOrganic(true); setOriginFilter(e.target.value); }} style={filterStyle} aria-label="Origem">
+          <option value="">Todas as origens ({originCounts.total})</option>
+          <option value="anuncios">Anúncios ({originCounts.anuncios})</option>
+          <option value="organico">Orgânico / sem rastreio{adsOnly && !showOrganic ? '' : ` (${originCounts.organico})`}</option>
+          <option value="anuncio_antigo">Anúncio antigo ({originCounts.anuncio_antigo})</option>
         </select>
+        <select value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} style={filterStyle} aria-label="Data de chegada">
+          {PERIOD_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {config.tags.length > 0 && (
+          <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={filterStyle}>
+            <option value="">Todas as tags</option>
+            {config.tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
         <select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)} style={filterStyle}>
           <option value="">Todos os responsáveis</option>
           <option value="none">Sem responsável</option>
@@ -180,7 +197,7 @@ export default function CrmBoard({ apiClient, clientId, lastEvent }) {
                       </div>
                     )}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                      {c.source === 'ad' && <span>📢 Anúncio</span>}
+                      {ORIGIN_BADGES[c.origin_category] && <span>{ORIGIN_BADGES[c.origin_category]}</span>}
                       {c.appointment_at && <span style={{ color: 'var(--chart-6)' }}>📅 {formatAppointment(c.appointment_at)}</span>}
                       {c.responsible_name && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><User size={11} /> {c.responsible_name}</span>}
                     </div>

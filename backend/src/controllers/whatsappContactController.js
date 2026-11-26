@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { classifyOrigin } from '../services/whatsappOrigin.js';
+import { classifyOrigin, originCategory } from '../services/whatsappOrigin.js';
 import { resolveAd } from '../services/metaAdResolver.js';
 
 function resolveClientId(req) {
@@ -80,12 +80,14 @@ export async function getContactTimeline(req, res) {
 
 const ATTRIBUTION_SQL = `
   SELECT wc.source, wc.tracking_method, wc.ad_id, wc.ad_headline, wc.ad_body, wc.ad_source_url, wc.ad_reply_unmatched_json,
-         wc.first_seen_at, c.ad_name, c.adset_name, c.campaign_name, c.account_name,
+         wc.first_seen_at, c.ad_status, c.last_spend_date, c.ad_name, c.adset_name, c.campaign_name, c.account_name,
          tl.name AS link_name, tc.utm_source, tc.utm_medium, tc.utm_campaign, tc.utm_content, tc.utm_term,
          tc.fbclid, tc.gclid, tc.created_at AS clicked_at,
          (SELECT body FROM whatsapp_messages m
            WHERE m.contact_id = wc.id AND m.direction = 'inbound'
-           ORDER BY m.sent_at ASC LIMIT 1) AS initial_message
+           ORDER BY m.sent_at ASC LIMIT 1) AS initial_message,
+         COALESCE((SELECT MIN(m.sent_at) FROM whatsapp_messages m WHERE m.contact_id = wc.id AND m.direction = 'inbound'),
+                  wc.first_seen_at) AT TIME ZONE 'UTC' AS first_contact_utc
   FROM whatsapp_contacts wc
   LEFT JOIN meta_ad_cache c ON c.ad_id = wc.ad_id
   LEFT JOIN tracking_clicks tc ON tc.id = wc.tracking_click_id
@@ -120,6 +122,10 @@ export async function getContactAttribution(req, res) {
       campaignName: r.campaign_name,
       adsetName: r.adset_name,
       adName: r.ad_name,
+      oldAd: originCategory({
+        source: r.source, adStatus: r.ad_status, lastSpendDate: r.last_spend_date, firstContactAt: r.first_contact_utc
+      }) === 'anuncio_antigo',
+      lastSpendDate: r.last_spend_date,
       adId: r.ad_id,
       adHeadline: r.ad_headline,
       adBody: r.ad_body,

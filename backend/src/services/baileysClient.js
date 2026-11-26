@@ -22,6 +22,7 @@ import { refreshProfilePicture } from './profilePicture.js';
 import { importHistoryMessages, applyHistoryContactNames } from './historyImport.js';
 import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
+import { markEventLead } from './eventLeads.js';
 import { normalizePhone, phoneVariants } from './waitlistText.js';
 import { INSTANCE_ID } from './instance.js';
 import { loadMedia } from './mediaStore.js';
@@ -385,6 +386,8 @@ async function doConnect(clientId, state, deps) {
         if (event.adId) {
           console.log(`Baileys [client ${clientId}]: conversa de anúncio (ad ${event.adId}, clid ${event.ctwaClid ? 'sim' : 'não'})`);
           resolveAd({ adId: event.adId, clientId })
+            // Só com o nome da campanha dá pra saber se o anúncio é de evento.
+            .then(() => markEventLead(db, { clientId, contactId, at: event.sentAt }))
             .catch((error) => console.error('Erro ao resolver anúncio:', error.message));
         }
 

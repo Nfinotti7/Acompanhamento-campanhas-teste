@@ -5,6 +5,7 @@ import { RelayError } from '../services/processRelay.js';
 import { balcaoOriginFilter } from '../services/whatsappOrigin.js';
 import { loadReservationSettings } from '../services/reservationStore.js';
 import { aiStateFor } from '../services/aiConfig.js';
+import { eventFilterSql, loadEventSummary } from '../services/eventLeads.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -21,11 +22,15 @@ export async function listConversations(req, res) {
 
     const filter = await balcaoOriginFilter(db, clientId, req.query.origin);
 
+    // Filtro de eventos ignora o "só anúncios": pedido de evento também chega orgânico.
+    const eventSql = eventFilterSql(req.query.event);
+    const { rows: clientRows } = await db.query(`SELECT events_tracking FROM clients WHERE id = ?`, [clientId]);
+
     // Não lidas = mensagens recebidas depois da última vez que alguém da equipe abriu a
     // conversa (last_read_at). created_at é gravado em UTC sem fuso, por isso a conversão.
     const { rows } = await db.query(
       `SELECT wc.id, wc.wa_id, wc.profile_name, wc.source, wc.ad_headline, wc.last_message_at, wc.profile_pic_media_id,
-              wc.bot_paused_until, wc.after_hours_at,
+              wc.bot_paused_until, wc.after_hours_at, wc.event_type, wc.event_status,
               EXISTS (SELECT 1 FROM reservation_conversations rc WHERE rc.contact_id = wc.id AND rc.status = 'active') AS bot_active,
               (SELECT MIN(sent_at) FROM whatsapp_messages WHERE contact_id = wc.id AND direction = 'inbound') as first_inbound_at,
               (SELECT MIN(sent_at) FROM whatsapp_messages WHERE contact_id = wc.id AND direction = 'outbound') as first_outbound_at,
@@ -39,7 +44,7 @@ export async function listConversations(req, res) {
          SELECT body, direction, media_type, status, sent_at FROM whatsapp_messages m
          WHERE m.contact_id = wc.id ORDER BY m.sent_at DESC, m.id DESC LIMIT 1
        ) lm ON true
-       WHERE wc.client_id = ?${filter.sql}
+       WHERE wc.client_id = ?${eventSql || filter.sql}
        ORDER BY wc.last_message_at DESC NULLS LAST
        LIMIT 100`,
       [clientId]
@@ -63,10 +68,29 @@ export async function listConversations(req, res) {
         : null
     }));
 
-    return res.json({ conversations, adsOnly: filter.adsOnly, aiName: aiSettings?.ai?.name || '' });
+    return res.json({
+      conversations,
+      adsOnly: filter.adsOnly,
+      aiName: aiSettings?.ai?.name || '',
+      eventsTracking: Boolean(clientRows[0]?.events_tracking)
+    });
   } catch (error) {
     console.error('List conversations error:', error);
     return res.status(500).json({ error: 'Erro ao listar conversas.' });
+  }
+}
+
+// Quadro de eventos do Balcão: chegaram, continuaram a conversa, orçamento e fechados.
+export async function getEventSummary(req, res) {
+  try {
+    const clientId = resolveClientId(req);
+    if (!clientId) {
+      return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+    }
+    return res.json(await loadEventSummary(db, clientId));
+  } catch (error) {
+    console.error('Event summary error:', error);
+    return res.status(500).json({ error: 'Erro ao montar o resumo de eventos.' });
   }
 }
 

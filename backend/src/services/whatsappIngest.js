@@ -14,6 +14,7 @@ import { isAiActiveFor } from './aiConfig.js';
 import { loadReservationSettings } from './reservationStore.js';
 import { notifyInboundMessage } from './pushNotify.js';
 import { saveMedia } from './mediaStore.js';
+import { markEventLead } from './eventLeads.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -178,6 +179,15 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
       await funnelStep(dbImpl, { clientId, contactId });
     } catch (error) {
       console.error('Funil: erro ao mover o card:', error.message);
+    }
+  }
+
+  // Etiqueta de evento (Empresa / Aniversário). Antes do broadcast, pra lista já vir marcada.
+  if (usesCrm && isPhone && event.direction === 'inbound' && messageRows.length > 0) {
+    try {
+      await (deps.markEventLead || markEventLead)(dbImpl, { clientId, contactId, body: event.body, at: event.sentAt });
+    } catch (error) {
+      console.error('Eventos: erro ao marcar o contato:', error.message);
     }
   }
 

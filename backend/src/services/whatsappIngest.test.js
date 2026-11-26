@@ -608,3 +608,17 @@ test('erro no funil não derruba a gravação da mensagem', async () => {
   });
   assert.equal(id, 1);
 });
+
+test('mensagem recebida nova passa pela marcação de evento; enviada pela casa não', async () => {
+  const seen = [];
+  const markEventLead = async (_db, args) => { seen.push(args); };
+  const { db } = makeFakeDb();
+
+  await ingestWhatsAppEvent(8, baseEvent({ body: 'evento da empresa' }), { db, markEventLead, notifyInbound: () => {} });
+  await ingestWhatsAppEvent(8, baseEvent({ direction: 'outbound', waMessageId: 'wamid.OUT' }), { db, markEventLead });
+
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].clientId, 8);
+  assert.equal(seen[0].body, 'evento da empresa');
+  assert.equal(seen[0].at, '2026-10-12T12:00:00.000Z');
+});

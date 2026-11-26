@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 import { ensureStages, effectiveStageId, cardValue, moveToAutoStage } from '../services/crmStages.js';
-import { balcaoOriginFilter } from '../services/whatsappOrigin.js';
+import { balcaoOriginFilter, originCategory } from '../services/whatsappOrigin.js';
 
 function resolveClientId(req) {
   return req.user.role === 'admin'
@@ -27,10 +27,15 @@ export async function getKanban(req, res) {
          wc.id, wc.wa_id, wc.profile_name, wc.source, wc.ad_headline, wc.notes,
          wc.appointment_at, wc.profile_pic_media_id, wc.stage_id, wc.deal_value, wc.responsible_id,
          tm.name AS responsible_name,
+         mac.ad_status, mac.last_spend_date,
+         -- 1ª mensagem do cliente (data original, mesmo no histórico importado); em UTC.
+         COALESCE((SELECT MIN(m.sent_at) FROM whatsapp_messages m WHERE m.contact_id = wc.id AND m.direction = 'inbound'),
+                  wc.first_seen_at) AT TIME ZONE 'UTC' AS first_contact_at,
          (SELECT COALESCE(SUM(amount_spent), 0) FROM real_conversions rc WHERE rc.contact_id = wc.id) AS sales_total,
          COALESCE((SELECT array_agg(tag_id) FROM whatsapp_contact_tags t WHERE t.contact_id = wc.id), '{}') AS tag_ids
        FROM whatsapp_contacts wc
        LEFT JOIN crm_team_members tm ON tm.id = wc.responsible_id
+       LEFT JOIN meta_ad_cache mac ON mac.ad_id = wc.ad_id
        WHERE wc.client_id = ?${filter.sql}
        ORDER BY wc.last_message_at DESC NULLS LAST, wc.id DESC`,
       [clientId]
@@ -41,6 +46,10 @@ export async function getKanban(req, res) {
       wa_id: r.wa_id,
       profile_name: r.profile_name,
       source: r.source,
+      first_contact_at: r.first_contact_at,
+      origin_category: originCategory({
+        source: r.source, adStatus: r.ad_status, lastSpendDate: r.last_spend_date, firstContactAt: r.first_contact_at
+      }),
       ad_headline: r.ad_headline,
       notes: r.notes,
       appointment_at: r.appointment_at,

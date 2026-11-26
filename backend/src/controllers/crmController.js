@@ -2,6 +2,7 @@ import db from '../config/db.js';
 import { ensureStages, isValidAutoEvent, effectiveStageId, parseRemarketingDays } from '../services/crmStages.js';
 import { isValidStageMetaEvent } from '../services/metaCapi.js';
 import { fireStageEvent, inBackground } from '../services/conversionEvents.js';
+import { parseEventUpdate } from '../services/eventLeads.js';
 
 // Etapas, tags e equipe podem ser editadas por qualquer papel (admin, cliente e o
 // /caixa) -- decisão do usuário. O clientId vem do token pra quem não é admin.
@@ -198,7 +199,8 @@ export const getContactCrm = withClient(async (req, res, clientId) => {
   const { contactId } = req.params;
   const config = await loadConfig(clientId);
   const { rows } = await db.query(
-    `SELECT wc.stage_id, wc.deal_value, wc.responsible_id,
+    `SELECT wc.stage_id, wc.deal_value, wc.responsible_id, wc.event_type, wc.event_status,
+       (SELECT events_tracking FROM clients c WHERE c.id = wc.client_id) AS events_tracking,
        (SELECT COALESCE(SUM(amount_spent), 0) FROM real_conversions rc WHERE rc.contact_id = wc.id) AS sales_total,
        COALESCE((SELECT array_agg(tag_id) FROM whatsapp_contact_tags t WHERE t.contact_id = wc.id), '{}') AS tag_ids
      FROM whatsapp_contacts wc WHERE wc.id = ? AND wc.client_id = ?`,
@@ -212,6 +214,9 @@ export const getContactCrm = withClient(async (req, res, clientId) => {
     dealValue: r.deal_value == null ? null : Number(r.deal_value),
     salesTotal: Number(r.sales_total),
     responsibleId: r.responsible_id,
+    eventsTracking: Boolean(r.events_tracking),
+    eventType: r.event_type,
+    eventStatus: r.event_status,
     tagIds: r.tag_ids
   });
 }, 'Erro ao carregar dados do negócio');
@@ -221,7 +226,7 @@ async function belongsToClient(table, id, clientId) {
   return rows.length > 0;
 }
 
-// Atualiza só os campos enviados: stageId, dealValue, responsibleId, tagIds.
+// Atualiza só os campos enviados: stageId, dealValue, responsibleId, tagIds, eventType, eventStatus.
 export const updateContactCrm = withClient(async (req, res, clientId) => {
   const { contactId } = req.params;
   const { stageId, dealValue, responsibleId, tagIds } = req.body;
@@ -253,6 +258,10 @@ export const updateContactCrm = withClient(async (req, res, clientId) => {
     sets.push('responsible_id = ?');
     params.push(responsibleId);
   }
+  const eventUpdate = parseEventUpdate(req.body);
+  if (eventUpdate.error) return res.status(400).json({ error: eventUpdate.error });
+  sets.push(...eventUpdate.sets);
+  params.push(...eventUpdate.params);
   if (sets.length > 0) {
     await db.query(`UPDATE whatsapp_contacts SET ${sets.join(', ')} WHERE id = ?`, [...params, contactId]);
   }

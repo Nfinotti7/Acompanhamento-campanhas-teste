@@ -42,6 +42,13 @@ export default function AttributionView({ data }) {
   return (
     <div>
       <Row label="Origem" value={<OriginBadge origin={data.origin} />} />
+      {data.oldAd && (
+        <p role="note" style={{ margin: '10px 0', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--accent-warning)', fontSize: '0.8rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+          <strong>Anúncio antigo.</strong> Ele já não estava no ar quando a pessoa chamou
+          {data.lastSpendDate ? ` (último gasto em ${data.lastSpendDate.split('-').reverse().join('/')})` : ''}.
+          O WhatsApp mandou o cartão dele, provavelmente por um post ou conversa antiga. Não conta como resultado das campanhas atuais.
+        </p>
+      )}
       <Row label="Método de rastreamento" value={METHOD_LABELS[data.trackingMethod]} />
       <Row label="Conta de anúncio" value={data.accountName} />
       <Row label="Campanha" value={data.campaignName} />

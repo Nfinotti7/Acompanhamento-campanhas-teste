@@ -80,3 +80,31 @@ test('cliente sem credencial Meta nao consulta nada', async () => {
   assert.equal(result, null);
   assert.equal(urls.length, 0);
 });
+
+test('guarda a situação do anúncio e o último dia com gasto', async () => {
+  const { db, calls } = makeFakeDb();
+  const { fetchImpl } = fakeGraph({
+    '/777/insights?': { data: [{ date_start: '2026-06-11', spend: '10' }, { date_start: '2026-06-12', spend: '3.2' }, { date_start: '2026-06-13', spend: '0' }] },
+    '/777?': { name: 'AD', effective_status: 'ARCHIVED', campaign: { id: '3', name: 'C' } }
+  });
+  const result = await resolveAd({ adId: '777', clientId: 8, db, fetchImpl, now: () => NOW });
+  assert.equal(result.adStatus, 'ARCHIVED');
+  assert.equal(result.lastSpendDate, '2026-06-12');
+  const upsert = calls.find((c) => /INSERT INTO meta_ad_cache/.test(c.sql));
+  assert.deepEqual(upsert.params.slice(9), ['ARCHIVED', '2026-06-12']);
+});
+
+test('sem os dados de gasto não afirma nada sobre o anúncio', async () => {
+  const { db } = makeFakeDb();
+  const { fetchImpl } = fakeGraph({ '/778?': { name: 'AD', effective_status: 'ARCHIVED' } });
+  const result = await resolveAd({ adId: '778', clientId: 8, db, fetchImpl, now: () => NOW });
+  assert.equal(result.adStatus, null);
+});
+
+test('cache antigo sem a situação do anúncio é consultado de novo', async () => {
+  const cached = { ad_id: '1', campaign_name: 'C', ad_status: null, fetched_at: new Date(NOW - 1000).toISOString() };
+  const { db } = makeFakeDb({ cached });
+  const { fetchImpl, urls } = fakeGraph({});
+  await resolveAd({ adId: '1', clientId: 9, db, fetchImpl, now: () => NOW });
+  assert.ok(urls.length > 0);
+});

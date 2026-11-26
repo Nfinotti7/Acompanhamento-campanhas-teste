@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { brl, TagChip } from './crmUi';
+import { EVENT_TYPE_OPTIONS } from '../events/eventFormat';
 
 // Dados de negócio do contato no topo do painel: etapa, valor, responsável e tags.
 // Cada mudança salva na hora.
@@ -97,6 +98,38 @@ export default function DealBar({ apiClient, clientId, contactId, version, onCha
           {crm.team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </div>
+
+      {crm.eventsTracking && (
+        <div>
+          <div style={labelStyle}>Evento</div>
+          <select
+            value={crm.eventType ?? ''}
+            onChange={(e) => {
+              const eventType = e.target.value || null;
+              save(eventType ? { eventType } : { eventType, eventStatus: null });
+            }}
+            style={selectStyle}
+          >
+            <option value="">Não é evento</option>
+            {EVENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      )}
+
+      {crm.eventsTracking && crm.eventType && (
+        <div>
+          <div style={labelStyle}>Andamento</div>
+          <select
+            value={crm.eventStatus ?? ''}
+            onChange={(e) => save({ eventStatus: e.target.value || null })}
+            style={selectStyle}
+          >
+            <option value="">Em conversa</option>
+            <option value="orcamento">Orçamento enviado</option>
+            <option value="fechado">Fechado</option>
+          </select>
+        </div>
+      )}
 
       <div style={{ flex: '1 1 160px' }}>
         <div style={labelStyle}>Tags</div>

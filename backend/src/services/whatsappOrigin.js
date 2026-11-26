@@ -27,3 +27,17 @@ export async function balcaoOriginFilter(dbImpl, clientId, origin) {
   const adsOnly = Boolean(rows[0]?.balcao_ads_only);
   return { adsOnly, sql: adsOnly && origin !== 'all' ? ` AND ${AD_SOURCES_SQL}` : '' };
 }
+// Anúncio antigo: a pessoa chamou quando o anúncio já não rodava (post ou conversa antiga com
+// o botão ainda lá). O cartão é verdadeiro, mas não é resultado do que está no ar.
+export const OLD_AD_GRACE_DAYS = 7;
+
+export function originCategory({ source, adStatus, lastSpendDate, firstContactAt } = {}) {
+  if (source === 'google_ads') return 'google';
+  if (source === 'outras') return 'outras';
+  if (source !== 'ad') return 'organico';
+  // Sem a situação do anúncio na Meta não dá pra afirmar que é antigo.
+  if (!adStatus || adStatus === 'ACTIVE' || !firstContactAt) return 'anuncio';
+  if (!lastSpendDate) return 'anuncio_antigo';
+  const limit = Date.parse(`${lastSpendDate}T23:59:59-03:00`) + OLD_AD_GRACE_DAYS * 86400000;
+  return Date.parse(firstContactAt) > limit ? 'anuncio_antigo' : 'anuncio';
+}

@@ -14,6 +14,7 @@ const EMPTY_FORM = {
   reservations_enabled: false,
   whatsapp_ads_only: false,
   balcao_ads_only: false,
+  events_tracking: false,
   data_start_date: '',
   group_name: '',
   clientUserEmail: '',
@@ -88,6 +89,7 @@ export default function ClientsPage() {
       reservations_enabled: Boolean(client.reservations_enabled),
       whatsapp_ads_only: Boolean(client.whatsapp_ads_only),
       balcao_ads_only: Boolean(client.balcao_ads_only),
+      events_tracking: Boolean(client.events_tracking),
       data_start_date: client.data_start_date || '',
       group_name: client.group_name || '',
       clientUserEmail: '',
@@ -450,6 +452,17 @@ export default function ClientsPage() {
                 </label>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '12px' }}>
                   A lista e o funil abrem só com Meta Ads e Google Ads. As orgânicas continuam gravadas e aparecem no botão "Mostrar orgânicas". Não muda a origem de ninguém.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={formData.events_tracking}
+                    onChange={(e) => setFormData({ ...formData, events_tracking: e.target.checked })} />
+                  Separar contatos de eventos no Balcão
+                </label>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '12px' }}>
+                  Quem vem de anúncio de evento ou pede um evento ganha a etiqueta Empresa ou Aniversário, com filtro e números no Balcão. A equipe pode corrigir.
                 </p>
               </div>
 

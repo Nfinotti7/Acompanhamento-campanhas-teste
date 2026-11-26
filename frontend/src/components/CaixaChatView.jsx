@@ -6,6 +6,8 @@ import { Avatar } from './whatsappMedia';
 import { formatListTime, StatusTicks } from './chatFormat';
 import { setBadge } from '../pwa/push';
 import AiPauseSwitch from './reservas/AiPauseSwitch';
+import EventSummary from './events/EventSummary';
+import { eventLabel } from './events/eventFormat';
 
 const fieldStyle = {
   width: '100%',
@@ -94,11 +96,15 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
   // "Mostrar orgânicas" traz o resto (adsOnly vem da API).
   const [adsOnly, setAdsOnly] = useState(false);
   const [showOrganic, setShowOrganic] = useState(false);
+  // Cliente com contatos de evento ligados: filtro '' (todas) | all | empresa | aniversario.
+  const [eventsTracking, setEventsTracking] = useState(false);
+  const [eventFilter, setEventFilter] = useState('');
+  const [eventVersion, setEventVersion] = useState(0);
 
   useEffect(() => {
     fetchConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showOrganic]);
+  }, [showOrganic, eventFilter]);
 
   // Conversas que o robô de reserva passou pra equipe: destaque até alguém abrir.
   const [needsAttention, setNeedsAttention] = useState(() => new Set());
@@ -117,7 +123,10 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
 
   const fetchConversations = async () => {
     try {
-      const res = await caixaApi.get('/api/whatsapp/conversations', { params: showOrganic ? { origin: 'all' } : {} });
+      const params = { ...(showOrganic && { origin: 'all' }), ...(eventFilter && { event: eventFilter }) };
+      const res = await caixaApi.get('/api/whatsapp/conversations', { params });
+      setEventsTracking(Boolean(res.data.eventsTracking));
+      setEventVersion((v) => v + 1);
       setConversations(res.data.conversations || []);
       setAdsOnly(Boolean(res.data.adsOnly));
     } catch (err) {
@@ -216,7 +225,23 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
             style={{ ...fieldStyle, marginBottom: 0 }}
           />
           <AiPauseSwitch api={caixaApi} onChange={fetchConversations} />
-          {adsOnly && (
+          {eventsTracking && (
+            <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+              {[['', 'Todas'], ['all', 'Eventos'], ['empresa', 'Empresa'], ['aniversario', 'Aniversário']].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setEventFilter(value)}
+                  aria-pressed={eventFilter === value}
+                  style={{ flex: '1 1 auto', padding: '5px 8px', borderRadius: '999px', border: `1px solid ${eventFilter === value ? 'var(--accent-primary)' : 'var(--border-color)'}`, backgroundColor: eventFilter === value ? 'var(--surface-subtle)' : 'transparent', color: eventFilter === value ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '0.74rem', fontWeight: eventFilter === value ? 700 : 400, cursor: 'pointer' }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {eventsTracking && eventFilter && <EventSummary api={caixaApi} version={eventVersion} />}
+          {adsOnly && !eventFilter && (
             <button
               type="button"
               onClick={() => setShowOrganic((v) => !v)}
@@ -275,6 +300,11 @@ export default function CaixaChatView({ caixaApi, lastEvent }) {
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                    {eventsTracking && eventLabel(c.event_type) && (
+                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-link)', border: '1px solid var(--accent-link)', borderRadius: '999px', padding: '0 6px', flexShrink: 0 }}>
+                        {eventLabel(c.event_type, c.event_status)}
+                      </span>
+                    )}
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', color: unread > 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                       {hasPreview && c.last_direction === 'outbound' && <StatusTicks status={c.last_status} size={13} color="var(--text-secondary)" />}
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
