@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, PlusCircle, Building2, ShieldCheck, Mail, Lock, CheckCircle2, Trash2, Pencil } from 'lucide-react';
+import { Users, PlusCircle, Building2, ShieldCheck, Mail, Lock, CheckCircle2, Trash2, Pencil, KeyRound, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = {
@@ -30,9 +30,32 @@ export default function ClientsPage() {
 
   const [formData, setFormData] = useState(EMPTY_FORM);
 
+  const [accessUsers, setAccessUsers] = useState([]);
+  const [resetResult, setResetResult] = useState(null);
+
   useEffect(() => {
     fetchClients();
+    fetchAccessUsers();
   }, []);
+
+  const fetchAccessUsers = async () => {
+    try {
+      const res = await axios.get('/api/users');
+      setAccessUsers(res.data.users || []);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    }
+  };
+
+  const handleResetPassword = async (u) => {
+    if (!window.confirm(`Gerar uma senha nova para "${u.email}"? A senha atual deixa de funcionar.`)) return;
+    try {
+      const res = await axios.post(`/api/users/${u.id}/reset-password`);
+      setResetResult(res.data);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao redefinir a senha.');
+    }
+  };
 
   const fetchClients = async () => {
     setLoading(true);
@@ -235,6 +258,53 @@ export default function ClientsPage() {
           </div>
         ))}
       </div>
+
+      {/* Acessos: redefinição de senha pelo admin */}
+      <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', margin: '32px 0 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <KeyRound size={20} color="var(--accent-primary)" /> Acessos dos clientes
+      </h2>
+      <div className="glass-card" style={{ padding: '8px 20px' }}>
+        {accessUsers.length === 0 && (
+          <p style={{ padding: '12px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum acesso de cliente cadastrado.</p>
+        )}
+        {accessUsers.map((u) => (
+          <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '12px 0', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+            <div>
+              <strong style={{ color: 'var(--text-primary)' }}>{u.email}</strong>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {u.name}{Number(u.group_size) > 1 ? ` · grupo com ${u.group_size} restaurantes` : u.client_name ? ` · ${u.client_name}` : ''}
+              </div>
+            </div>
+            <button onClick={() => handleResetPassword(u)} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
+              <KeyRound size={14} /> <span>Redefinir senha</span>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {resetResult && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', zIndex: 9000 }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '420px', padding: '28px', backgroundColor: 'var(--bg-card)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>Senha redefinida</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+              Passe estes dados ao cliente. <strong>A senha aparece só agora</strong>: depois de fechar, não dá pra ver de novo (só gerar outra).
+            </p>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Usuário</div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>{resetResult.email}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Senha nova</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1.3rem', fontWeight: 700, color: 'var(--accent-primary)', marginBottom: '18px', userSelect: 'all' }}>{resetResult.password}</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => navigator.clipboard?.writeText(`Usuário: ${resetResult.email}\nSenha: ${resetResult.password}`)}
+              >
+                <Copy size={14} /> <span>Copiar</span>
+              </button>
+              <button className="btn btn-primary" onClick={() => setResetResult(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Create/Edit Client */}
       {showModal && (

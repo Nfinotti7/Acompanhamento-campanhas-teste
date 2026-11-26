@@ -7,6 +7,7 @@ import { initDb } from './config/db.js';
 
 import { login, getMe } from './controllers/authController.js';
 import { listClients, createClient, updateClient, deleteClient } from './controllers/clientController.js';
+import { listClientUsers, resetUserPassword } from './controllers/userController.js';
 import { getCredentials, saveCredentials } from './controllers/credentialsController.js';
 import { getMetricsSummary, getCampaigns, getCampaignDaily, syncCampaigns, getSyncJob } from './controllers/campaignController.js';
 import { importGoogleCsv } from './controllers/campaignImportController.js';
@@ -111,6 +112,10 @@ app.get('/api/clients', listClients);
 app.post('/api/clients', requireAdmin, createClient);
 app.put('/api/clients/:id', requireAdmin, updateClient);
 app.delete('/api/clients/:id', requireAdmin, deleteClient);
+
+// Acessos de cliente (redefinição de senha pelo admin)
+app.get('/api/users', requireAdmin, listClientUsers);
+app.post('/api/users/:id/reset-password', requireAdmin, resetUserPassword);
 
 // Credentials
 app.get('/api/credentials', getCredentials);
