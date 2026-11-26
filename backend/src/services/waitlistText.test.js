@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_MESSAGES, MESSAGE_KEYS, isJoinCommand, isLeaveCommand, parsePartySize,
-  normalizePhone, phoneVariants, firstName, formatGroupsAhead, renderMessage
+  normalizePhone, phoneVariants, firstName, displayName, formatGroupsAhead, renderMessage
 } from './waitlistText.js';
 
 test('isJoinCommand aceita FILA sozinho e o código do QR', () => {
@@ -82,4 +82,23 @@ test('phoneVariants cobre o número com e sem o 9º dígito', () => {
   assert.deepEqual(phoneVariants('551133334444').sort(), ['551133334444', '5511933334444'].sort());
   assert.deepEqual(phoneVariants('447700900123'), ['447700900123']);
   assert.deepEqual(phoneVariants(null), []);
+});
+
+// 26/11: nome com emoji ou caractere estranho não é usado, nem em parte.
+test('nome estranho é descartado inteiro', () => {
+  for (const name of ['📵', '🍀 Ana Souza', 'Jesus é fiel 🙏', '𝓜𝓪𝓻𝓲𝓪 𝓒𝓵𝓪𝓻𝓪', 'ᴊᴜʟɪᴀ', '꧁༒ KILLER ༒꧂',
+    'D$ 💎', 'A.L.❤️', 'Mamãe de 2', 'Ana | Nutri', '~Bia~', '.', 'D', 'Ａｎａ', 'Мария']) {
+    assert.equal(displayName(name), '', name);
+    assert.equal(firstName(name), '', name);
+  }
+});
+
+test('nome comum continua valendo, com acento, hífen, apóstrofo e ponto de abreviação', () => {
+  assert.equal(displayName('  José   Antônio  '), 'José Antônio');
+  assert.equal(displayName('Ana-Clara D\'Ávila'), 'Ana-Clara D\'Ávila');
+  assert.equal(displayName('João D’Lucca'), 'João D’Lucca');
+  assert.equal(displayName('Pedro S. Jr.'), 'Pedro S. Jr.');
+  assert.equal(displayName('Jô'), 'Jô');
+  // Acento decomposto (como o iPhone às vezes manda) é o mesmo nome.
+  assert.equal(firstName('Andréa'), 'Andréa');
 });

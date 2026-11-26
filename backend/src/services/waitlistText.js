@@ -86,13 +86,19 @@ export function phoneVariants(waId) {
   return [d];
 }
 
-// Nome do perfil do WhatsApp sem o que não é nome: "📵" vira "", "🍀 Ana Souza" vira
-// "Ana Souza". Sem isso o robô mandaria "Olá, 📵!".
+// Letras do português e das línguas latinas, com acento. Letra enfeitada (𝓜, ᴊ, Ａ) e de
+// outros alfabetos fica de fora.
+const NAME_CHARS = /^[A-Za-zÀ-ÖØ-öø-ſ .'’-]+$/;
+
+// Nome de perfil do WhatsApp que dá pra falar com a pessoa. Tendo emoji, número ou
+// qualquer caractere estranho, o nome inteiro é descartado (devolve ""): robô e IA falam
+// sem nome em vez de aproveitar o resto ("Jesus é fiel 🙏" virava "Olá, Jesus").
 export function displayName(name) {
-  return String(name || '').trim().split(/\s+/)
-    .map((w) => w.replace(/[^\p{L}\p{M}'’-]/gu, ''))
-    .filter((w) => /\p{L}/u.test(w))
-    .join(' ');
+  const clean = String(name || '').normalize('NFC').trim().replace(/\s+/g, ' ');
+  if (!NAME_CHARS.test(clean)) return '';
+  // Primeira palavra com menos de 2 letras ("D", ".", "A.L.") não é um primeiro nome.
+  const first = clean.split(' ')[0];
+  return /^\p{L}{2,}/u.test(first) ? clean : '';
 }
 
 export function firstName(name) {
