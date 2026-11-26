@@ -22,7 +22,7 @@
 
 ## Estado atual
 
-**26/11, contatos de eventos no Balcão (branch `feat/eventos-balcao`, código sem commit, NÃO enviado):** etiqueta Empresa / Aniversário, filtro, quadro de 30 dias e correção pela equipe. Pedido pensado pra Giulí. Falta o ok pra commit e deploy, ligar a chave no cadastro da Giulí e rodar `backfill-event-leads.mjs`. Ver o último Registro.
+**No ar desde 26/11 18:18 (push `146bae2`):** contatos de eventos no Balcão (ligado só na Giulí, histórico de 90 dias marcado), anúncio antigo e filtros de origem e de chegada no funil. Falta conferir as telas com login. Ver o último Registro.
 
 **26/11, análise externa de "enxugamento" conferida no código: NÃO aprovada como pacote.** Há uma falha de segurança confirmada e ainda aberta (PIN sem limite de tentativas + `GET /api/credentials` sem `requireAdmin`). Ver o último Registro. **Decisão do usuário (26/11): deixar como está por enquanto e fazer as melhorias depois.** Não mexer sem ele pedir.
 
@@ -1417,3 +1417,5 @@ O usuário pediu opinião sobre um relatório externo de melhorias, antes de man
 - Não mudou: Dashboard WhatsApp e resumo do dono ainda contam anúncio antigo como Meta Ads.
 
 **Testado:** backend 771/771, frontend 78/78, build ok. Funil e aba Origem reais rodados nos dados da Giulí (cache em tabela temporária, ROLLBACK): 121 anúncios consultados sem erro; funil com 6.905 contatos em 2–3 s. Chegaram hoje (até a consulta): 35 = 4 anúncio, 2 anúncio antigo, 29 orgânico/sem rastreio. 30 dias: 773 = 136 / 9 / 628. "Chegou" = 1ª mensagem no histórico disponível (começa em julho). Tela não conferida no navegador.
+
+**Deploy (26/11, 18:18), a pedido ("pode subir tudo"):** push `74ddfd6..146bae2`, bundle `index-DkCnGN-X.js` no ar (inclui os 3 índices; `migrate-db.mjs` ficou de fora). A API respondeu 503 "Servidor iniciando" por cerca de 30 s e depois voltou. `events_tracking` ligado na Giulí; histórico de 90 dias marcado: 188 (19 empresa, 152 aniversário, 17 a definir). Anúncios reconsultados na Meta: nenhum ficou sem situação; o do print está ARCHIVED, último gasto 12/06. WhatsApps 5, 7, 8, 9 e 13 `connected` (o 27, demonstração, em `qr`). Depois do deploy só o Alma tinha recebido mensagem até a conferência. **Falta conferir:** telas no navegador com login e a primeira mensagem nova de evento sendo marcada na Giulí. Os commits do diário depois de `146bae2` ficam sem push (pra não disparar outro deploy).
