@@ -22,7 +22,7 @@
 
 ## Estado atual
 
-**26/11, análise externa de "enxugamento" conferida no código: NÃO aprovada como pacote.** Há uma falha de segurança confirmada e ainda aberta (PIN sem limite de tentativas + `GET /api/credentials` sem `requireAdmin`). Ver o último Registro.
+**26/11, análise externa de "enxugamento" conferida no código: NÃO aprovada como pacote.** Há uma falha de segurança confirmada e ainda aberta (PIN sem limite de tentativas + `GET /api/credentials` sem `requireAdmin`). Ver o último Registro. **Decisão do usuário (26/11): deixar como está por enquanto e fazer as melhorias depois.** Não mexer sem ele pedir.
 
 **No ar desde 26/11 14:44 (push `4568071..e05f925`): nomes estranhos e funil automático.** Nome de perfil com emoji ou caractere estranho não é usado por robô nem IA. O funil passa pra "Em atendimento" na 2ª resposta da casa e pra "Remarketing" depois de 5 dias parado. Ver Registro 2026-11-26. **Banco atual:** o que vale é o do `backend/.env.novo` (us-west-2); o `backend/.env` aponta pro banco antigo, que não autentica mais. **Redefinição de senha pelo admin: no ar desde 26/11 14:53** (push `74ddfd6`, tela Clientes → "Acessos dos clientes"); falta gerar a senha nova do `grupojf`. **Sem commit na árvore de trabalho:** 3 índices no `db.js` (já existem no banco atual) e `scripts/migrate-db.mjs`.
 
