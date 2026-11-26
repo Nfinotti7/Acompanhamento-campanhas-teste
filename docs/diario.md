@@ -1402,3 +1402,18 @@ O usuário pediu opinião sobre um relatório externo de melhorias, antes de man
 **Não testado:** tela no navegador e mensagem real passando pela marcação.
 
 **Pra colocar no ar:** commit (o `db.js` também tem os 3 índices antigos sem commit: decidir se vão junto) → deploy → Clientes → Giulí → "Separar contatos de eventos no Balcão" → `DOTENV_CONFIG_PATH=.env.novo node scripts/backfill-event-leads.mjs --client 8 --apply`.
+
+### 2026-11-26 (continuação) — Anúncio antigo e filtros de origem no funil (mesma branch, não enviado)
+
+**Retorno do usuário:** a sugestão de resposta pra eventos **não é necessária** (a atendente repassa o contato pra equipe de eventos). Pediu pra corrigir o contato rastreado como "Dia dos namorados" e ter filtro orgânico x anúncio no funil.
+
+**Causa:** o WhatsApp mandou de verdade o cartão do anúncio de junho ("AD dia dos namorados", ARCHIVED, gasto só em junho). Os 2 casos de 26/11 vieram do mesmo post do Instagram (`/p/DY-6jQwAdl_/`), com códigos de clique diferentes. Os outros 10 contatos de anúncio ao vivo (todas as casas) eram de anúncio ativo. Não dá pra provar onde a pessoa tocou; o provável é o post antigo, que a casa pode arquivar. **Não reatribuir** pra campanha atual.
+
+**Feito:**
+- `originCategory` (`whatsappOrigin.js`): anúncio antigo = não está ACTIVE e sem gasto nos 7 dias antes da 1ª mensagem. Sem dado da Meta, conta como anúncio.
+- `meta_ad_cache.ad_status` e `last_spend_date`; o cache antigo é reconsultado na subida (`resolveMissingAds`, alguns minutos em segundo plano).
+- Funil: filtro de origem com contagem (Anúncios / Orgânico / Anúncio antigo), filtro de data de chegada (pela 1ª mensagem do cliente) e selo no card. O filtro de tags só aparece se houver tag (a Giulí não tem).
+- Aba Origem avisa "Anúncio antigo" com a data do último gasto.
+- Não mudou: Dashboard WhatsApp e resumo do dono ainda contam anúncio antigo como Meta Ads.
+
+**Testado:** backend 771/771, frontend 78/78, build ok. Funil e aba Origem reais rodados nos dados da Giulí (cache em tabela temporária, ROLLBACK): 121 anúncios consultados sem erro; funil com 6.905 contatos em 2–3 s. Chegaram hoje (até a consulta): 35 = 4 anúncio, 2 anúncio antigo, 29 orgânico/sem rastreio. 30 dias: 773 = 136 / 9 / 628. "Chegou" = 1ª mensagem no histórico disponível (começa em julho). Tela não conferida no navegador.
