@@ -21,6 +21,7 @@ import { getKanban, getAgenda, setAppointment } from './controllers/whatsappKanb
 import { getBaileysStatus, resetBaileys, pairingCodeBaileys } from './controllers/whatsappBaileysController.js';
 import { reconnectAllBaileysClients } from './services/baileysClient.js';
 import { startFollowupScheduler } from './services/followupScheduler.js';
+import { positionUnstagedContacts, setupFunnelAutomation, moveIdleToRemarketing } from './services/crmStages.js';
 import { recoverPendingAiReplies } from './services/aiConcierge.js';
 import { offerVacancies } from './services/vacancyWaitlist.js';
 import { setReleaseHook, setArrivedHook } from './services/reservationStore.js';
@@ -35,7 +36,7 @@ import { transcribeMessageHandler } from './controllers/whatsappTranscribeContro
 import { resolveMissingAds } from './services/metaAdResolver.js';
 import { getWhatsappDashboard } from './controllers/whatsappDashboardController.js';
 import { redirectTrackingLink, listLinks, createLink, updateLink, deleteLink, getCapiSettings, saveCapiSettings, saveGoogleConversionSettings, sendCapiTest, listConversionEvents } from './controllers/trackingController.js';
-import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm } from './controllers/crmController.js';
+import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tagsCrud, teamCrud, getContactCrm, updateContactCrm, updateCrmSettings } from './controllers/crmController.js';
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
 import { purgeOldMedia, MEDIA_RETENTION_HOURS } from './services/mediaRetention.js';
@@ -161,6 +162,7 @@ app.patch('/api/whatsapp/contacts/:contactId/crm', updateContactCrm);
 
 // CRM: etapas do funil, tags e equipe (por cliente)
 app.get('/api/crm/config', getCrmConfig);
+app.patch('/api/crm/settings', updateCrmSettings);
 app.post('/api/crm/stages', createStage);
 app.put('/api/crm/stages/order', reorderStages);
 app.patch('/api/crm/stages/:stageId', updateStage);
@@ -317,6 +319,17 @@ initDb()
     // Lembrete de reserva, avaliação pós-visita e relatório do dono. Desligado junto com
     // o BAILEYS_AUTOCONNECT=false, pra o backend local não mandar mensagem de verdade.
     if (process.env.BAILEYS_AUTOCONNECT !== 'false') {
+      // Funil: de hora em hora, quem está parado vai pro Remarketing. A primeira passada
+      // liga os eventos novos às etapas de cada cliente. O backend local não mexe nos cards.
+      const sweepFunnel = () => positionUnstagedContacts(db)
+        .then(() => setupFunnelAutomation(db))
+        .then((count) => { if (count > 0) console.log(`Funil: ${count} card(s) subiram pra Em atendimento`); })
+        .then(() => moveIdleToRemarketing(db))
+        .then((count) => { if (count > 0) console.log(`Funil: ${count} card(s) parados foram pro Remarketing`); })
+        .catch((err) => console.error('Funil: erro na rotina automática:', err.message));
+      setTimeout(sweepFunnel, 90000).unref();
+      setInterval(sweepFunnel, 60 * 60 * 1000).unref();
+
       setReleaseHook((clientId) => offerVacancies(clientId));
       setArrivedHook((reservation) => awardVisit(reservation));
       startFollowupScheduler();

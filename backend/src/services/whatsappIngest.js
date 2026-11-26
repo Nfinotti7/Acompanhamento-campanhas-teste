@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 import { broadcast } from './sseHub.js';
-import { moveToAutoStage } from './crmStages.js';
+import { moveToAutoStage, advanceOnHouseReply, reviveFromRemarketing } from './crmStages.js';
 import { extractTrackingCode, classifyClickSource } from './trackingLink.js';
 import { handleInboundForWaitlist } from './waitlistBot.js';
 import { pauseBot } from './botPause.js';
@@ -165,6 +165,20 @@ export async function ingestWhatsAppEvent(clientId, event, deps = {}) {
   // mesma mensagem (ON CONFLICT DO NOTHING não devolve linha), já foi baixada antes.
   if (messageRows.length > 0 && event.media?.download) {
     await storeMedia(dbImpl, clientId, contactId, messageRows[0].id, event.media);
+  }
+
+  // Funil: quem estava no Remarketing e escreveu volta pra Novo lead; resposta da casa pelo
+  // celular conta como a do Balcão. Vem antes dos robôs, pra resposta deles já achar o card
+  // no lugar certo. Mensagem repetida não mexe.
+  if (usesCrm && messageRows.length > 0) {
+    try {
+      const funnelStep = event.direction === 'inbound'
+        ? (deps.reviveFromRemarketing || reviveFromRemarketing)
+        : (deps.advanceOnReply || advanceOnHouseReply);
+      await funnelStep(dbImpl, { clientId, contactId });
+    } catch (error) {
+      console.error('Funil: erro ao mover o card:', error.message);
+    }
   }
 
   // Robô da fila (Na Mesa): só mensagem recebida e nova -- reenvio do WhatsApp

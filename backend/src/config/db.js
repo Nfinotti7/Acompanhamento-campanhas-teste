@@ -309,6 +309,10 @@ export async function initDb() {
     )
   `);
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS crm_seeded_at TIMESTAMPTZ`);
+  // Funil automático (services/crmStages.js): dias parado até o Remarketing, e a marca de que
+  // os eventos novos já foram ligados às etapas que o cliente tinha.
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS crm_remarketing_days INTEGER NOT NULL DEFAULT 5`);
+  await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS crm_automation_at TIMESTAMPTZ`);
 
   // Na Mesa (fila de espera) -- ver docs/superpowers/specs/2026-10-15-namesa-fila-design.md
   await query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS dashboard_enabled BOOLEAN DEFAULT true`);
@@ -360,6 +364,7 @@ export async function initDb() {
     WHERE phone IS NOT NULL AND status IN ('awaiting_size', 'waiting', 'called')
   `);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES crm_stages(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS stage_changed_at TIMESTAMP`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS deal_value NUMERIC(12,2)`);
   await query(`ALTER TABLE whatsapp_contacts ADD COLUMN IF NOT EXISTS responsible_id INTEGER REFERENCES crm_team_members(id) ON DELETE SET NULL`);
   // Link Rastreável (services/trackingLink.js): cada link gera um clique com código curto,

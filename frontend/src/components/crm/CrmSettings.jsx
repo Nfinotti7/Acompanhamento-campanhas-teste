@@ -6,8 +6,10 @@ import { ArrowUp, ArrowDown, Trash2, Plus } from 'lucide-react';
 
 const AUTO_EVENT_LABELS = {
   novo_lead: 'Lead novo entra aqui',
+  atendimento: '2ª resposta move pra cá',
   agendado: 'Agendamento move pra cá',
-  venda: 'Venda lançada move pra cá'
+  venda: 'Venda lançada move pra cá',
+  remarketing: 'Lead parado vem pra cá'
 };
 
 // Purchase não aparece: é enviada a cada venda lançada, com o valor dela.
@@ -85,6 +87,7 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
     ids.splice(index + delta, 0, moved);
     await apiClient.put('/api/crm/stages/order', body({ ids }));
   });
+  const saveRemarketingDays = (days) => run(() => apiClient.patch('/api/crm/settings', body({ remarketingDays: days })));
   const deleteStage = (stage) => {
     if (!window.confirm(`Apagar a etapa "${stage.name}"? Os cards dela vão pra primeira etapa.`)) return;
     run(() => apiClient.delete(`/api/crm/stages/${stage.id}`, { params }));
@@ -132,10 +135,17 @@ export default function CrmSettings({ apiClient, clientId, config, onChanged }) 
       </div>
       <AddRow placeholder="Nova etapa" withColor onAdd={(data) => run(() => apiClient.post('/api/crm/stages', body(data)))} />
       <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-        Mensagem comum não move card. Só lead novo, agendamento e venda movem sozinhos, pra etapa ligada a cada um.
+        O card sai de "Novo lead" na segunda resposta da casa (atendente, robô ou IA; mensagens seguidas contam como
+        uma). Agendamento e venda também movem sozinhos. Quem está no remarketing e volta a escrever retorna pra "Novo lead".
         O evento Meta é enviado uma vez por contato quando o card entra na etapa (se a Conversions API estiver ativa
         em "Links e Conversões"). Purchase vai sozinha a cada venda lançada.
       </p>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px', fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+        Vai pro remarketing depois de
+        <NameInput value={String(config.remarketingDays ?? 5)} onSave={saveRemarketingDays} style={{ width: 64, textAlign: 'center' }} />
+        dias sem mensagem (parado em novo lead ou atendimento)
+      </label>
 
       <h3 style={sectionTitle}>Tags</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

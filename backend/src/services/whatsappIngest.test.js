@@ -570,3 +570,41 @@ test('só anúncio: erro ao ler a origem do contato cai nos robôs de hoje', asy
   assert.equal(seen.ai.length, 0);
   assert.equal(seen.reservation.length, 1);
 });
+
+// 26/11: o funil anda com a conversa.
+async function funnelCalls(event, { db = makeFakeDb().db } = {}) {
+  const calls = [];
+  await ingestWhatsAppEvent(5, event, {
+    db, broadcast: () => {}, pauseBot: async () => {},
+    advanceOnReply: async (_db, a) => calls.push(['avanca', a]),
+    reviveFromRemarketing: async (_db, a) => calls.push(['volta', a])
+  });
+  return calls;
+}
+
+test('mensagem recebida nova tira o contato do Remarketing', async () => {
+  assert.deepEqual(await funnelCalls(baseEvent()), [['volta', { clientId: 5, contactId: 1 }]]);
+});
+
+test('resposta pelo celular da casa avisa o funil', async () => {
+  assert.deepEqual(await funnelCalls(baseEvent({ direction: 'outbound' })), [['avanca', { clientId: 5, contactId: 1 }]]);
+});
+
+test('mensagem repetida (reenvio do WhatsApp) não mexe no funil', async () => {
+  const db = {
+    query: async (sql) => {
+      if (/INSERT INTO whatsapp_messages/.test(sql)) return { rows: [] };
+      if (/RETURNING id/.test(sql)) return { rows: [{ id: 1 }] };
+      return { rows: [] };
+    }
+  };
+  assert.deepEqual(await funnelCalls(baseEvent(), { db }), []);
+});
+
+test('erro no funil não derruba a gravação da mensagem', async () => {
+  const { db } = makeFakeDb();
+  const id = await ingestWhatsAppEvent(5, baseEvent(), {
+    db, broadcast: () => {}, reviveFromRemarketing: async () => { throw new Error('banco caiu'); }
+  });
+  assert.equal(id, 1);
+});

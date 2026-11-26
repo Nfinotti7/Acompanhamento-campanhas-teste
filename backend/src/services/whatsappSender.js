@@ -7,6 +7,7 @@ import { sendViaBaileys } from './baileysClient.js';
 import { randomBytes } from 'node:crypto';
 import { broadcast } from './sseHub.js';
 import { saveMedia } from './mediaStore.js';
+import { advanceOnHouseReply } from './crmStages.js';
 
 export class SendError extends Error {
   constructor(message, httpStatus) {
@@ -35,6 +36,16 @@ async function loadContactAndSettings(dbImpl, clientId, contactId) {
   const settings = settingsRows[0];
   if (!settings) throw new SendError('WhatsApp não configurado para este cliente.', 400);
   return { contact, settings };
+}
+
+// Resposta da casa anda o funil (crmStages.js). A mensagem já saiu: erro aqui não pode virar
+// erro de envio, senão a equipe manda de novo.
+async function updateFunnel(dbImpl, deps, args) {
+  try {
+    await (deps.advanceOnReply || advanceOnHouseReply)(dbImpl, args);
+  } catch (error) {
+    console.error('Funil: erro ao mover o card depois da resposta:', error.message);
+  }
 }
 
 // sentBy: 'staff' (resposta da equipe pelo Caixa) ou o robô ('bot_reserva').
@@ -99,6 +110,8 @@ export async function sendToContact({ clientId, contactId, body, sentBy = 'staff
      WHERE id = ?`,
     [contactId]
   );
+
+  await updateFunnel(dbImpl, deps, { clientId, contactId: Number(contactId) });
 
   broadcastFn(clientId, 'message', {
     contactId: Number(contactId),
@@ -207,6 +220,8 @@ export async function sendMediaToContact({ clientId, contactId, data, mimeType, 
      WHERE id = ?`,
     [contactId]
   );
+
+  await updateFunnel(dbImpl, deps, { clientId, contactId: Number(contactId) });
 
   broadcastFn(clientId, 'message', {
     contactId: Number(contactId),

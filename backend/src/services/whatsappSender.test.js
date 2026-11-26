@@ -180,3 +180,44 @@ test('sendMediaToContact recusa arquivo vazio ou grande demais', async () => {
   await assert.rejects(sendMediaToContact({ clientId: 7, contactId: 3, data: Buffer.alloc(15 * 1024 * 1024 + 1) }, { db, broadcast: () => {} }),
     (err) => err instanceof SendError && err.httpStatus === 413);
 });
+
+// 26/11: toda mensagem da casa avisa o funil (a segunda resposta move pra Em atendimento).
+const base = (extra) => ({
+  db: fakeDb(), sendViaBaileys: async () => 'wamid.F', broadcast: () => {}, ...extra
+});
+
+test('sendToContact avisa o funil depois de enviar, seja atendente ou robô', async () => {
+  for (const sentBy of ['staff', 'bot_reserva', 'ai']) {
+    const calls = [];
+    await sendToContact({ clientId: 7, contactId: 3, body: 'Oi', sentBy },
+      base({ advanceOnReply: async (_db, args) => calls.push(args) }));
+    assert.deepEqual(calls, [{ clientId: 7, contactId: 3 }], sentBy);
+  }
+});
+
+test('sendMediaToContact também avisa o funil', async () => {
+  const calls = [];
+  await sendMediaToContact(
+    { clientId: 7, contactId: 3, data: Buffer.from('x'), mimeType: 'image/png', filename: 'a.png' },
+    base({ advanceOnReply: async (_db, args) => calls.push(args), db: {
+      query: async (sql) => {
+        if (/FROM whatsapp_contacts/.test(sql)) return { rows: [{ wa_id: '5511999998888' }] };
+        if (/FROM whatsapp_settings/.test(sql)) return { rows: [{ connection_type: 'baileys' }] };
+        return { rows: [{ id: 1 }] };
+      }
+    } }));
+  assert.equal(calls.length, 1);
+});
+
+test('envio que falha não mexe no funil', async () => {
+  const calls = [];
+  await assert.rejects(sendToContact({ clientId: 7, contactId: 3, body: 'Oi' },
+    base({ sendViaBaileys: async () => { throw new Error('sem conexão'); }, advanceOnReply: async () => calls.push(1) })));
+  assert.equal(calls.length, 0);
+});
+
+test('erro no funil não vira erro de envio', async () => {
+  const id = await sendToContact({ clientId: 7, contactId: 3, body: 'Oi' },
+    base({ advanceOnReply: async () => { throw new Error('banco caiu'); } }));
+  assert.equal(id, 'wamid.F');
+});

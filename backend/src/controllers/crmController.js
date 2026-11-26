@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { ensureStages, isValidAutoEvent, effectiveStageId } from '../services/crmStages.js';
+import { ensureStages, isValidAutoEvent, effectiveStageId, parseRemarketingDays } from '../services/crmStages.js';
 import { isValidStageMetaEvent } from '../services/metaCapi.js';
 import { fireStageEvent, inBackground } from '../services/conversionEvents.js';
 
@@ -20,12 +20,13 @@ function cleanName(value) {
 
 async function loadConfig(clientId) {
   await ensureStages(db, clientId);
-  const [{ rows: stages }, { rows: tags }, { rows: team }] = await Promise.all([
+  const [{ rows: stages }, { rows: tags }, { rows: team }, { rows: client }] = await Promise.all([
     db.query(`SELECT id, name, color, position, auto_event, meta_event FROM crm_stages WHERE client_id = ? ORDER BY position, id`, [clientId]),
     db.query(`SELECT id, name, color FROM crm_tags WHERE client_id = ? ORDER BY name`, [clientId]),
-    db.query(`SELECT id, name FROM crm_team_members WHERE client_id = ? ORDER BY name`, [clientId])
+    db.query(`SELECT id, name FROM crm_team_members WHERE client_id = ? ORDER BY name`, [clientId]),
+    db.query(`SELECT crm_remarketing_days FROM clients WHERE id = ?`, [clientId])
   ]);
-  return { stages, tags, team };
+  return { stages, tags, team, remarketingDays: client[0]?.crm_remarketing_days };
 }
 
 function withClient(handler, errorMessage) {
@@ -44,6 +45,13 @@ function withClient(handler, errorMessage) {
 export const getCrmConfig = withClient(async (_req, res, clientId) => {
   return res.json(await loadConfig(clientId));
 }, 'Erro ao carregar o CRM');
+
+export const updateCrmSettings = withClient(async (req, res, clientId) => {
+  const days = parseRemarketingDays(req.body.remarketingDays);
+  if (!days) return res.status(400).json({ error: 'Informe de 1 a 90 dias.' });
+  await db.query(`UPDATE clients SET crm_remarketing_days = ? WHERE id = ?`, [days, clientId]);
+  return res.json({ message: 'Prazo salvo.' });
+}, 'Erro ao salvar o prazo do remarketing');
 
 // ---- Etapas ----
 
@@ -228,7 +236,8 @@ export const updateContactCrm = withClient(async (req, res, clientId) => {
   const params = [];
   if (stageId !== undefined) {
     if (!(await belongsToClient('crm_stages', stageId, clientId))) return res.status(400).json({ error: 'Etapa inválida.' });
-    sets.push('stage_id = ?');
+    // Mover à mão reinicia a contagem dos dias parados (crmStages.js).
+    sets.push('stage_id = ?', 'stage_changed_at = CURRENT_TIMESTAMP');
     params.push(stageId);
   }
   if (dealValue !== undefined) {
