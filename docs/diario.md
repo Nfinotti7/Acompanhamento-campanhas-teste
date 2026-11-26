@@ -22,6 +22,8 @@
 
 ## Estado atual
 
+**No ar desde 26/11 14:44 (push `4568071..e05f925`): nomes estranhos e funil automático.** Nome de perfil com emoji ou caractere estranho não é usado por robô nem IA. O funil passa pra "Em atendimento" na 2ª resposta da casa e pra "Remarketing" depois de 5 dias parado. Ver Registro 2026-11-26. **Banco atual:** o que vale é o do `backend/.env.novo` (us-west-2); o `backend/.env` aponta pro banco antigo, que não autentica mais. **Sem commit na árvore de trabalho:** redefinição de senha pelo admin, 3 índices no `db.js` (já existem no banco atual) e `scripts/migrate-db.mjs`.
+
 **Em produção (main, já deployado e confirmado no ar):**
 - Tracking de campanhas Google Ads + Meta Ads, multi-cliente (Recreio, Alma Boutique Bar, Giulí Osteria, Malibu Sushibar), com suporte a cliente com múltiplas contas de anúncio / múltiplas Páginas do Facebook.
 - WhatsApp: recebimento de mensagens via API oficial (Cloud API, webhook) **ou** via Baileys (WhatsApp Web não-oficial, conexão por QR code) — escolhido por cliente em `whatsapp_settings.connection_type`.
@@ -1346,3 +1348,16 @@ Para o Malibu (client 9): **Black Malibu**, sexta 27/11/2026, almoço R$ 99 e ja
 
 - **Números liberados da IA (25/11), a pedido:** o 62 8184-7190 (gente do Malibu que quer ver a Maria funcionando) tinha sido posto em `test_phones`, o que tirava a IA de todos os leads de anúncio. Criado `ai.extra_phones` ("Responder também estes números" no Configurar): soma aos leads de anúncio, não restringe. Deploy `a501179` (bundle `index-BkWHIkZG.js`); no client 9 `test_phones` foi esvaziado e o número foi para `extra_phones`. Não testado com mensagem real.
 - **Texto da Black ajustado (25/11), a pedido:** é rodízio, por pessoa, sem bebidas (almoço R$ 99, jantar R$ 129). Só o `details` do evento mudou no banco.
+
+### 2026-11-26 — Nomes estranhos e funil automático (no ar)
+
+**Pedido do usuário:** robô e IA não devem usar nome com emoji ou cheio de caracteres. No funil, resposta da casa leva pra "Em atendimento", agendamento pra "Agendado", e lead parado vai pro Remarketing. Ajustes dele: só vai pra "Em atendimento" **na segunda resposta da casa** (muita gente clica no anúncio, manda a primeira mensagem e some; esses ficam em "Novo lead"); prazo de **5 dias**. Aprovou a rotina no servidor (em vez de etapa calculada na tela) e mandou subir ao terminar. **Muda a decisão de 13/10** ("mensagem comum não move card").
+
+- **Nome (`displayName`, `waitlistText.js`):** o nome **inteiro** é descartado se tiver algo além de letras latinas (com acento), espaço, ponto, hífen e apóstrofo, ou se a primeira palavra tiver menos de 2 letras. Vale pra tudo que usa `firstName`/`displayName`, inclusive Na Mesa. O Balcão continua mostrando o nome original. Frase sem símbolo ("Jesus é fiel") ainda passa.
+- **2ª resposta (`crmStages.js`):** mensagens seguidas da casa contam como uma; a 2ª só existe depois de o cliente escrever de novo. Vale atendente, celular, robô, IA e a saudação automática do WhatsApp Business. Só sai de "Novo lead".
+- **Remarketing:** rotina de hora em hora (1ª passada 90 s após subir; desligada com `BAILEYS_AUTOCONNECT=false`). Conta da última mensagem ou da última mudança de etapa (`stage_changed_at`, inclusive arrastar à mão). Não mexe em quem tem agendamento futuro nem em "Agendado"/"Compareceu". Quem está no remarketing e escreve volta pra "Novo lead". Não envia mensagem pra ninguém. Prazo por cliente (`clients.crm_remarketing_days`) em Funil → Configurar funil.
+- **Eventos novos** `atendimento` e `remarketing` em `crm_stages.auto_event`, ligados uma vez por cliente às etapas com nome "Em atendimento" e "Remarketing" (`clients.crm_automation_at`).
+- **Achados na verificação no Postgres real (cópias temporárias, ROLLBACK), que os testes com banco falso não pegavam:** (1) contatos importados do histórico não têm etapa (6.863 na Giulí) e a rotina os ignoraria → `positionUnstagedContacts` roda antes; (2) a conta de dias usava `first_seen_at`, que neles é a data da importação, e ninguém ia pro Remarketing → corrigido, com teste.
+- **Resultado em produção (14:47):** Giulí 6.766 e Malibu 186 no Remarketing. Recreio e Alma ainda com 0 (as conversas deles no banco novo começam em 24/11). Os 5 WhatsApps seguiram `connected`, sem QR, num processo só.
+- **Testes:** backend 743/743, frontend 73/73, build ok. **Não conferido:** a tela Configurar funil no navegador e uma conversa real andando no funil.
+- **Observar:** card em "Agendado" com data passada continua lá (não há regra pra isso).
