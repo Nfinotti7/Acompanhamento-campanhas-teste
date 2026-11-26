@@ -22,6 +22,8 @@
 
 ## Estado atual
 
+**26/11, contatos de eventos no Balcão (branch `feat/eventos-balcao`, código sem commit, NÃO enviado):** etiqueta Empresa / Aniversário, filtro, quadro de 30 dias e correção pela equipe. Pedido pensado pra Giulí. Falta o ok pra commit e deploy, ligar a chave no cadastro da Giulí e rodar `backfill-event-leads.mjs`. Ver o último Registro.
+
 **26/11, análise externa de "enxugamento" conferida no código: NÃO aprovada como pacote.** Há uma falha de segurança confirmada e ainda aberta (PIN sem limite de tentativas + `GET /api/credentials` sem `requireAdmin`). Ver o último Registro. **Decisão do usuário (26/11): deixar como está por enquanto e fazer as melhorias depois.** Não mexer sem ele pedir.
 
 **No ar desde 26/11 14:44 (push `4568071..e05f925`): nomes estranhos e funil automático.** Nome de perfil com emoji ou caractere estranho não é usado por robô nem IA. O funil passa pra "Em atendimento" na 2ª resposta da casa e pra "Remarketing" depois de 5 dias parado. Ver Registro 2026-11-26. **Banco atual:** o que vale é o do `backend/.env.novo` (us-west-2); o `backend/.env` aponta pro banco antigo, que não autentica mais. **Redefinição de senha pelo admin: no ar desde 26/11 14:53** (push `74ddfd6`, tela Clientes → "Acessos dos clientes"); falta gerar a senha nova do `grupojf`. **Sem commit na árvore de trabalho:** 3 índices no `db.js` (já existem no banco atual) e `scripts/migrate-db.mjs`.
@@ -1377,3 +1379,26 @@ O usuário pediu opinião sobre um relatório externo de melhorias, antes de man
 - **Procede e vale fazer:** XSS do `challenge`, `sw.js`, índices, `quick_files` no Storage, `cp.client_id` faltando no gasto do dashboard WhatsApp, paginação do Kanban/mensagens, refetch em cascata do SSE, `check_creds.js`, `ALTER COLUMN appointment_at TYPE` rodando a cada boot.
 - **Atenção:** os 3 índices em `db.js` e o `scripts/migrate-db.mjs` seguem sem commit. Testes: backend 745/745, frontend 73/73.
 
+
+### 2026-11-26 — Contatos de eventos no Balcão (branch `feat/eventos-balcao`, não enviado)
+
+**Pedido:** separar na Giulí quem vem de evento, ver isso no Balcão e saber se está melhorando. Ao ditar, "Jury" = Giulí. O usuário escolheu: contam empresa e aniversário/comemoração, **separados**.
+
+**Diagnóstico (só leitura):**
+- O WhatsApp da Giulí entrou no Balcão em 25/11 ~19h25. O histórico importado mantém a data original em `sent_at` (agosto a novembro completos); `created_at` e `first_seen_at` são a data da importação.
+- "GIULI - [ENG] Eventos WhatsApp 4052 - NOV26" (11 a 24/11): R$ 174, 26 conversas na Meta (~R$ 6,70). Como o nome tem "4052", a dashboard também mostra 47 "contatos de eventos", que são **cliques**.
+- Os 2 leads de evento de 26/11 receberam a saudação geral da "central de reservas", com horários de mesa. Falta uma resposta própria pra eventos (ajuste no WhatsApp da casa, não feito).
+- A página `eventos-giuli.html` manda pro 4052, fora do Balcão.
+
+**Feito:**
+- `services/eventLeads.js`: classifica pelo texto recebido e pelo nome da campanha/anúncio (sem IA). Empresa > aniversário > a definir. "Confraternização" conta como empresa. Escolha da equipe trava (`event_locked`).
+- Chave `clients.events_tracking`, desligada por padrão (no Malibu, aniversário costuma ser reserva comum).
+- Colunas `event_type`, `event_at`, `event_status` (orçamento/fechado, marcado à mão) e `event_locked`.
+- Balcão: etiqueta, filtro (Todas / Eventos / Empresa / Aniversário), quadro de 30 dias contra os 30 anteriores e selects "Evento" e "Andamento" no painel do contato.
+- `scripts/backfill-event-leads.mjs --client 8` (sem `--apply` só conta).
+
+**Testado:** backend 764/764, frontend 75/75, build ok. Simulação numa cópia temporária da Giulí no Postgres real (ROLLBACK): 189 marcados em 90 dias (19 empresa, 153 aniversário, 17 a definir). Últimos 30 dias: 69 (11/52/6), 54 continuaram; 30 anteriores: 79 (5/68/6), 62 continuaram. "Continuaram" = escreveu de novo depois de uma mensagem da casa, **inclusive a saudação automática**. Orçamento e fechado começam zerados. A amostra das regras foi conferida por leitura, não há medida de acerto.
+
+**Não testado:** tela no navegador e mensagem real passando pela marcação.
+
+**Pra colocar no ar:** commit (o `db.js` também tem os 3 índices antigos sem commit: decidir se vão junto) → deploy → Clientes → Giulí → "Separar contatos de eventos no Balcão" → `DOTENV_CONFIG_PATH=.env.novo node scripts/backfill-event-leads.mjs --client 8 --apply`.
