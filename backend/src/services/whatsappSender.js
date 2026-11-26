@@ -6,6 +6,7 @@ import { sendWhatsAppMessage, uploadCloudMedia, sendWhatsAppMedia } from './meta
 import { sendViaBaileys } from './baileysClient.js';
 import { randomBytes } from 'node:crypto';
 import { broadcast } from './sseHub.js';
+import { saveMedia } from './mediaStore.js';
 
 export class SendError extends Error {
   constructor(message, httpStatus) {
@@ -151,13 +152,7 @@ export async function sendMediaToContact({ clientId, contactId, data, mimeType, 
   const mediaCaption = mediaType === 'audio' ? '' : text;
   const body = mediaCaption || attachmentLabel(mediaType, filename);
 
-  const { rows: mediaRows } = await dbImpl.query(
-    `INSERT INTO whatsapp_media (client_id, contact_id, mime_type, data, size_bytes)
-     VALUES (?, ?, ?, ?, ?)
-     RETURNING id`,
-    [clientId, contactId, mime, data, data.length]
-  );
-  const mediaId = mediaRows[0].id;
+  const mediaId = await saveMedia(dbImpl, { clientId, contactId, mimeType: mime, data });
 
   let waMessageId;
   if (settings.connection_type === 'baileys') {

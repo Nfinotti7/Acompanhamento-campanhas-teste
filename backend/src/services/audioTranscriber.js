@@ -4,6 +4,7 @@
 //   - a atendente com IA, só quando está atendendo (ensureTranscripts, dentro do turno dela).
 // O texto fica em whatsapp_messages.transcript: transcreve uma vez só, e quem vier depois reaproveita.
 import { generate } from './geminiClient.js';
+import { loadMedia } from './mediaStore.js';
 
 export const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
 // Quantos áudios sem texto a IA transcreve por turno (os mais recentes da conversa).
@@ -29,14 +30,18 @@ function baseMime(mime) {
 export async function transcribeMessage(q, { messageId, clientId }, deps = {}) {
   const gen = deps.generate || generate;
   const { rows } = await q.query(
-    `SELECT m.id, m.media_type, m.transcript, md.mime_type, md.size_bytes, md.data
+    `SELECT m.id, m.media_type, m.media_id, m.transcript
      FROM whatsapp_messages m
-     LEFT JOIN whatsapp_media md ON md.id = m.media_id AND md.client_id = m.client_id
      WHERE m.id = ? AND m.client_id = ?`,
     [messageId, clientId]
   );
-  const row = rows[0];
-  if (!row) throw new TranscribeError('not_found', 'Mensagem não encontrada.');
+  const msg = rows[0];
+  if (!msg) throw new TranscribeError('not_found', 'Mensagem não encontrada.');
+  // O arquivo pode estar no banco ou no Storage (ver mediaStore.js).
+  const file = msg.media_type === 'audio' && !msg.transcript && msg.media_id
+    ? await (deps.loadMedia || loadMedia)(q, msg.media_id, clientId)
+    : null;
+  const row = { ...msg, ...(file || {}) };
   if (row.media_type !== 'audio' || !row.data) throw new TranscribeError('not_audio', 'Esta mensagem não é um áudio.');
   if (row.transcript) return { transcript: row.transcript };
   if ((row.size_bytes || row.data.length) > MAX_AUDIO_BYTES) {

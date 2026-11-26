@@ -24,6 +24,7 @@ import { applyMessageStatus, baileysStatusToName } from './messageStatus.js';
 import { resolveAd } from './metaAdResolver.js';
 import { normalizePhone, phoneVariants } from './waitlistText.js';
 import { INSTANCE_ID } from './instance.js';
+import { loadMedia } from './mediaStore.js';
 import { requestFromOwner, processRelayQueue, publishStatus, readPublishedStatus, purgeRelayTables } from './processRelay.js';
 
 const SESSIONS_DIR = process.env.BAILEYS_SESSIONS_DIR || path.join(os.homedir(), '.further_baileys_sessions');
@@ -637,12 +638,9 @@ export async function sendViaBaileys(clientId, waId, body, { messageId, media = 
   const jid = await resolveJid(clientId, state.sock, waId);
   let content = { text: body };
   if (media) {
-    const { rows } = await (state.deps?.db || db).query(
-      `SELECT data FROM whatsapp_media WHERE id = ? AND client_id = ?`,
-      [media.mediaId, clientId]
-    );
-    if (!rows[0]) throw new Error('Arquivo do anexo não encontrado.');
-    content = buildMediaContent(media, rows[0].data, body);
+    const file = await loadMedia(state.deps?.db || db, media.mediaId, clientId, state.deps?.mediaStore || {});
+    if (!file) throw new Error('Arquivo do anexo não encontrado.');
+    content = buildMediaContent(media, file.data, body);
   }
   const sent = await state.sock.sendMessage(jid, content, messageId ? { messageId } : undefined);
   // O id é o que liga os avisos de entregue/lida (messages.update) a esta mensagem.

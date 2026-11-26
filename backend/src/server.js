@@ -39,6 +39,7 @@ import { getCrmConfig, createStage, updateStage, reorderStages, deleteStage, tag
 import { getQueue, addEntry, editEntry, callEntry, seatEntry, noShowEntry, removeEntry, requeueEntry, requeueEndEntry, restoreEntry, getSettings as getWaitlistSettings, saveSettings as saveWaitlistSettings, getQr as getWaitlistQr, getReport as getWaitlistReport } from './controllers/waitlistController.js';
 import { purgeOldEntries as purgeOldWaitlistEntries } from './services/waitlistReport.js';
 import { purgeOldMedia, MEDIA_RETENTION_HOURS } from './services/mediaRetention.js';
+import { offloadDbMedia } from './services/mediaStore.js';
 import { checkDbHealth, lastDbHealth } from './services/dbHealth.js';
 import { reservationHandlers } from './controllers/reservationController.js';
 import { getPushPublicKey, subscribePush, unsubscribePush } from './controllers/pushController.js';
@@ -299,8 +300,11 @@ initDb()
     setInterval(purgeWaitlist, 6 * 60 * 60 * 1000).unref();
 
     // Mídia do WhatsApp só fica 24h no banco (ver mediaRetention.js). Roda de hora em hora.
+    // Depois da limpeza, o que ainda está em bytes no banco sobe pro Storage (ver mediaStore.js).
     const purgeMedia = () => purgeOldMedia(db)
       .then((count) => { if (count > 0) console.log(`Mídia: ${count} arquivo(s) com mais de ${MEDIA_RETENTION_HOURS}h apagado(s)`); })
+      .then(() => offloadDbMedia(db))
+      .then((moved) => { if (moved > 0) console.log(`Mídia: ${moved} arquivo(s) movido(s) do banco pro Storage`); })
       .catch((err) => console.error('Erro ao apagar mídia antiga:', err.message));
     purgeMedia();
     setInterval(purgeMedia, 60 * 60 * 1000).unref();

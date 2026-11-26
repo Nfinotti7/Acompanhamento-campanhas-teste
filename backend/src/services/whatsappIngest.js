@@ -13,6 +13,7 @@ import { handleInboundForAi } from './aiConcierge.js';
 import { isAiActiveFor } from './aiConfig.js';
 import { loadReservationSettings } from './reservationStore.js';
 import { notifyInboundMessage } from './pushNotify.js';
+import { saveMedia } from './mediaStore.js';
 
 // Acima disso não guarda o arquivo (fica só o rótulo na conversa) -- a mídia vai pro
 // Postgres, e vídeos grandes encheriam o banco rápido.
@@ -35,15 +36,10 @@ async function storeMedia(dbImpl, clientId, contactId, messageId, media) {
   }
   if (!data || data.length === 0 || data.length > MAX_MEDIA_BYTES) return;
 
-  const { rows } = await dbImpl.query(
-    `INSERT INTO whatsapp_media (client_id, contact_id, mime_type, data, size_bytes)
-     VALUES (?, ?, ?, ?, ?)
-     RETURNING id`,
-    [clientId, contactId, media.mimeType || 'application/octet-stream', data, data.length]
-  );
+  const mediaId = await saveMedia(dbImpl, { clientId, contactId, mimeType: media.mimeType, data });
   await dbImpl.query(
     `UPDATE whatsapp_messages SET media_id = ? WHERE id = ?`,
-    [rows[0].id, messageId]
+    [mediaId, messageId]
   );
 }
 

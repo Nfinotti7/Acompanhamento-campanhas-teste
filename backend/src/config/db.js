@@ -238,6 +238,9 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // Desde 25/11/2026 o arquivo fica no Supabase Storage e aqui só o caminho (ver mediaStore.js).
+  await query(`ALTER TABLE whatsapp_media ADD COLUMN IF NOT EXISTS storage_path TEXT`);
+  await query(`ALTER TABLE whatsapp_media ALTER COLUMN data DROP NOT NULL`);
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_type TEXT`);
   await query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_filename TEXT`);

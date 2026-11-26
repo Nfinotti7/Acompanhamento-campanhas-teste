@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import { saveMedia, deleteMedia } from './mediaStore.js';
 
 // Foto de perfil só existe no modo Baileys -- a Cloud API oficial não expõe a foto do
 // contato. Verifica no máximo uma vez por dia por contato pra não ficar consultando o
@@ -36,17 +37,12 @@ export async function refreshProfilePicture({ clientId, contactId, getPictureUrl
   const data = Buffer.from(await res.arrayBuffer());
   if (data.length === 0) return;
 
-  const { rows: mediaRows } = await dbImpl.query(
-    `INSERT INTO whatsapp_media (client_id, contact_id, mime_type, data, size_bytes)
-     VALUES (?, ?, ?, ?, ?)
-     RETURNING id`,
-    [clientId, contactId, res.headers.get('content-type') || 'image/jpeg', data, data.length]
-  );
+  const mediaId = await saveMedia(dbImpl, { clientId, contactId, mimeType: res.headers.get('content-type') || 'image/jpeg', data });
   await dbImpl.query(
     `UPDATE whatsapp_contacts SET profile_pic_media_id = ? WHERE id = ?`,
-    [mediaRows[0].id, contactId]
+    [mediaId, contactId]
   );
   if (contact.profile_pic_media_id) {
-    await dbImpl.query(`DELETE FROM whatsapp_media WHERE id = ?`, [contact.profile_pic_media_id]);
+    await deleteMedia(dbImpl, [contact.profile_pic_media_id]);
   }
 }

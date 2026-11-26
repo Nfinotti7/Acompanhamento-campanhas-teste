@@ -54,5 +54,5 @@ test('troca a foto antiga pela nova e apaga a antiga', async () => {
 
   const del = calls.find((c) => /DELETE FROM whatsapp_media/.test(c.sql));
   assert.ok(del);
-  assert.equal(del.params[0], 7);
+  assert.deepEqual(del.params[0], [7]);
 });
